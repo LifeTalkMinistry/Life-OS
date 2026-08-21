@@ -12,7 +12,6 @@ export function createInitialLifeState() {
   };
 }
 
-
 function dayIsFixed(profile, day) {
   return profile.fixedDays.includes(day);
 }
@@ -39,15 +38,26 @@ function sleepIsActive(profile, date) {
   return isActiveRange(nowMinutes, parseMinutes(profile.sleepStart), parseMinutes(profile.sleepEnd));
 }
 
-function upcomingStartToday(profile, date, startTime, allowedToday = true) {
-  if (!allowedToday) return null;
+function scheduledActivityIsActive(activity, date) {
   const nowMinutes = date.getHours() * 60 + date.getMinutes();
-  const start = parseMinutes(startTime);
-  return start > nowMinutes ? start : null;
+  const start = parseMinutes(activity.start);
+  const end = parseMinutes(activity.end);
+  if (start < end) return activity.days.includes(date.getDay()) && isActiveRange(nowMinutes, start, end);
+  if (nowMinutes >= start) return activity.days.includes(date.getDay());
+  if (nowMinutes < end) return activity.days.includes((date.getDay() + 6) % 7);
+  return false;
 }
 
-function profileFocusTitle(value) {
-  const cleaned = String(value || 'Personal focus').trim().toUpperCase();
+function activityTouchesToday(activity, date) {
+  if (activity.days.includes(date.getDay())) return true;
+  const start = parseMinutes(activity.start);
+  const end = parseMinutes(activity.end);
+  const nowMinutes = date.getHours() * 60 + date.getMinutes();
+  return start > end && nowMinutes < end && activity.days.includes((date.getDay() + 6) % 7);
+}
+
+function displayTitle(value) {
+  const cleaned = String(value || 'Activity').trim().toUpperCase();
   if (cleaned.length <= 18) return cleaned;
   const midpoint = Math.floor(cleaned.length / 2);
   let split = cleaned.lastIndexOf(' ', midpoint);
@@ -55,52 +65,46 @@ function profileFocusTitle(value) {
   return split > 0 ? `${cleaned.slice(0, split)}\n${cleaned.slice(split + 1)}` : cleaned;
 }
 
-export function createLifeStateFromProfile(rawProfile, date = new Date()) {
-  const profile = normalizeLifeProfile(rawProfile);
-  const nowMinutes = date.getHours() * 60 + date.getMinutes();
-  const fixedActive = fixedScheduleIsActive(profile, date);
-  const sleepActive = sleepIsActive(profile, date);
+function durationMinutes(start, end) {
+  return Math.max(1, (parseMinutes(end) - parseMinutes(start) + 1440) % 1440);
+}
 
-  const upcomingFixed = profile.hasFixedSchedule
-    ? upcomingStartToday(profile, date, profile.fixedStart, dayIsFixed(profile, date.getDay()))
-    : null;
-  const upcomingSleep = upcomingStartToday(profile, date, profile.sleepStart, true);
-  const boundaries = [upcomingFixed, upcomingSleep].filter((value) => value !== null && value > nowMinutes);
-  const requestedEnd = nowMinutes + profile.focusMinutes;
-  const safeFocusEnd = boundaries.length ? Math.min(requestedEnd, ...boundaries) : requestedEnd;
-
-  const focus = {
-    id: 'current-focus',
-    title: profileFocusTitle(profile.currentFocus),
-    shortTitle: profile.currentFocus || 'Personal Focus',
-    start: format24(nowMinutes),
-    end: format24(safeFocusEnd),
-    timeLabel: clockShort(format24(nowMinutes)),
-    objective: `Move ${profile.currentFocus || 'your current focus'} forward.`,
-    why: 'This is the direction you said matters most right now, while your fixed reality stays protected.',
-    recommendedMinutes: Math.max(1, safeFocusEnd - nowMinutes),
-    kind: 'flexible'
+function createScheduledActivity(activity) {
+  return {
+    id: activity.id,
+    title: displayTitle(activity.name),
+    shortTitle: activity.name,
+    start: activity.start,
+    end: activity.end,
+    timeLabel: clockShort(activity.start),
+    objective: `Stay with ${activity.name} during this block.`,
+    why: 'This is the activity you assigned to this time in your Life Map.',
+    recommendedMinutes: durationMinutes(activity.start, activity.end),
+    kind: 'scheduled',
+    schedule: activity
   };
+}
 
-  const activities = [focus];
+function createFixedActivity(profile) {
+  const fixedLabel = fixedKindLabel(profile.fixedKind);
+  return {
+    id: 'fixed-schedule',
+    title: fixedLabel.replace(' / ', '\n/ '),
+    shortTitle: fixedLabel.replace(' / ', ' / '),
+    start: profile.fixedStart,
+    end: profile.fixedEnd,
+    timeLabel: clockShort(profile.fixedStart),
+    objective: `Honor your fixed ${fixedLabel.toLowerCase()} commitment.`,
+    why: profile.fixedGuidanceMode === 'breakdown'
+      ? 'No more specific activity is mapped for this part of your fixed schedule.'
+      : 'This is fixed time, so LIFE OS treats it as one protected block.',
+    recommendedMinutes: durationMinutes(profile.fixedStart, profile.fixedEnd),
+    kind: 'fixed'
+  };
+}
 
-  if (profile.hasFixedSchedule) {
-    const fixedLabel = fixedKindLabel(profile.fixedKind);
-    activities.push({
-      id: 'fixed-schedule',
-      title: fixedLabel.replace(' / ', '\n/ '),
-      shortTitle: fixedLabel.replace(' / ', ' / '),
-      start: profile.fixedStart,
-      end: profile.fixedEnd,
-      timeLabel: clockShort(profile.fixedStart),
-      objective: `Honor your fixed ${fixedLabel.toLowerCase()} commitment.`,
-      why: 'This is part of your fixed reality and LIFE OS does not casually move it.',
-      recommendedMinutes: Math.max(1, (parseMinutes(profile.fixedEnd) - parseMinutes(profile.fixedStart) + 1440) % 1440),
-      kind: 'fixed'
-    });
-  }
-
-  activities.push({
+function createSleepActivity(profile) {
+  return {
     id: 'sleep',
     title: 'SLEEP',
     shortTitle: 'Sleep',
@@ -108,18 +112,57 @@ export function createLifeStateFromProfile(rawProfile, date = new Date()) {
     end: profile.sleepEnd,
     timeLabel: clockShort(profile.sleepStart),
     objective: 'Protect recovery and usable energy.',
-    why: 'Sleep is protected as a biological requirement before optional activity expands.',
-    recommendedMinutes: Math.max(1, (parseMinutes(profile.sleepEnd) - parseMinutes(profile.sleepStart) + 1440) % 1440),
+    why: 'Sleep stays protected before LIFE OS guides the rest of your activity.',
+    recommendedMinutes: durationMinutes(profile.sleepStart, profile.sleepEnd),
     kind: 'fixed'
-  });
+  };
+}
 
-  let currentId = focus.id;
-  if (fixedActive) currentId = 'fixed-schedule';
-  else if (sleepActive) currentId = 'sleep';
+function createOpenActivity(date) {
+  const nowMinutes = date.getHours() * 60 + date.getMinutes();
+  return {
+    id: 'open-time',
+    title: 'OPEN TIME',
+    shortTitle: 'Open Time',
+    start: format24(nowMinutes),
+    end: format24(nowMinutes + 60),
+    timeLabel: clockShort(format24(nowMinutes)),
+    objective: 'No activity is assigned to this block.',
+    why: 'Your Life Map has no scheduled activity for this time.',
+    recommendedMinutes: 60,
+    kind: 'open'
+  };
+}
+
+export function createLifeStateFromProfile(rawProfile, date = new Date()) {
+  const profile = normalizeLifeProfile(rawProfile);
+  const customActivities = profile.activities
+    .filter((activity) => activityTouchesToday(activity, date))
+    .map(createScheduledActivity)
+    .sort((a, b) => parseMinutes(a.start) - parseMinutes(b.start));
+  const activeCustom = customActivities.find((activity) => scheduledActivityIsActive(activity.schedule, date));
+  const sleep = createSleepActivity(profile);
+  const fixed = profile.hasFixedSchedule ? createFixedActivity(profile) : null;
+  const open = createOpenActivity(date);
+  const fixedActive = fixedScheduleIsActive(profile, date);
+  const sleepActive = sleepIsActive(profile, date);
+
+  const activities = [...customActivities];
+  if (fixed && (dayIsFixed(profile, date.getDay()) || fixedActive)) activities.push(fixed);
+  activities.push(sleep);
+  activities.sort((a, b) => parseMinutes(a.start) - parseMinutes(b.start));
+
+  let current = open;
+  if (sleepActive) current = sleep;
+  else if (profile.fixedGuidanceMode === 'outside' && fixedActive && fixed) current = fixed;
+  else if (activeCustom) current = activeCustom;
+  else if (fixedActive && fixed) current = fixed;
+
+  if (current.id === open.id) activities.unshift(open);
 
   return {
     activities,
-    currentId,
+    currentId: current.id,
     urgentResumeId: null,
     history: [],
     profile
