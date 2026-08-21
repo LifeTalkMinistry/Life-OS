@@ -1,3 +1,4 @@
+import { OrbArtwork } from './OrbArtwork.js';
 import { priorityOptions, priorityLabel } from '../state/lifeProfile.js';
 
 const dayOptions = [
@@ -256,6 +257,6 @@ export function LifeSetupOrb({ step, profile, onAction, onField }) {
     input.addEventListener('change', update);
   });
 
-  shell.appendChild(orb);
+  shell.append(OrbArtwork(), orb);
   return shell;
 }
