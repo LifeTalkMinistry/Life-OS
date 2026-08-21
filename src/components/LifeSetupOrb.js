@@ -1,14 +1,13 @@
 import { OrbArtwork } from './OrbArtwork.js';
-import { priorityOptions, priorityLabel } from '../state/lifeProfile.js';
 
 const dayOptions = [
-  { id: 1, label: 'M' },
-  { id: 2, label: 'T' },
-  { id: 3, label: 'W' },
-  { id: 4, label: 'T' },
-  { id: 5, label: 'F' },
-  { id: 6, label: 'S' },
-  { id: 0, label: 'S' }
+  { id: 1, label: 'M', short: 'Mon' },
+  { id: 2, label: 'T', short: 'Tue' },
+  { id: 3, label: 'W', short: 'Wed' },
+  { id: 4, label: 'T', short: 'Thu' },
+  { id: 5, label: 'F', short: 'Fri' },
+  { id: 6, label: 'S', short: 'Sat' },
+  { id: 0, label: 'S', short: 'Sun' }
 ];
 
 function escapeHtml(value) {
@@ -22,6 +21,26 @@ function escapeHtml(value) {
 
 function backButton() {
   return '<button type="button" class="setup-back" data-setup-action="back">Back</button>';
+}
+
+function formatTime(time) {
+  const [hourValue, minuteValue] = String(time || '00:00').split(':').map(Number);
+  const suffix = hourValue >= 12 ? 'PM' : 'AM';
+  const hour = hourValue % 12 || 12;
+  return `${hour}:${String(minuteValue || 0).padStart(2, '0')} ${suffix}`;
+}
+
+function daysSummary(days = []) {
+  const normalized = [...days].sort((a, b) => a - b);
+  if (normalized.length === 7) return 'Every day';
+  if ([1, 2, 3, 4, 5].every((day) => normalized.includes(day)) && normalized.length === 5) return 'Mon–Fri';
+  return dayOptions.filter((day) => normalized.includes(day.id)).map((day) => day.short).join(', ');
+}
+
+function fixedKindCopy(kind) {
+  if (kind === 'school') return 'School';
+  if (kind === 'both') return 'Work + school';
+  return 'Work';
 }
 
 function welcomeContent() {
@@ -127,65 +146,91 @@ function sleepContent(profile) {
   `;
 }
 
-function prioritiesContent(profile) {
+function fixedScopeContent(profile) {
   return `
     <div class="orb-content setup-content setup-content-wide">
-      <p class="setup-eyebrow">YOUR LIFE</p>
-      <h1 class="setup-question setup-question-small">What else deserves space?</h1>
-      <p class="setup-help">Choose up to four.</p>
-      <div class="setup-choice-grid">
-        ${priorityOptions.map((item) => `
-          <button type="button" data-setup-priority="${item.id}" class="${profile.priorities.includes(item.id) ? 'is-selected' : ''}">${item.label}</button>
-        `).join('')}
-      </div>
-      <button type="button" class="setup-continue" data-setup-action="priorities-continue" ${profile.priorities.length ? '' : 'disabled'}>Continue</button>
-      ${backButton()}
-    </div>
-  `;
-}
-
-function nonNegotiablesContent(profile) {
-  return `
-    <div class="orb-content setup-content setup-content-wide">
-      <p class="setup-eyebrow">PROTECT WHAT MATTERS</p>
-      <h1 class="setup-question setup-question-small">What can't become leftover time?</h1>
-      <p class="setup-help">Choose up to two.</p>
-      <div class="setup-choice-grid">
-        ${profile.priorities.map((id) => `
-          <button type="button" data-setup-nonneg="${id}" class="${profile.nonNegotiables.includes(id) ? 'is-selected' : ''}">${escapeHtml(priorityLabel(id))}</button>
-        `).join('')}
-      </div>
-      <button type="button" class="setup-continue" data-setup-action="nonneg-continue">Continue</button>
-      ${backButton()}
-    </div>
-  `;
-}
-
-function focusContent(profile) {
-  return `
-    <div class="orb-content setup-content">
-      <p class="setup-eyebrow">CURRENT DIRECTION</p>
-      <h1 class="setup-question setup-question-small">What are you trying to move forward right now?</h1>
-      <label class="setup-focus-field">
-        <span class="sr-only">Current focus</span>
-        <input type="text" maxlength="48" autocomplete="off" data-setup-field="currentFocus" value="${escapeHtml(profile.currentFocus)}" placeholder="e.g. Find beta users">
-      </label>
-      <button type="button" class="setup-continue" data-setup-action="focus-continue" ${profile.currentFocus.trim() ? '' : 'disabled'}>Continue</button>
-      ${backButton()}
-    </div>
-  `;
-}
-
-function focusTimeContent() {
-  return `
-    <div class="orb-content setup-content">
-      <p class="setup-eyebrow">PROTECT FOCUS</p>
-      <h1 class="setup-question">How much focused time should LIFE OS protect?</h1>
+      <p class="setup-eyebrow">FIXED TIME</p>
+      <h1 class="setup-question setup-question-small">How should LIFE OS treat those fixed hours?</h1>
+      <p class="setup-help">Recommended: guide only the time you control.</p>
       <div class="setup-options setup-options-compact">
-        <button type="button" data-setup-minutes="30">30 min</button>
-        <button type="button" data-setup-minutes="60">60 min</button>
-        <button type="button" data-setup-minutes="90">90 min</button>
+        <button type="button" data-setup-scope="outside" class="${profile.fixedGuidanceMode === 'outside' ? 'is-selected' : ''}">Just outside my fixed schedule</button>
+        <button type="button" data-setup-scope="breakdown" class="${profile.fixedGuidanceMode === 'breakdown' ? 'is-selected' : ''}">Break down my fixed schedule too</button>
       </div>
+      ${backButton()}
+    </div>
+  `;
+}
+
+function activityDraftReady(draft) {
+  return Boolean(
+    draft?.name?.trim()
+    && Array.isArray(draft.days)
+    && draft.days.length
+    && draft.start
+    && draft.end
+    && draft.start !== draft.end
+  );
+}
+
+function activitiesContent(profile, draft) {
+  const scopeHelp = profile.hasFixedSchedule && profile.fixedGuidanceMode === 'breakdown'
+    ? 'Add the activities you want LIFE OS to guide, including inside work or school.'
+    : profile.hasFixedSchedule
+      ? 'Add what usually happens outside your fixed schedule.'
+      : 'Add the activities that normally make up your day.';
+
+  return `
+    <div class="orb-content setup-content setup-content-wide">
+      <p class="setup-eyebrow">YOUR TIME</p>
+      <h1 class="setup-question setup-question-small">Let’s map the time you control.</h1>
+      <p class="setup-help">${scopeHelp}</p>
+      <label class="setup-focus-field">
+        <span class="sr-only">Activity name</span>
+        <input type="text" maxlength="48" autocomplete="off" data-setup-draft-field="name" value="${escapeHtml(draft?.name)}" placeholder="Activity name">
+      </label>
+      <div class="setup-days" aria-label="Activity days">
+        ${dayOptions.map((day) => `
+          <button type="button" data-setup-activity-day="${day.id}" class="${draft?.days?.includes(day.id) ? 'is-selected' : ''}">${day.label}</button>
+        `).join('')}
+      </div>
+      <div class="setup-time-grid">
+        <label><span>Start</span><input type="time" data-setup-draft-field="start" value="${escapeHtml(draft?.start)}"></label>
+        <label><span>End</span><input type="time" data-setup-draft-field="end" value="${escapeHtml(draft?.end)}"></label>
+      </div>
+      <button type="button" class="setup-continue" data-setup-action="activity-add" ${activityDraftReady(draft) ? '' : 'disabled'}>Add activity</button>
+      ${profile.activities.length ? `
+        <p class="setup-help">${profile.activities.length} ${profile.activities.length === 1 ? 'activity' : 'activities'} mapped.</p>
+        <div class="setup-options setup-options-compact">
+          ${profile.activities.map((activity) => `
+            <button type="button" data-setup-remove-activity="${escapeHtml(activity.id)}">${escapeHtml(activity.name)} · ${formatTime(activity.start)}–${formatTime(activity.end)} ×</button>
+          `).join('')}
+        </div>
+      ` : ''}
+      <button type="button" class="setup-continue" data-setup-action="activities-continue" ${profile.activities.length ? '' : 'disabled'}>Review map</button>
+      ${backButton()}
+    </div>
+  `;
+}
+
+function reviewContent(profile) {
+  const summary = [];
+  if (profile.hasFixedSchedule) {
+    summary.push(`${fixedKindCopy(profile.fixedKind)} · ${daysSummary(profile.fixedDays)} · ${formatTime(profile.fixedStart)}–${formatTime(profile.fixedEnd)}`);
+  }
+  summary.push(`Sleep · ${formatTime(profile.sleepStart)}–${formatTime(profile.sleepEnd)}`);
+  profile.activities.forEach((activity) => {
+    summary.push(`${activity.name} · ${daysSummary(activity.days)} · ${formatTime(activity.start)}–${formatTime(activity.end)}`);
+  });
+
+  return `
+    <div class="orb-content setup-content setup-content-wide">
+      <p class="setup-eyebrow">YOUR LIFE MAP</p>
+      <h1 class="setup-question setup-question-small">Does this look right?</h1>
+      <div class="setup-options setup-options-compact">
+        ${summary.map((item) => `<button type="button" disabled>${escapeHtml(item)}</button>`).join('')}
+      </div>
+      <button type="button" class="setup-continue" data-setup-action="review-edit">Edit activities</button>
+      <button type="button" class="setup-continue" data-setup-action="review-confirm">Looks good</button>
       ${backButton()}
     </div>
   `;
@@ -196,12 +241,12 @@ function readyContent() {
     <div class="orb-content setup-content setup-ready-content">
       <div class="complete-check" aria-hidden="true">✓</div>
       <p class="setup-eyebrow">LIFE OS IS READY</p>
-      <h1 class="setup-question">Finding what matters now…</h1>
+      <h1 class="setup-question">Loading what should be running now…</h1>
     </div>
   `;
 }
 
-function contentForStep(step, profile) {
+function contentForStep(step, profile, draft) {
   if (step === 'welcome') return welcomeContent();
   if (step === 'fixed') return fixedContent();
   if (step === 'fixed-kind') return fixedKindContent(profile);
@@ -209,10 +254,9 @@ function contentForStep(step, profile) {
   if (step === 'custom-days') return customDaysContent(profile);
   if (step === 'fixed-time') return fixedTimeContent(profile);
   if (step === 'sleep') return sleepContent(profile);
-  if (step === 'priorities') return prioritiesContent(profile);
-  if (step === 'nonnegotiables') return nonNegotiablesContent(profile);
-  if (step === 'focus') return focusContent(profile);
-  if (step === 'focus-time') return focusTimeContent();
+  if (step === 'fixed-scope') return fixedScopeContent(profile);
+  if (step === 'activities') return activitiesContent(profile, draft);
+  if (step === 'review') return reviewContent(profile);
   return readyContent();
 }
 
@@ -275,13 +319,24 @@ function installSetupSafeZone(orb, step) {
   }
 }
 
-export function LifeSetupOrb({ step, profile, onAction, onField }) {
+function refreshActivityAddButton(orb) {
+  const addButton = orb.querySelector('[data-setup-action="activity-add"]');
+  if (!addButton) return;
+
+  const name = orb.querySelector('[data-setup-draft-field="name"]')?.value.trim();
+  const start = orb.querySelector('[data-setup-draft-field="start"]')?.value;
+  const end = orb.querySelector('[data-setup-draft-field="end"]')?.value;
+  const hasDay = Boolean(orb.querySelector('[data-setup-activity-day].is-selected'));
+  addButton.disabled = !(name && start && end && start !== end && hasDay);
+}
+
+export function LifeSetupOrb({ step, profile, activityDraft, onAction, onField }) {
   const shell = document.createElement('div');
   shell.className = `orb-shell setup-orb-shell setup-step-${step}`;
 
   const orb = document.createElement('div');
   orb.className = 'orb setup-orb';
-  orb.innerHTML = contentForStep(step, profile);
+  orb.innerHTML = contentForStep(step, profile, activityDraft);
   installSetupSafeZone(orb, step);
 
   if (step === 'welcome') {
@@ -306,12 +361,15 @@ export function LifeSetupOrb({ step, profile, onAction, onField }) {
   });
 
   orb.querySelectorAll('[data-setup-field]').forEach((input) => {
+    const update = () => onField?.(input.dataset.setupField, input.value);
+    input.addEventListener('input', update);
+    input.addEventListener('change', update);
+  });
+
+  orb.querySelectorAll('[data-setup-draft-field]').forEach((input) => {
     const update = () => {
-      onField?.(input.dataset.setupField, input.value);
-      if (input.dataset.setupField === 'currentFocus') {
-        const continueButton = orb.querySelector('[data-setup-action="focus-continue"]');
-        if (continueButton) continueButton.disabled = !input.value.trim();
-      }
+      onField?.(`draft.${input.dataset.setupDraftField}`, input.value);
+      refreshActivityAddButton(orb);
     };
     input.addEventListener('input', update);
     input.addEventListener('change', update);
