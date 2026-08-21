@@ -1,4 +1,4 @@
-/* LIFE OS orb asset mode — use the approved PNG as the physical orb surface. */
+/* LIFE OS orb asset mode — use the measured native SVG as the physical orb surface. */
 :root {
   --orb-size: min(94vw, 405px);
   --orb-hold-size: min(82vw, 350px);
@@ -12,7 +12,7 @@
   overflow: visible;
 }
 
-/* The approved source artwork provides the sphere, bloom and floor reflection. */
+/* The SVG artwork provides the sphere, bloom and floor reflection. */
 .orb-shell::before,
 .launch-orb::before {
   content: "";
@@ -20,7 +20,7 @@
   inset: 0;
   z-index: 0;
   border-radius: 0;
-  background: url("./assets/orb/life-os-orb.png?v=1") center / 100% 100% no-repeat;
+  background: url("./assets/orb/life-os-orb.svg?v=1") center / 100% 100% no-repeat;
   transform: translateY(3.5%);
   opacity: 1;
   filter: none;
@@ -37,7 +37,7 @@
   display: none !important;
 }
 
-/* The interactive surface sits exactly over the visible sphere in the PNG. */
+/* The interactive surface sits exactly over the visible sphere in the artwork. */
 .orb {
   position: absolute;
   left: 50%;
@@ -132,7 +132,7 @@
   font-size: clamp(0.68rem, 2.8vw, 0.8rem);
 }
 
-/* The source image already contains reflection space, so launch uses a larger square canvas. */
+/* The source artwork contains reflection space, so launch uses a larger square canvas. */
 .launch-orb {
   width: min(92vw, 395px);
 }
@@ -142,7 +142,7 @@
   width: var(--orb-hold-size);
 }
 
-/* Compact setup controls so every step stays physically inside the imaged sphere. */
+/* Compact setup controls so every step stays physically inside the rendered sphere. */
 .setup-time-grid,
 .setup-choice-grid,
 .setup-days,
