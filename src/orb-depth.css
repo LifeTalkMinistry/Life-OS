@@ -1,295 +1,185 @@
-/* LIFE OS orb material v2 — closer to the reference: smaller, darker, brighter rim, deeper atmosphere. */
-
+/* LIFE OS orb asset mode — use the approved PNG as the physical orb surface. */
 :root {
-  --orb-size: min(72vw, 320px);
+  --orb-size: min(94vw, 405px);
+  --orb-hold-size: min(82vw, 350px);
 }
 
 .orb-shell,
 .launch-orb {
   isolation: isolate;
   filter: none;
+  border-radius: 0;
+  overflow: visible;
 }
 
-/* Move the first-time control surface closer to the brand instead of letting it sink into the page. */
-.setup-stage {
-  align-self: start;
-  place-items: start center;
-  min-height: 0;
-  padding-top: clamp(64px, 9svh, 86px);
-}
-
-.setup-orb-shell {
-  width: min(70vw, 300px);
-}
-
-/* Wide, low-energy atmosphere behind the object. */
+/* The approved source artwork provides the sphere, bloom and floor reflection. */
 .orb-shell::before,
 .launch-orb::before {
   content: "";
   position: absolute;
-  inset: -8%;
-  z-index: -2;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 18% 48%, rgba(54, 88, 255, 0.27), transparent 31%),
-    radial-gradient(circle at 82% 45%, rgba(255, 105, 190, 0.22), transparent 28%),
-    radial-gradient(circle at 51% 58%, rgba(128, 67, 255, 0.19), transparent 57%);
-  filter: blur(25px);
-  opacity: 0.92;
-  transform: scale(1.06);
-  pointer-events: none;
-}
-
-/* Bright reflected pool directly beneath the sphere. */
-.orb-shell::after,
-.launch-orb::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  left: 15%;
-  bottom: -16%;
-  width: 70%;
-  height: 13%;
-  border-radius: 50%;
-  background:
-    radial-gradient(ellipse at center,
-      rgba(255, 239, 255, 0.98) 0%,
-      rgba(218, 170, 255, 0.9) 8%,
-      rgba(169, 103, 255, 0.7) 23%,
-      rgba(106, 67, 255, 0.43) 43%,
-      rgba(66, 62, 255, 0.2) 61%,
-      transparent 80%);
-  filter: blur(7px);
-  opacity: 0.92;
-  transform: scaleX(1.12);
-  pointer-events: none;
-}
-
-/*
-  Sphere body.
-  The center intentionally stays nearly black. Lighting lives mostly at the perimeter so the
-  control surface reads as a volume instead of a filled purple disc.
-*/
-.orb {
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse at 35% 27%, rgba(122, 116, 224, 0.115) 0%, rgba(78, 62, 157, 0.045) 21%, transparent 40%),
-    radial-gradient(ellipse at 16% 55%, rgba(48, 77, 224, 0.08) 0%, transparent 29%),
-    radial-gradient(ellipse at 88% 50%, rgba(193, 77, 146, 0.052) 0%, transparent 25%),
-    radial-gradient(circle at 50% 50%, #0a0717 0%, #080513 44%, #05030d 67%, #020207 84%, #010103 100%);
-  box-shadow:
-    inset 15px 0 27px -13px rgba(72, 103, 255, 0.72),
-    inset -14px 0 25px -13px rgba(255, 139, 194, 0.62),
-    inset 0 -18px 35px rgba(57, 19, 103, 0.19),
-    inset 0 16px 32px rgba(145, 126, 255, 0.035),
-    0 0 7px rgba(136, 116, 255, 0.55),
-    -7px 0 23px rgba(67, 91, 255, 0.32),
-    8px 0 26px rgba(245, 108, 190, 0.2),
-    0 0 48px rgba(93, 55, 235, 0.18),
-    0 21px 48px rgba(0, 0, 0, 0.7);
-}
-
-/*
-  Two-part rim: a sharp optical edge plus strong localized bloom.
-  Blue/cyan owns the left and lower-left; violet crosses the top; warm pink/peach peaks at right.
-*/
-.orb::before {
   inset: 0;
-  padding: 2.25px;
-  background: conic-gradient(
-    from 214deg,
-    #7391ff 0deg,
-    #5f7dff 27deg,
-    #687aff 63deg,
-    #8f70ff 101deg,
-    #bd72ff 142deg,
-    #da78f0 178deg,
-    #f18fc9 201deg,
-    #ffd2bb 222deg,
-    #ffb7c8 239deg,
-    #ef87d1 260deg,
-    #c16fe9 290deg,
-    #956dff 322deg,
-    #7081ff 347deg,
-    #7391ff 360deg
-  );
-  filter:
-    drop-shadow(-3px 1px 4px rgba(72, 105, 255, 0.95))
-    drop-shadow(-5px 1px 10px rgba(59, 83, 255, 0.65))
-    drop-shadow(3px 0 5px rgba(255, 189, 205, 0.9))
-    drop-shadow(6px 0 12px rgba(243, 102, 191, 0.52))
-    drop-shadow(0 2px 9px rgba(156, 93, 255, 0.55));
+  z-index: 0;
+  border-radius: 0;
+  background: url("./assets/orb/life-os-orb.png?v=1") center / 100% 100% no-repeat;
+  transform: translateY(3.5%);
   opacity: 1;
+  filter: none;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse 72% 88% at 50% 50%, #000 0 66%, rgba(0,0,0,.98) 76%, rgba(0,0,0,.72) 88%, transparent 100%);
+  mask-image: radial-gradient(ellipse 72% 88% at 50% 50%, #000 0 66%, rgba(0,0,0,.98) 76%, rgba(0,0,0,.72) 88%, transparent 100%);
 }
 
-/* Optical depth on the glassy inner surface. */
+/* Do not stack synthetic glow/reflection on top of the approved artwork. */
+.orb-shell::after,
+.launch-orb::after,
+.orb-stage::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* The interactive surface sits exactly over the visible sphere in the PNG. */
+.orb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 66%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: visible;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  z-index: 3;
+}
+
+.orb::before,
 .orb::after {
-  inset: 3.5%;
-  background:
-    radial-gradient(ellipse at 35% 21%, rgba(184, 178, 255, 0.09) 0%, transparent 27%),
-    radial-gradient(ellipse at 9% 53%, rgba(70, 116, 255, 0.14) 0%, transparent 18%),
-    radial-gradient(ellipse at 91% 47%, rgba(255, 177, 203, 0.105) 0%, transparent 17%),
-    radial-gradient(ellipse at 51% 92%, rgba(150, 83, 255, 0.075) 0%, transparent 29%),
-    radial-gradient(circle at 51% 49%, transparent 47%, rgba(3, 2, 9, 0.18) 72%, rgba(0, 0, 3, 0.47) 100%);
-  filter: blur(8px);
-  opacity: 0.96;
+  content: none !important;
+  display: none !important;
 }
 
-/* Keep content floating inside the object, never visually filling it. */
+/* Keep content centered in the dark inner sphere, not in the outer image canvas. */
 .orb-content {
-  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.76);
+  width: 78%;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.82);
+}
+
+.orb-choice-content {
+  width: 84%;
+}
+
+.setup-content-wide {
+  width: 88%;
 }
 
 .orb-kicker,
 .orb-prompt-title,
 .setup-eyebrow {
-  color: rgba(199, 171, 255, 0.9);
-  text-shadow: 0 0 13px rgba(148, 92, 255, 0.27);
+  color: rgba(207, 180, 255, 0.92);
+  text-shadow: 0 0 12px rgba(145, 91, 255, 0.3);
 }
 
 .orb-title,
 .setup-hero,
 .setup-question {
-  text-shadow:
-    0 2px 16px rgba(0, 0, 0, 0.82),
-    0 0 24px rgba(255, 255, 255, 0.028);
-}
-
-.setup-step-welcome .setup-hero {
-  font-size: clamp(1.25rem, 5.7vw, 1.72rem);
-  line-height: 1.08;
-}
-
-.setup-step-welcome .setup-eyebrow {
-  font-size: clamp(0.56rem, 2.25vw, 0.68rem);
-  margin-bottom: 13px;
-}
-
-.setup-step-welcome .setup-pulse {
-  margin-top: 22px;
-}
-
-.setup-step-welcome .setup-tap {
-  font-size: clamp(0.7rem, 2.9vw, 0.82rem);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.9);
 }
 
 .orb-divider {
-  background: linear-gradient(90deg, transparent, rgba(123, 97, 230, 0.25), transparent);
+  background: linear-gradient(90deg, transparent, rgba(129, 99, 235, 0.27), transparent);
 }
 
 .orb-divider i,
 .setup-pulse {
-  background: #c2a1ff;
-  box-shadow:
-    0 0 6px rgba(231, 208, 255, 1),
-    0 0 16px rgba(147, 95, 255, 0.72),
-    0 0 28px rgba(84, 78, 255, 0.34);
+  background: #c5a7ff;
+  box-shadow: 0 0 7px rgba(235, 215, 255, 0.98), 0 0 17px rgba(144, 93, 255, 0.68);
 }
 
 .orb-time {
   color: #b993ff;
-  text-shadow: 0 0 17px rgba(145, 87, 255, 0.28);
+  text-shadow: 0 0 16px rgba(145, 87, 255, 0.3);
 }
 
-/* Setup state: same physical sphere, slightly calmer interior. */
-.setup-orb {
-  background:
-    radial-gradient(ellipse at 34% 26%, rgba(122, 116, 224, 0.105) 0%, rgba(79, 60, 157, 0.035) 22%, transparent 41%),
-    radial-gradient(circle at 50% 52%, #090615 0%, #070410 46%, #04020a 70%, #010103 100%);
+/* First-time setup: let the artwork breathe between the brand and the footer. */
+.setup-stage {
+  align-self: start;
+  place-items: start center;
+  min-height: 0;
+  padding-top: clamp(2px, 1svh, 10px);
 }
 
-.setup-step-welcome .setup-orb {
-  box-shadow:
-    inset 15px 0 27px -13px rgba(72, 103, 255, 0.75),
-    inset -14px 0 25px -13px rgba(255, 143, 197, 0.65),
-    inset 0 -18px 34px rgba(54, 18, 99, 0.18),
-    0 0 7px rgba(141, 119, 255, 0.6),
-    -7px 0 23px rgba(65, 91, 255, 0.34),
-    8px 0 26px rgba(244, 108, 190, 0.22),
-    0 0 52px rgba(91, 52, 232, 0.2),
-    0 20px 46px rgba(0, 0, 0, 0.72);
+.setup-orb-shell {
+  width: min(94vw, 405px);
 }
 
-/* Launch orb is allowed to be the most object-like because there is no text inside it. */
-.launch-orb .orb {
-  background:
-    radial-gradient(ellipse at 32% 24%, rgba(142, 137, 235, 0.13) 0%, transparent 30%),
-    radial-gradient(circle at 50% 52%, #090615 0%, #06030d 48%, #030208 72%, #010103 100%);
+.setup-step-welcome .setup-hero {
+  font-size: clamp(1.16rem, 5.1vw, 1.56rem);
+  line-height: 1.08;
 }
 
-/* TODAY uses the same material and only scales the object down. */
-.is-today .orb {
-  box-shadow:
-    inset 14px 0 25px -13px rgba(72, 103, 255, 0.7),
-    inset -13px 0 23px -13px rgba(255, 139, 194, 0.58),
-    inset 0 -16px 31px rgba(53, 18, 96, 0.17),
-    0 0 7px rgba(136, 113, 255, 0.5),
-    -5px 0 19px rgba(65, 88, 255, 0.27),
-    6px 0 20px rgba(244, 106, 190, 0.18),
-    0 0 44px rgba(89, 50, 224, 0.17),
-    0 17px 40px rgba(0, 0, 0, 0.66);
+.setup-step-welcome .setup-eyebrow {
+  font-size: clamp(0.54rem, 2.15vw, 0.66rem);
+  margin-bottom: 12px;
 }
 
-/* Wider secondary haze below the bright reflection pool. */
-.orb-stage::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: calc(50% + (var(--orb-size) / 2) + 25px);
-  width: min(54vw, 235px);
-  height: 34px;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center,
-    rgba(182, 112, 255, 0.24) 0%,
-    rgba(108, 72, 255, 0.13) 38%,
-    transparent 72%);
-  filter: blur(15px);
-  opacity: 0.7;
-  pointer-events: none;
-  z-index: 0;
+.setup-step-welcome .setup-pulse {
+  margin-top: 20px;
 }
 
-.setup-stage::after {
-  top: calc(clamp(64px, 9svh, 86px) + min(35vw, 150px) + 34px);
-  width: min(48vw, 205px);
-  opacity: 0.78;
+.setup-step-welcome .setup-tap {
+  font-size: clamp(0.68rem, 2.8vw, 0.8rem);
 }
 
-.is-today .orb-stage::after {
-  top: calc(50% + (var(--orb-hold-size) / 2) + 18px);
-  width: min(39vw, 184px);
-  opacity: 0.48;
+/* The source image already contains reflection space, so launch uses a larger square canvas. */
+.launch-orb {
+  width: min(92vw, 395px);
+}
+
+/* TODAY keeps the same physical asset but scales the full artwork down around the clock ring. */
+.is-today .orb-shell {
+  width: var(--orb-hold-size);
+}
+
+/* Compact setup controls so every step stays physically inside the imaged sphere. */
+.setup-time-grid,
+.setup-choice-grid,
+.setup-days,
+.setup-focus-field {
+  max-width: 100%;
+}
+
+.setup-days {
+  gap: 3px;
 }
 
 @media (max-width: 360px) {
   :root {
-    --orb-size: min(71vw, 272px);
-  }
-
-  .setup-stage {
-    padding-top: clamp(56px, 8svh, 72px);
+    --orb-size: min(96vw, 346px);
+    --orb-hold-size: min(84vw, 302px);
   }
 
   .setup-orb-shell {
-    width: min(70vw, 268px);
+    width: min(96vw, 346px);
   }
 
-  .orb-shell::after,
-  .launch-orb::after {
-    left: 14%;
-    width: 72%;
-    bottom: -16%;
+  .launch-orb {
+    width: min(94vw, 340px);
   }
 
-  .setup-stage::after {
-    top: calc(clamp(56px, 8svh, 72px) + min(35vw, 134px) + 31px);
+  .setup-stage {
+    padding-top: 0;
+  }
+
+  .setup-step-welcome .setup-hero {
+    font-size: clamp(1.08rem, 5.4vw, 1.4rem);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .orb-shell::before,
   .launch-orb::before {
-    transform: scale(1.05);
+    transform: translateY(3.5%);
   }
 }
