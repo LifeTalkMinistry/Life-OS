@@ -147,6 +147,36 @@
   font-size: clamp(0.68rem, 2.8vw, 0.8rem);
 }
 
+/*
+ * Life Setup safe zone.
+ * The sphere rim is visual space; onboarding content lives in an inset box
+ * and is scaled as one unit only when a step would otherwise cross it.
+ */
+.setup-safe-zone {
+  position: absolute;
+  inset: 14% 12%;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.setup-safe-zone.is-wide {
+  inset: 12% 9%;
+}
+
+.setup-fit {
+  width: 100%;
+  transform: scale(var(--setup-fit-scale, 1));
+  transform-origin: center center;
+}
+
+.setup-safe-zone .setup-content,
+.setup-safe-zone .setup-content-wide {
+  width: 100%;
+  max-width: 100%;
+}
+
 /* Launch uses the same full native SVG canvas, including reflection space. */
 .launch-orb {
   width: min(92vw, 395px);
@@ -189,6 +219,14 @@
 
   .setup-step-welcome .setup-hero {
     font-size: clamp(1.08rem, 5.4vw, 1.4rem);
+  }
+
+  .setup-safe-zone {
+    inset: 15% 12%;
+  }
+
+  .setup-safe-zone.is-wide {
+    inset: 13% 9%;
   }
 }
 
