@@ -39,14 +39,45 @@ function iconForActivity(id) {
   return icons[id] || '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/></svg>';
 }
 
-export function TodayRing(activities, currentId) {
+function systemControl(kind, label) {
+  const icon = kind === 'settings'
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l-2-.7a6 6 0 0 0-.8-1.8l.9-1.9-2.2-2.2-1.9.9a6 6 0 0 0-1.8-.8L10.5 2h-3l-.7 2a6 6 0 0 0-1.8.8l-1.9-.9L.9 6.1 1.8 8a6 6 0 0 0-.8 1.8l-2 .7v3l2 .7a6 6 0 0 0 .8 1.8l-.9 1.9 2.2 2.2 1.9-.9a6 6 0 0 0 1.8.8l.7 2h3l.7-2a6 6 0 0 0 1.8-.8l1.9.9 2.2-2.2-.9-1.9a6 6 0 0 0 .8-1.8z" transform="translate(2 0) scale(.83)"/></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 10v6M12 7.25h.01"/></svg>';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'today-system-button';
+  button.dataset.systemControl = kind;
+  button.setAttribute('aria-label', label);
+  button.innerHTML = `
+    <span class="today-system-button-icon">${icon}</span>
+    <span class="today-system-button-label">${label}</span>
+  `;
+  return button;
+}
+
+export function TodayRing(activities, currentId, onSystemControl) {
   const ring = document.createElement('div');
   ring.className = 'today-ring';
-  ring.setAttribute('aria-label', "Today's major activities");
+  ring.setAttribute('aria-label', "Today's major activities and system controls");
 
   const ticks = document.createElement('div');
   ticks.className = 'today-ticks';
   ring.appendChild(ticks);
+
+  const controls = document.createElement('div');
+  controls.className = 'today-system-controls';
+  controls.setAttribute('aria-label', 'LIFE OS controls');
+  ['settings', 'info'].forEach((kind) => {
+    const label = kind === 'settings' ? 'Settings' : 'Info';
+    const button = systemControl(kind, label);
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      onSystemControl?.(kind);
+    });
+    controls.appendChild(button);
+  });
+  ring.appendChild(controls);
 
   ['12:00', '3:00', '6:00', '9:00'].forEach((label, index) => {
     const marker = document.createElement('span');
