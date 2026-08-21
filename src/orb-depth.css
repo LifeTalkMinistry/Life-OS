@@ -198,15 +198,26 @@
 }
 
 .setup-step-activities .setup-question-small {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .setup-step-activities .setup-help {
-  margin: -2px 0 7px;
+  margin: 2px 0 6px;
 }
 
-.setup-step-activities .setup-focus-field {
-  margin-top: 0;
+.setup-activity-name-row {
+  position: relative;
+  width: min(100%, 250px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 31px;
+  gap: 7px;
+  align-items: end;
+}
+
+.setup-activity-name-row .setup-focus-field {
+  width: 100%;
+  margin: 0;
 }
 
 .setup-step-activities .setup-focus-field input {
@@ -214,13 +225,77 @@
   padding-bottom: 8px;
 }
 
-.setup-step-activities .setup-days {
-  margin-top: 5px;
-  margin-bottom: 4px;
+.setup-icon-picker-toggle,
+.setup-icon-picker button {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(181, 139, 255, 0.34);
+  background: rgba(10, 6, 28, 0.56);
+  color: rgba(233, 224, 245, 0.86);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.setup-icon-picker-toggle {
+  width: 31px;
+  height: 31px;
+  border-radius: 50%;
+}
+
+.setup-icon-picker-toggle svg,
+.setup-icon-picker button svg,
+.setup-day-list-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.setup-icon-picker-toggle:is(:hover, :focus-visible) {
+  border-color: rgba(215, 183, 255, 0.82);
+  color: #e8d8ff;
+  outline: none;
+}
+
+.setup-icon-picker[hidden] {
+  display: none !important;
+}
+
+.setup-icon-picker {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(4, 28px);
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid rgba(178, 130, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(5, 3, 18, 0.96);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.48), 0 0 18px rgba(110, 64, 220, 0.14);
+}
+
+.setup-icon-picker button {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.setup-icon-picker button.is-selected {
+  border-color: rgba(215, 183, 255, 0.9);
+  color: #eadcff;
+  background: rgba(137, 83, 255, 0.17);
+  box-shadow: 0 0 10px rgba(128, 78, 255, 0.2);
 }
 
 .setup-step-activities .setup-time-grid {
-  margin-top: 3px;
+  margin-top: 7px;
   gap: 10px;
 }
 
@@ -243,6 +318,25 @@
 
 .setup-step-activities .setup-options::-webkit-scrollbar {
   display: none;
+}
+
+.setup-day-list button,
+.setup-review-list button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.setup-day-list button {
+  white-space: nowrap;
+}
+
+.setup-day-list-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: rgba(208, 180, 255, 0.9);
 }
 
 /* Back is a required escape hatch on every navigable onboarding step. */
