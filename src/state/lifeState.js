@@ -1,4 +1,5 @@
 import { demoActivities, initialFocusId } from '../data/activities.js';
+import { fixedKindLabel, normalizeLifeProfile } from './lifeProfile.js';
 
 const cloneActivities = (activities) => activities.map((activity) => ({ ...activity }));
 
@@ -8,6 +9,120 @@ export function createInitialLifeState() {
     currentId: initialFocusId,
     urgentResumeId: null,
     history: []
+  };
+}
+
+
+function dayIsFixed(profile, day) {
+  return profile.fixedDays.includes(day);
+}
+
+function isActiveRange(nowMinutes, startMinutes, endMinutes) {
+  if (startMinutes === endMinutes) return false;
+  if (startMinutes < endMinutes) return nowMinutes >= startMinutes && nowMinutes < endMinutes;
+  return nowMinutes >= startMinutes || nowMinutes < endMinutes;
+}
+
+function fixedScheduleIsActive(profile, date) {
+  if (!profile.hasFixedSchedule) return false;
+  const nowMinutes = date.getHours() * 60 + date.getMinutes();
+  const start = parseMinutes(profile.fixedStart);
+  const end = parseMinutes(profile.fixedEnd);
+  if (start < end) return dayIsFixed(profile, date.getDay()) && isActiveRange(nowMinutes, start, end);
+  if (nowMinutes >= start) return dayIsFixed(profile, date.getDay());
+  if (nowMinutes < end) return dayIsFixed(profile, (date.getDay() + 6) % 7);
+  return false;
+}
+
+function sleepIsActive(profile, date) {
+  const nowMinutes = date.getHours() * 60 + date.getMinutes();
+  return isActiveRange(nowMinutes, parseMinutes(profile.sleepStart), parseMinutes(profile.sleepEnd));
+}
+
+function upcomingStartToday(profile, date, startTime, allowedToday = true) {
+  if (!allowedToday) return null;
+  const nowMinutes = date.getHours() * 60 + date.getMinutes();
+  const start = parseMinutes(startTime);
+  return start > nowMinutes ? start : null;
+}
+
+function profileFocusTitle(value) {
+  const cleaned = String(value || 'Personal focus').trim().toUpperCase();
+  if (cleaned.length <= 18) return cleaned;
+  const midpoint = Math.floor(cleaned.length / 2);
+  let split = cleaned.lastIndexOf(' ', midpoint);
+  if (split < 8) split = cleaned.indexOf(' ', midpoint);
+  return split > 0 ? `${cleaned.slice(0, split)}\n${cleaned.slice(split + 1)}` : cleaned;
+}
+
+export function createLifeStateFromProfile(rawProfile, date = new Date()) {
+  const profile = normalizeLifeProfile(rawProfile);
+  const nowMinutes = date.getHours() * 60 + date.getMinutes();
+  const fixedActive = fixedScheduleIsActive(profile, date);
+  const sleepActive = sleepIsActive(profile, date);
+
+  const upcomingFixed = profile.hasFixedSchedule
+    ? upcomingStartToday(profile, date, profile.fixedStart, dayIsFixed(profile, date.getDay()))
+    : null;
+  const upcomingSleep = upcomingStartToday(profile, date, profile.sleepStart, true);
+  const boundaries = [upcomingFixed, upcomingSleep].filter((value) => value !== null && value > nowMinutes);
+  const requestedEnd = nowMinutes + profile.focusMinutes;
+  const safeFocusEnd = boundaries.length ? Math.min(requestedEnd, ...boundaries) : requestedEnd;
+
+  const focus = {
+    id: 'current-focus',
+    title: profileFocusTitle(profile.currentFocus),
+    shortTitle: profile.currentFocus || 'Personal Focus',
+    start: format24(nowMinutes),
+    end: format24(safeFocusEnd),
+    timeLabel: clockShort(format24(nowMinutes)),
+    objective: `Move ${profile.currentFocus || 'your current focus'} forward.`,
+    why: 'This is the direction you said matters most right now, while your fixed reality stays protected.',
+    recommendedMinutes: Math.max(1, safeFocusEnd - nowMinutes),
+    kind: 'flexible'
+  };
+
+  const activities = [focus];
+
+  if (profile.hasFixedSchedule) {
+    const fixedLabel = fixedKindLabel(profile.fixedKind);
+    activities.push({
+      id: 'fixed-schedule',
+      title: fixedLabel.replace(' / ', '\n/ '),
+      shortTitle: fixedLabel.replace(' / ', ' / '),
+      start: profile.fixedStart,
+      end: profile.fixedEnd,
+      timeLabel: clockShort(profile.fixedStart),
+      objective: `Honor your fixed ${fixedLabel.toLowerCase()} commitment.`,
+      why: 'This is part of your fixed reality and LIFE OS does not casually move it.',
+      recommendedMinutes: Math.max(1, (parseMinutes(profile.fixedEnd) - parseMinutes(profile.fixedStart) + 1440) % 1440),
+      kind: 'fixed'
+    });
+  }
+
+  activities.push({
+    id: 'sleep',
+    title: 'SLEEP',
+    shortTitle: 'Sleep',
+    start: profile.sleepStart,
+    end: profile.sleepEnd,
+    timeLabel: clockShort(profile.sleepStart),
+    objective: 'Protect recovery and usable energy.',
+    why: 'Sleep is protected as a biological requirement before optional activity expands.',
+    recommendedMinutes: Math.max(1, (parseMinutes(profile.sleepEnd) - parseMinutes(profile.sleepStart) + 1440) % 1440),
+    kind: 'fixed'
+  });
+
+  let currentId = focus.id;
+  if (fixedActive) currentId = 'fixed-schedule';
+  else if (sleepActive) currentId = 'sleep';
+
+  return {
+    activities,
+    currentId,
+    urgentResumeId: null,
+    history: [],
+    profile
   };
 }
 
