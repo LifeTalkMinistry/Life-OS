@@ -1,4 +1,4 @@
-/* LIFE OS orb asset mode — use the measured native SVG as the physical orb surface. */
+/* LIFE OS orb asset mode — the physical orb is native inline SVG in the DOM. */
 :root {
   --orb-size: min(94vw, 405px);
   --orb-hold-size: min(82vw, 350px);
@@ -12,24 +12,39 @@
   overflow: visible;
 }
 
-/* The SVG artwork provides the sphere, bloom and floor reflection. */
-.orb-shell::before,
-.launch-orb::before {
-  content: "";
+/* Native artwork layer. Every optical group is addressable for future animation. */
+.orb-artwork {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
   z-index: 0;
-  border-radius: 0;
-  background: url("./assets/orb/life-os-orb.svg?v=1") center / 100% 100% no-repeat;
+  overflow: visible;
   transform: translateY(3.5%);
   opacity: 1;
-  filter: none;
   pointer-events: none;
   -webkit-mask-image: radial-gradient(ellipse 72% 88% at 50% 50%, #000 0 66%, rgba(0,0,0,.98) 76%, rgba(0,0,0,.72) 88%, transparent 100%);
   mask-image: radial-gradient(ellipse 72% 88% at 50% 50%, #000 0 66%, rgba(0,0,0,.98) 76%, rgba(0,0,0,.72) 88%, transparent 100%);
 }
 
-/* Do not stack synthetic glow/reflection on top of the approved artwork. */
+/* Stable hooks for later motion/state work without changing the artwork structure. */
+.orb-artwork__background,
+.orb-artwork__outer-glow,
+.orb-artwork__reflection,
+.orb-artwork__sphere,
+.orb-artwork__interior,
+.orb-artwork__inner-glow,
+.orb-artwork__rim,
+.orb-artwork__rim-energy,
+.orb-artwork__hot-core {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* The old pseudo-element artwork pipeline is intentionally disabled. */
+.orb-shell::before,
+.launch-orb::before,
 .orb-shell::after,
 .launch-orb::after,
 .orb-stage::after {
@@ -37,7 +52,7 @@
   display: none !important;
 }
 
-/* The interactive surface sits exactly over the visible sphere in the artwork. */
+/* The interactive surface sits exactly over the visible sphere in the native SVG. */
 .orb {
   position: absolute;
   left: 50%;
@@ -60,7 +75,7 @@
   display: none !important;
 }
 
-/* Keep content centered in the dark inner sphere, not in the outer image canvas. */
+/* Keep content centered in the dark inner sphere, not in the outer artwork canvas. */
 .orb-content {
   width: 78%;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.82);
@@ -132,17 +147,17 @@
   font-size: clamp(0.68rem, 2.8vw, 0.8rem);
 }
 
-/* The source artwork contains reflection space, so launch uses a larger square canvas. */
+/* Launch uses the same full native SVG canvas, including reflection space. */
 .launch-orb {
   width: min(92vw, 395px);
 }
 
-/* TODAY keeps the same physical asset but scales the full artwork down around the clock ring. */
+/* TODAY keeps the same physical artwork but scales the full SVG down around the clock ring. */
 .is-today .orb-shell {
   width: var(--orb-hold-size);
 }
 
-/* Compact setup controls so every step stays physically inside the rendered sphere. */
+/* Compact setup controls so every step stays physically inside the sphere. */
 .setup-time-grid,
 .setup-choice-grid,
 .setup-days,
@@ -178,8 +193,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .orb-shell::before,
-  .launch-orb::before {
+  .orb-artwork {
     transform: translateY(3.5%);
   }
 }
