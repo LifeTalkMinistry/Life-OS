@@ -1,4 +1,4 @@
-/* LIFE OS orb vector mode — the approved orb is now a scalable SVG surface. */
+/* LIFE OS orb asset mode — use the approved PNG as the physical orb surface. */
 :root {
   --orb-size: min(94vw, 405px);
   --orb-hold-size: min(82vw, 350px);
@@ -12,7 +12,7 @@
   overflow: visible;
 }
 
-/* The vector artwork provides the sphere, bloom and floor reflection. */
+/* The approved source artwork provides the sphere, bloom and floor reflection. */
 .orb-shell::before,
 .launch-orb::before {
   content: "";
@@ -20,14 +20,16 @@
   inset: 0;
   z-index: 0;
   border-radius: 0;
-  background: url("./assets/orb/life-os-orb.svg?v=2") center / 100% 100% no-repeat;
+  background: url("./assets/orb/life-os-orb.png?v=1") center / 100% 100% no-repeat;
   transform: translateY(3.5%);
   opacity: 1;
   filter: none;
   pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse 72% 88% at 50% 50%, #000 0 66%, rgba(0,0,0,.98) 76%, rgba(0,0,0,.72) 88%, transparent 100%);
+  mask-image: radial-gradient(ellipse 72% 88% at 50% 50%, #000 0 66%, rgba(0,0,0,.98) 76%, rgba(0,0,0,.72) 88%, transparent 100%);
 }
 
-/* Do not stack synthetic glow/reflection on top of the vector artwork. */
+/* Do not stack synthetic glow/reflection on top of the approved artwork. */
 .orb-shell::after,
 .launch-orb::after,
 .orb-stage::after {
@@ -35,7 +37,7 @@
   display: none !important;
 }
 
-/* The interactive surface sits exactly over the visible sphere in the SVG. */
+/* The interactive surface sits exactly over the visible sphere in the PNG. */
 .orb {
   position: absolute;
   left: 50%;
@@ -58,7 +60,7 @@
   display: none !important;
 }
 
-/* Keep content centered in the dark inner sphere, not in the outer artwork canvas. */
+/* Keep content centered in the dark inner sphere, not in the outer image canvas. */
 .orb-content {
   width: 78%;
   text-shadow: 0 2px 16px rgba(0, 0, 0, 0.82);
@@ -130,17 +132,17 @@
   font-size: clamp(0.68rem, 2.8vw, 0.8rem);
 }
 
-/* The vector contains reflection space, so launch uses a larger square canvas. */
+/* The source image already contains reflection space, so launch uses a larger square canvas. */
 .launch-orb {
   width: min(92vw, 395px);
 }
 
-/* TODAY keeps the same physical vector asset but scales the full artwork down around the clock ring. */
+/* TODAY keeps the same physical asset but scales the full artwork down around the clock ring. */
 .is-today .orb-shell {
   width: var(--orb-hold-size);
 }
 
-/* Compact setup controls so every step stays physically inside the sphere. */
+/* Compact setup controls so every step stays physically inside the imaged sphere. */
 .setup-time-grid,
 .setup-choice-grid,
 .setup-days,

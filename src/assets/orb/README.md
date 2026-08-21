@@ -1,14 +1,14 @@
 # LIFE OS Orb Asset
 
-This folder contains the production LIFE OS orb visual source.
+This folder is reserved for the production LIFE OS orb visual source.
 
-Production asset:
-- `life-os-orb.svg` — scalable orb artwork containing the dark sphere, optical rim lighting, atmospheric bloom, and floor reflection.
+Planned production asset:
+- `life-os-orb.svg` — scalable orb artwork, including the sphere and optical rim lighting.
 
-The former raster PNG has been removed. LIFE OS now renders the orb from the SVG while keeping interactive text and controls as real HTML layered above it, so NOW, WHY, TODAY, ADJUST, and Life Setup remain functional and accessible.
+The interactive text and controls remain real HTML layered above the orb so NOW, WHY, TODAY, ADJUST, and Life Setup stay functional and accessible.
 
-Vector workflow:
-1. Preserve the approved orb reference as the visual source of truth.
-2. Keep the sphere, rim lighting, bloom, and reflection as editable SVG gradients/filters.
-3. Keep all product text and controls outside the artwork.
-4. Preserve a true 1:1 interactive sphere at every viewport size.
+Source-image workflow:
+1. Use the approved high-resolution orb reference as the visual source of truth.
+2. Reconstruct the sphere as scalable vector/gradient artwork rather than embedding UI text into the image.
+3. Keep floor reflection / atmospheric glow separable where useful for responsive positioning.
+4. Preserve a true 1:1 sphere at every viewport size.
