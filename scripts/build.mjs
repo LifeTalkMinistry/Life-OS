@@ -19,7 +19,8 @@ const scriptOrder = [
   'src/setup-activity-end-fix.js',
   'src/setup-icon-modal.js',
   'src/setup-copy-day.js',
-  'src/setup-completion-guard.js'
+  'src/setup-completion-guard.js',
+  'src/hold-release-fix.js'
 ];
 
 function stripModuleSyntax(source) {
@@ -54,6 +55,7 @@ const html = `<!doctype html>
     <meta name="description" content="LIFE OS — Control your life." />
     <meta name="application-name" content="LIFE OS" />
     <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-touch-fullscreen" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="LIFE OS" />
