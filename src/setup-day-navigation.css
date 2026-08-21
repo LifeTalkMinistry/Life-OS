@@ -46,6 +46,71 @@
   outline: none;
 }
 
+/* Fixed-anchor questions only capture one boundary time. */
+.setup-anchor-content .setup-question-small {
+  max-width: 240px;
+  margin-inline: auto;
+}
+
+.setup-time-grid.setup-time-grid-single {
+  width: min(100%, 156px);
+  margin: 12px auto 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.setup-time-grid.setup-time-grid-single label {
+  width: 100%;
+}
+
+/* Activity naming stays intentionally sparse: name + icon, no clock fields yet. */
+.setup-step-activities .setup-day-builder:not(.setup-day-complete) .setup-question-small {
+  max-width: 245px;
+  margin-inline: auto;
+  margin-bottom: 15px;
+}
+
+.setup-step-activities .setup-day-builder:not(.setup-day-complete) .setup-activity-name-row {
+  margin-bottom: 11px;
+}
+
+.setup-step-activity-end .setup-safe-zone.is-wide {
+  inset: 8% 9% 11%;
+}
+
+.setup-step-activity-end .setup-activity-end {
+  width: 100%;
+}
+
+.setup-selected-activity {
+  width: fit-content;
+  max-width: 220px;
+  margin: 2px auto 10px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(181, 139, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(10, 6, 28, 0.34);
+  color: rgba(238, 232, 246, 0.92);
+  font-size: clamp(0.66rem, 2.5vw, 0.76rem);
+}
+
+.setup-selected-activity .setup-day-list-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.setup-step-activity-end .setup-time-conflict {
+  margin: 6px auto 0;
+  max-width: 210px;
+}
+
+.setup-step-activity-end .setup-continue {
+  margin-top: 9px;
+}
+
 @media (max-width: 360px) {
   .setup-step-activities .setup-day-builder {
     padding-bottom: 20px;
@@ -56,5 +121,9 @@
     min-height: 20px;
     padding: 3px 7px !important;
     font-size: 0.5rem !important;
+  }
+
+  .setup-step-activity-end .setup-safe-zone.is-wide {
+    inset: 9% 9% 12%;
   }
 }
