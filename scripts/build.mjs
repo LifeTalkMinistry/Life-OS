@@ -27,6 +27,7 @@ const css = [
   readFileSync('src/refinements.css', 'utf8'),
   readFileSync('src/orb-depth.css', 'utf8'),
   readFileSync('src/setup-day-orbit.css', 'utf8'),
+  readFileSync('src/setup-day-orbit-simple.css', 'utf8'),
   readFileSync('src/system-controls.css', 'utf8')
 ].join('\n\n');
 const js = scriptOrder
