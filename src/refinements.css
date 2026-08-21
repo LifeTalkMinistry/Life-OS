@@ -1,0 +1,239 @@
+/* V1 visual polish — keeps the original interaction model intact. */
+:root {
+  --orb-hold-size: min(60vw, 282px);
+  --ring-size: min(91vw, 430px);
+}
+
+.brand-title {
+  font-weight: 280;
+  letter-spacing: 0.2em;
+}
+
+.orb-stage {
+  min-height: min(63svh, 610px);
+}
+
+.orb {
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  background:
+    radial-gradient(circle at 48% 44%, rgba(32, 17, 70, 0.82) 0 48%, rgba(12, 7, 35, 0.92) 70%, rgba(4, 3, 14, 0.98) 100%),
+    radial-gradient(circle at 18% 48%, rgba(70, 88, 255, 0.16), transparent 44%),
+    radial-gradient(circle at 83% 48%, rgba(255, 103, 182, 0.11), transparent 42%);
+  box-shadow:
+    inset 0 0 52px rgba(110, 61, 255, 0.2),
+    inset 34px 0 56px rgba(35, 72, 255, 0.1),
+    inset -32px 0 50px rgba(255, 103, 181, 0.09),
+    0 0 16px rgba(120, 78, 255, 0.72),
+    0 0 42px rgba(84, 48, 255, 0.42),
+    0 0 84px rgba(72, 33, 208, 0.27);
+}
+
+.orb::before {
+  padding: 1.5px;
+  background: conic-gradient(
+    from 214deg,
+    #5571ff 0deg,
+    #72ecff 35deg,
+    #7b75ff 82deg,
+    #a069ff 175deg,
+    #ffafc3 236deg,
+    #f077d5 286deg,
+    #7665ff 332deg,
+    #5571ff 360deg
+  );
+  filter: drop-shadow(0 0 7px rgba(148, 94, 255, 0.72));
+}
+
+.orb::after {
+  inset: 5%;
+  background:
+    radial-gradient(ellipse at 25% 22%, rgba(116, 116, 255, 0.1), transparent 30%),
+    radial-gradient(ellipse at 82% 38%, rgba(255, 145, 194, 0.08), transparent 29%),
+    radial-gradient(circle at 50% 88%, rgba(157, 103, 255, 0.1), transparent 28%);
+  filter: blur(12px);
+}
+
+.orb-shell::after,
+.launch-orb::after {
+  bottom: -8%;
+  opacity: 0.62;
+}
+
+.is-today .orb-stage {
+  min-height: min(66svh, 620px);
+}
+
+.is-today .orb-content {
+  width: 78%;
+}
+
+.is-today .orb {
+  box-shadow:
+    inset 0 0 54px rgba(115, 66, 255, 0.24),
+    inset 28px 0 48px rgba(35, 72, 255, 0.12),
+    inset -28px 0 46px rgba(255, 103, 181, 0.1),
+    0 0 18px rgba(120, 78, 255, 0.82),
+    0 0 48px rgba(84, 48, 255, 0.48),
+    0 0 88px rgba(72, 33, 208, 0.3);
+}
+
+.is-today .orb-shell::after {
+  opacity: 0.78;
+}
+
+.is-today .orb-kicker {
+  margin-bottom: 12px;
+  font-size: clamp(0.6rem, 2.5vw, 0.76rem);
+}
+
+.is-today .orb-title {
+  font-size: clamp(1.35rem, 6.1vw, 2rem);
+  line-height: 1;
+}
+
+.is-today .orb-divider {
+  width: 70%;
+  margin: clamp(18px, 4vw, 24px) auto clamp(14px, 3vw, 20px);
+}
+
+.is-today .orb-until {
+  font-size: clamp(0.84rem, 3.7vw, 1rem);
+}
+
+.is-today .orb-time {
+  font-size: clamp(1.42rem, 6vw, 2rem);
+}
+
+.today-ring {
+  filter: drop-shadow(0 0 18px rgba(91, 61, 255, 0.12));
+}
+
+.today-ticks {
+  opacity: 0.84;
+  background: repeating-conic-gradient(
+    from -1deg,
+    rgba(193, 158, 255, 0.82) 0deg 0.65deg,
+    transparent 0.65deg 6deg
+  );
+  -webkit-mask: radial-gradient(circle, transparent 0 46.2%, #000 46.7% 47.4%, transparent 47.9%);
+  mask: radial-gradient(circle, transparent 0 46.2%, #000 46.7% 47.4%, transparent 47.9%);
+  filter: drop-shadow(0 0 5px rgba(129, 79, 255, 0.46));
+}
+
+.clock-marker {
+  color: rgba(232, 226, 239, 0.86);
+  font-size: clamp(0.56rem, 2.25vw, 0.68rem);
+  letter-spacing: 0.01em;
+}
+
+.clock-marker-0 { top: 4%; }
+.clock-marker-1 { right: 3%; }
+.clock-marker-2 { bottom: 4%; }
+.clock-marker-3 { left: 3%; }
+
+.activity-node {
+  width: clamp(72px, 20vw, 88px);
+  color: rgba(238, 233, 244, 0.96);
+}
+
+.activity-node-dot {
+  width: clamp(38px, 10.5vw, 44px);
+  display: grid;
+  place-items: center;
+  margin-bottom: 5px;
+  color: #c9a6ff;
+  border-color: rgba(174, 126, 255, 0.92);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(122, 86, 255, 0.15), rgba(8, 6, 25, 0.9) 72%);
+  box-shadow:
+    0 0 8px rgba(106, 84, 255, 0.58),
+    0 0 20px rgba(134, 67, 255, 0.28);
+}
+
+.activity-node-dot svg {
+  width: 54%;
+  height: 54%;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.activity-node.is-current .activity-node-dot {
+  color: #ffd788;
+  border-color: rgba(255, 214, 132, 0.96);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 195, 89, 0.15), rgba(12, 7, 31, 0.9) 72%);
+  box-shadow:
+    0 0 10px rgba(255, 205, 105, 0.58),
+    0 0 24px rgba(126, 67, 255, 0.34);
+}
+
+.activity-node-time {
+  color: #d0a4ff;
+  font-size: clamp(0.56rem, 2.25vw, 0.68rem);
+  text-shadow: 0 0 9px rgba(117, 67, 255, 0.42);
+}
+
+.activity-node-title {
+  margin-top: 3px;
+  max-width: 82px;
+  color: rgba(239, 235, 244, 0.96);
+  font-size: clamp(0.56rem, 2.2vw, 0.66rem);
+  line-height: 1.16;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.78);
+}
+
+.activity-node.is-cardinal .activity-node-time {
+  display: none;
+}
+
+.activity-node.is-bottom .activity-node-title {
+  margin-top: 0;
+  transform: translateY(-2px);
+}
+
+.gesture-hint {
+  max-width: 330px;
+  color: #8f899a;
+  font-size: clamp(0.58rem, 2.45vw, 0.7rem);
+  letter-spacing: 0.12em;
+}
+
+.is-today .gesture-hint {
+  color: #aaa3b5;
+}
+
+.why-backdrop {
+  background: rgba(1, 1, 6, 0.48);
+}
+
+.why-panel {
+  border-color: rgba(199, 176, 255, 0.28);
+  background:
+    radial-gradient(circle at 15% 12%, rgba(82, 48, 170, 0.12), transparent 28%),
+    linear-gradient(145deg, rgba(14, 12, 25, 0.96), rgba(5, 4, 12, 0.99));
+}
+
+@media (max-width: 360px) {
+  :root {
+    --orb-hold-size: min(57vw, 214px);
+    --ring-size: min(89vw, 326px);
+  }
+
+  .activity-node {
+    width: 66px;
+  }
+
+  .activity-node-dot {
+    width: 36px;
+  }
+
+  .clock-marker-0 { top: 5%; }
+  .clock-marker-1 { right: 4%; }
+  .clock-marker-2 { bottom: 5%; }
+  .clock-marker-3 { left: 4%; }
+}
