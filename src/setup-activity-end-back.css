@@ -1,51 +1,8 @@
 /* Keep Back permanently accessible on the "Until what time?" step.
- * It is intentionally placed first in the content flow so the Orb's lower
- * boundary can never hide the user's escape route.
+ * Back follows Save & continue in the DOM and stays directly underneath it.
  */
-.setup-step-activity-end .setup-activity-end > .setup-back {
-  order: -10;
-  justify-self: start;
-  position: relative;
-  z-index: 80;
-  display: inline-flex !important;
-  align-items: center;
-  justify-content: center;
-  min-height: 25px;
-  margin: 0 0 7px 2px !important;
-  padding: 5px 9px !important;
-  border: 1px solid rgba(198, 170, 236, 0.18);
-  border-radius: 999px;
-  background: rgba(7, 4, 20, 0.38);
-  color: rgba(232, 224, 242, 0.9) !important;
-  font-size: clamp(0.56rem, 2.05vw, 0.66rem) !important;
-  font-weight: 450;
-  line-height: 1;
-  opacity: 1 !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.setup-step-activity-end .setup-activity-end > .setup-back::before {
-  content: '←';
-  margin-right: 4px;
-  color: rgba(205, 177, 255, 0.94);
-}
-
-.setup-step-activity-end .setup-activity-end > .setup-back:is(:hover, :focus-visible) {
-  border-color: rgba(215, 183, 255, 0.42);
-  background: rgba(30, 18, 58, 0.52);
-  color: #f4edfb !important;
-  outline: none;
-}
-
-/* Give the entire end-time stack a guaranteed lower safe margin. The Orb clips
- * at its circular rim, so this step is biased upward instead of letting the
- * primary action sit on the glowing lower edge. */
 .setup-step-activity-end .setup-safe-zone.is-wide {
-  inset: 8% 9% 17% !important;
+  inset: 8% 9% 16% !important;
 }
 
 .setup-step-activity-end .setup-fit {
@@ -91,25 +48,64 @@
   white-space: nowrap;
 }
 
+/* Back sits immediately under the primary action, centered and always visible. */
+.setup-step-activity-end .setup-activity-end > .setup-back {
+  order: initial;
+  justify-self: center;
+  position: relative;
+  z-index: 20;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 23px;
+  margin: 7px auto 0 !important;
+  padding: 4px 9px !important;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(218, 208, 231, 0.78) !important;
+  font-size: clamp(0.55rem, 2vw, 0.64rem) !important;
+  font-weight: 450;
+  line-height: 1;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.setup-step-activity-end .setup-activity-end > .setup-back::before {
+  content: '←';
+  margin-right: 4px;
+  color: rgba(205, 177, 255, 0.92);
+}
+
+.setup-step-activity-end .setup-activity-end > .setup-back:is(:hover, :focus-visible) {
+  background: rgba(30, 18, 58, 0.34);
+  color: #f4edfb !important;
+  outline: none;
+}
+
 @media (max-width: 360px) {
   .setup-step-activity-end .setup-safe-zone.is-wide {
-    inset: 8% 9% 18% !important;
+    inset: 8% 9% 17% !important;
   }
 
   .setup-step-activity-end .setup-fit {
     transform: translateY(-4%) scale(var(--setup-fit-scale, 1)) !important;
   }
 
-  .setup-step-activity-end .setup-activity-end > .setup-back {
-    min-height: 23px;
-    margin-bottom: 5px !important;
-    padding: 4px 8px !important;
-    font-size: 0.54rem !important;
-  }
-
   .setup-step-activity-end .setup-continue {
     min-height: 29px;
     margin-top: 6px !important;
     padding: 6px 11px 7px !important;
+  }
+
+  .setup-step-activity-end .setup-activity-end > .setup-back {
+    min-height: 21px;
+    margin-top: 5px !important;
+    padding: 3px 8px !important;
+    font-size: 0.53rem !important;
   }
 }
