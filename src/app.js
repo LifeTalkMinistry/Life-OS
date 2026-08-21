@@ -1,6 +1,7 @@
 import { Brand } from './components/Brand.js';
 import { LifeSetupOrb } from './components/LifeSetupOrb.js';
 import { Orb } from './components/Orb.js';
+import { OrbArtwork } from './components/OrbArtwork.js';
 import { TodayRing } from './components/TodayRing.js';
 import { WhyPanel } from './components/WhyPanel.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
@@ -288,6 +289,7 @@ function LaunchScreen() {
     </div>
     <div class="launch-orb" aria-hidden="true"><div class="orb"></div></div>
   `;
+  view.querySelector('.launch-orb')?.prepend(OrbArtwork());
   return view;
 }
 
