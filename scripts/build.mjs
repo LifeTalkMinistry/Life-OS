@@ -15,7 +15,8 @@ const scriptOrder = [
   'src/components/SystemPanel.js',
   'src/app.js',
   'src/setup-day-orbit.js',
-  'src/setup-day-summary.js'
+  'src/setup-day-summary.js',
+  'src/setup-activity-end-fix.js'
 ];
 
 function stripModuleSyntax(source) {
