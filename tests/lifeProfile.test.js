@@ -10,26 +10,33 @@ test('new life profile starts incomplete', () => {
   assert.equal(isLifeProfileComplete(createEmptyLifeProfile()), false);
 });
 
-test('completed profile requires reality, priorities, sleep, and current focus', () => {
+test('completed V1 profile requires reality, sleep, and at least one timed activity', () => {
   const profile = normalizeLifeProfile({
     setupComplete: true,
     hasFixedSchedule: false,
     sleepStart: '13:00',
     sleepEnd: '21:00',
-    priorities: ['faith', 'health'],
-    nonNegotiables: ['faith'],
-    currentFocus: 'Recruit beta users',
-    focusMinutes: 90
+    activities: [
+      {
+        id: 'devotion',
+        name: 'Daily Devotion',
+        days: [0, 1, 2, 3, 4, 5, 6],
+        start: '10:00',
+        end: '10:30'
+      }
+    ]
   });
   assert.equal(isLifeProfileComplete(profile), true);
-  assert.deepEqual(profile.nonNegotiables, ['faith']);
+  assert.equal(profile.activities[0].name, 'Daily Devotion');
 });
 
-test('profile normalization limits selected areas and protected priorities', () => {
+test('profile normalization drops invalid activities and cleans days', () => {
   const profile = normalizeLifeProfile({
-    priorities: ['faith', 'family', 'health', 'learning', 'business', 'fake'],
-    nonNegotiables: ['faith', 'family', 'health']
+    activities: [
+      { id: 'learning', name: 'Learning', days: [1, 1, 8, -1, 3], start: '18:00', end: '19:00' },
+      { id: 'bad', name: '', days: [1], start: '18:00', end: '19:00' }
+    ]
   });
-  assert.equal(profile.priorities.length, 4);
-  assert.equal(profile.nonNegotiables.length, 2);
+  assert.equal(profile.activities.length, 1);
+  assert.deepEqual(profile.activities[0].days, [1, 3]);
 });
