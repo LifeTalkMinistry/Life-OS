@@ -6,6 +6,7 @@ const scriptOrder = [
   'src/state/lifeState.js',
   'src/gestures/orbGestures.js',
   'src/components/Brand.js',
+  'src/components/OrbArtwork.js',
   'src/components/LifeSetupOrb.js',
   'src/components/TodayRing.js',
   'src/components/WhyPanel.js',
