@@ -1,7 +1,16 @@
 import { formatClock } from '../state/lifeState.js';
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function nowContent(activity) {
-  const lines = activity.title.split('\n').join('<br>');
+  const lines = activity.title.split('\n').map(escapeHtml).join('<br>');
   return `
     <div class="orb-content orb-now-content">
       <p class="orb-kicker">WHAT MATTERS NOW</p>
