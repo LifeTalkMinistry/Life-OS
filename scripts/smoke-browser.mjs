@@ -166,13 +166,34 @@ try {
   await assertText('.why-panel .eyebrow', 'WHY THIS NOW?');
   await evaluate('document.querySelector(".why-close").click()');
 
-  // Hold -> TODAY -> release returns NOW
+  // Hold -> TODAY stays open after release so the system controls can be tapped.
   await evaluate(`document.querySelector('.orb').dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, pointerId:2, button:0}))`);
   await sleep(590);
   assert.equal(await evaluate('Boolean(document.querySelector(".today-ring"))'), true);
+  assert.equal(await evaluate('Boolean(document.querySelector("[data-system-control=settings]"))'), true);
+  assert.equal(await evaluate('Boolean(document.querySelector("[data-system-control=info]"))'), true);
   await evaluate(`document.querySelector('.orb').dispatchEvent(new PointerEvent('pointerup', {bubbles:true, pointerId:2, button:0}))`);
   await sleep(80);
-  assert.equal(await evaluate('Boolean(document.querySelector(".today-ring"))'), false);
+  assert.equal(await evaluate('Boolean(document.querySelector(".today-ring"))'), true);
+
+  // Settings -> Activity Times
+  await evaluate('document.querySelector("[data-system-control=settings]").click()');
+  await assertText('.system-panel h2', 'Settings');
+  await evaluate('document.querySelector("[data-system-nav=activity-times]").click()');
+  await assertText('.system-panel h2', 'Activity Times');
+  assert.equal(await evaluate('Boolean(document.querySelector("[data-time-scope=sleep]"))'), true);
+  await evaluate('document.querySelector("[data-system-action=close]").click()');
+  assert.equal(await evaluate('Boolean(document.querySelector(".system-panel"))'), false);
+
+  // Hold again -> Info panel
+  await evaluate(`document.querySelector('.orb').dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, pointerId:3, button:0}))`);
+  await sleep(590);
+  await evaluate(`document.querySelector('.orb').dispatchEvent(new PointerEvent('pointerup', {bubbles:true, pointerId:3, button:0}))`);
+  await evaluate('document.querySelector("[data-system-control=info]").click()');
+  await assertText('.system-panel h2', 'About LIFE OS');
+  assert.equal(await evaluate('document.querySelector(".system-info-sections")?.textContent.includes("Creator Statement")'), true);
+  assert.equal(await evaluate('document.querySelector(".system-info-sections")?.textContent.includes("App Policy")'), true);
+  await evaluate('document.querySelector("[data-system-action=close]").click()');
 
   // Double tap -> Adjust -> I'm done -> Workout
   await evaluate(dispatchDoubleTap);
@@ -214,7 +235,7 @@ try {
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   await writeFile('/mnt/data/life-os-browser-smoke.png', Buffer.from(shot.result.data, 'base64'));
 
-  console.log('Browser smoke test passed: V1 onboarding, launch, single tap, hold/release, double tap, and adjustment branches.');
+  console.log('Browser smoke test passed: V1 onboarding, persistent Today ring, Settings, Info, and adjustment branches.');
 } finally {
   try { ws?.close(); } catch {}
   chromium.kill('SIGTERM');
