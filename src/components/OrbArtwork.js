@@ -10,12 +10,9 @@ const ORB_SVG = `
     <radialGradient id="dark" cx="50%" cy="50%" r="51%"><stop offset="0" stop-color="#01010b" stop-opacity=".94"/><stop offset=".48" stop-color="#01010b" stop-opacity=".84"/><stop offset=".75" stop-color="#01010b" stop-opacity=".50"/><stop offset=".94" stop-color="#01010b" stop-opacity=".08"/><stop offset="1" stop-color="#01010b" stop-opacity="0"/></radialGradient>
     <linearGradient id="refl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#214dff"/><stop offset=".30" stop-color="#4a55ff"/><stop offset=".52" stop-color="#9d5cff"/><stop offset=".72" stop-color="#c74ddd"/><stop offset="1" stop-color="#d765c8"/></linearGradient>
 
-    <!-- User-space filter regions keep blur continuous across segmented rim paths. -->
-    <filter id="ew" filterUnits="userSpaceOnUse" x="90" y="40" width="1080" height="1120" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="24"/></filter>
-    <filter id="em" filterUnits="userSpaceOnUse" x="120" y="70" width="1020" height="1060" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="9"/></filter>
+    <!-- The sphere clip is the hard optical boundary; all colored glow stays inside it. -->
     <filter id="iw" filterUnits="userSpaceOnUse" x="110" y="60" width="1040" height="1080" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="23"/></filter>
     <filter id="im" filterUnits="userSpaceOnUse" x="140" y="90" width="980" height="1020" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="7"/></filter>
-    <filter id="loc" filterUnits="userSpaceOnUse" x="150" y="100" width="960" height="1000" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="7"/></filter>
     <filter id="r1" filterUnits="userSpaceOnUse" x="120" y="900" width="1040" height="320" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="34"/></filter>
     <filter id="r2" filterUnits="userSpaceOnUse" x="180" y="940" width="920" height="250" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="15"/></filter>
     <filter id="r3" filterUnits="userSpaceOnUse" x="250" y="990" width="780" height="150" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="4"/></filter>
@@ -30,29 +27,6 @@ const ORB_SVG = `
     <linearGradient id="g6" gradientUnits="userSpaceOnUse" x1="628.0" y1="168.5" x2="917.6" y2="290.5"><stop offset="0" stop-color="#982aff"/><stop offset="1" stop-color="#ed4fa8"/></linearGradient>
     <linearGradient id="g7" gradientUnits="userSpaceOnUse" x1="917.6" y1="290.5" x2="1037.5" y2="585.0"><stop offset="0" stop-color="#ed4fa8"/><stop offset="1" stop-color="#ff8a7f"/></linearGradient>
   </defs>
-
-  <g class="orb-artwork__outer-glow" data-orb-part="outer-glow">
-    <g class="orb-artwork__outer-glow-wide" data-orb-part="outer-glow-wide" filter="url(#ew)">
-      <path d="M1037.5,585.0 A409.5,416.5 0 0 1 917.6,879.5" fill="none" stroke="url(#g0)" stroke-width="66" stroke-linecap="round" opacity="0.26"/>
-      <path d="M917.6,879.5 A409.5,416.5 0 0 1 628.0,1001.5" fill="none" stroke="url(#g1)" stroke-width="66" stroke-linecap="round" opacity="0.26"/>
-      <path d="M628.0,1001.5 A409.5,416.5 0 0 1 338.4,879.5" fill="none" stroke="url(#g2)" stroke-width="66" stroke-linecap="round" opacity="0.26"/>
-      <path d="M338.4,879.5 A409.5,416.5 0 0 1 218.5,585.0" fill="none" stroke="url(#g3)" stroke-width="66" stroke-linecap="round" opacity="0.26"/>
-      <path d="M218.5,585.0 A409.5,416.5 0 0 1 338.4,290.5" fill="none" stroke="url(#g4)" stroke-width="66" stroke-linecap="round" opacity="0.26"/>
-      <path d="M338.4,290.5 A409.5,416.5 0 0 1 628.0,168.5" fill="none" stroke="url(#g5)" stroke-width="66" stroke-linecap="round" opacity="0.26"/>
-      <path d="M628.0,168.5 A409.5,416.5 0 0 1 917.6,290.5" fill="none" stroke="url(#g6)" stroke-width="66" stroke-linecap="round" opacity="0.26"/>
-      <path d="M917.6,290.5 A409.5,416.5 0 0 1 1037.5,585.0" fill="none" stroke="url(#g7)" stroke-width="66" stroke-linecap="round" opacity="0.26"/>
-    </g>
-    <g class="orb-artwork__outer-glow-medium" data-orb-part="outer-glow-medium" filter="url(#em)">
-      <path d="M1037.5,585.0 A409.5,416.5 0 0 1 917.6,879.5" fill="none" stroke="url(#g0)" stroke-width="27" stroke-linecap="round" opacity="0.58"/>
-      <path d="M917.6,879.5 A409.5,416.5 0 0 1 628.0,1001.5" fill="none" stroke="url(#g1)" stroke-width="27" stroke-linecap="round" opacity="0.58"/>
-      <path d="M628.0,1001.5 A409.5,416.5 0 0 1 338.4,879.5" fill="none" stroke="url(#g2)" stroke-width="27" stroke-linecap="round" opacity="0.58"/>
-      <path d="M338.4,879.5 A409.5,416.5 0 0 1 218.5,585.0" fill="none" stroke="url(#g3)" stroke-width="27" stroke-linecap="round" opacity="0.58"/>
-      <path d="M218.5,585.0 A409.5,416.5 0 0 1 338.4,290.5" fill="none" stroke="url(#g4)" stroke-width="27" stroke-linecap="round" opacity="0.58"/>
-      <path d="M338.4,290.5 A409.5,416.5 0 0 1 628.0,168.5" fill="none" stroke="url(#g5)" stroke-width="27" stroke-linecap="round" opacity="0.58"/>
-      <path d="M628.0,168.5 A409.5,416.5 0 0 1 917.6,290.5" fill="none" stroke="url(#g6)" stroke-width="27" stroke-linecap="round" opacity="0.58"/>
-      <path d="M917.6,290.5 A409.5,416.5 0 0 1 1037.5,585.0" fill="none" stroke="url(#g7)" stroke-width="27" stroke-linecap="round" opacity="0.58"/>
-    </g>
-  </g>
 
   <g class="orb-artwork__reflection" data-orb-part="reflection">
     <ellipse cx="640" cy="1078" rx="370" ry="82" fill="url(#refl)" opacity=".32" filter="url(#r1)"/>
@@ -106,12 +80,6 @@ const ORB_SVG = `
     <path d="M338.4,290.5 A409.5,416.5 0 0 1 628.0,168.5" fill="none" stroke="url(#g5)" stroke-width="8.5" stroke-linecap="round" opacity=".96"/>
     <path d="M628.0,168.5 A409.5,416.5 0 0 1 917.6,290.5" fill="none" stroke="url(#g6)" stroke-width="8.5" stroke-linecap="round" opacity=".96"/>
     <path d="M917.6,290.5 A409.5,416.5 0 0 1 1037.5,585.0" fill="none" stroke="url(#g7)" stroke-width="8.5" stroke-linecap="round" opacity=".96"/>
-    <g class="orb-artwork__rim-energy" data-orb-part="rim-energy" filter="url(#loc)">
-      <path d="M917.6,290.5 A409.5,416.5 0 0 1 1037.5,585.0" fill="none" stroke="#ff9d82" stroke-width="12" stroke-linecap="round" opacity=".32"/>
-      <path d="M1037.5,585.0 A409.5,416.5 0 0 1 917.6,879.5" fill="none" stroke="#ff9d82" stroke-width="12" stroke-linecap="round" opacity=".32"/>
-      <path d="M628.0,1001.5 A409.5,416.5 0 0 1 338.4,879.5" fill="none" stroke="#62b8ff" stroke-width="16" stroke-linecap="round" opacity=".52"/>
-      <path d="M338.4,879.5 A409.5,416.5 0 0 1 218.5,585.0" fill="none" stroke="#62b8ff" stroke-width="16" stroke-linecap="round" opacity=".52"/>
-    </g>
     <ellipse class="orb-artwork__hot-core" data-orb-part="hot-core" cx="628" cy="585" rx="409.5" ry="416.5" fill="none" stroke="#fffdfd" stroke-width="4.6" opacity=".99"/>
   </g>
 </svg>`;
