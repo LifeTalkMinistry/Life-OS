@@ -1,6 +1,8 @@
 export const LIFE_PROFILE_STORAGE_KEY = 'life-os-v1-profile';
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const MINUTES_PER_DAY = 1440;
+const MINUTES_PER_WEEK = MINUTES_PER_DAY * 7;
 
 function normalizeDays(value, fallback = []) {
   if (!Array.isArray(value)) return [...fallback];
@@ -19,7 +21,7 @@ function normalizeTime(value, fallback = '') {
 function normalizeActivities(value) {
   if (!Array.isArray(value)) return [];
 
-  return value.slice(0, 12).map((activity, index) => {
+  return value.slice(0, 56).map((activity, index) => {
     const name = String(activity?.name ?? '').trim().slice(0, 48);
     const days = normalizeDays(activity?.days);
     const start = normalizeTime(activity?.start);
@@ -34,6 +36,66 @@ function normalizeActivities(value) {
       end
     };
   }).filter(Boolean);
+}
+
+function toMinutes(time) {
+  const [hour, minute] = String(time || '').split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+function intervalForDay(day, start, end) {
+  const startMinute = day * MINUTES_PER_DAY + toMinutes(start);
+  let endMinute = day * MINUTES_PER_DAY + toMinutes(end);
+  if (endMinute <= startMinute) endMinute += MINUTES_PER_DAY;
+  return [startMinute, endMinute];
+}
+
+function overlaps([startA, endA], [startB, endB]) {
+  return startA < endB && startB < endA;
+}
+
+function recurringIntervals(days, start, end, label, id = null) {
+  const intervals = [];
+  for (const day of days) {
+    const base = intervalForDay(day, start, end);
+    for (const offset of [-MINUTES_PER_WEEK, 0, MINUTES_PER_WEEK]) {
+      intervals.push({
+        start: base[0] + offset,
+        end: base[1] + offset,
+        label,
+        id
+      });
+    }
+  }
+  return intervals;
+}
+
+export function findTimeConflict(rawProfile, day, start, end, ignoreActivityId = null) {
+  const profile = normalizeLifeProfile(rawProfile);
+  const numericDay = Number(day);
+  if (!Number.isInteger(numericDay) || numericDay < 0 || numericDay > 6 || !start || !end || start === end) return null;
+
+  const candidate = intervalForDay(numericDay, start, end);
+  const occupied = [];
+
+  occupied.push(...recurringIntervals(ALL_DAYS, profile.sleepStart, profile.sleepEnd, 'Sleep'));
+
+  if (profile.hasFixedSchedule && profile.fixedGuidanceMode !== 'breakdown') {
+    occupied.push(...recurringIntervals(
+      profile.fixedDays,
+      profile.fixedStart,
+      profile.fixedEnd,
+      fixedKindLabel(profile.fixedKind)
+    ));
+  }
+
+  for (const activity of profile.activities) {
+    if (activity.id === ignoreActivityId) continue;
+    occupied.push(...recurringIntervals(activity.days, activity.start, activity.end, activity.name, activity.id));
+  }
+
+  const conflict = occupied.find((interval) => overlaps(candidate, [interval.start, interval.end]));
+  return conflict ? { label: conflict.label, id: conflict.id } : null;
 }
 
 export function createEmptyLifeProfile() {
