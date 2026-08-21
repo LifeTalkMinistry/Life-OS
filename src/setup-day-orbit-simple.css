@@ -1,0 +1,8 @@
+/* LIFE OS V1 setup orbit simplification.
+ * The start icon marks where an activity begins.
+ * The arc itself communicates duration and simply stops at the exact end time.
+ * No separate end icon or end label is shown.
+ */
+.setup-day-orbit-endpoint {
+  display: none !important;
+}
