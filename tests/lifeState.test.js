@@ -4,6 +4,7 @@ import {
   addUrgentMatter,
   completeCurrent,
   createInitialLifeState,
+  createLifeStateFromProfile,
   currentActivity,
   deferCurrent,
   extendCurrent,
@@ -39,44 +40,66 @@ test('urgent matter becomes current and completion resumes interrupted focus', (
   assert.equal(currentActivity(state).shortTitle, 'CLARA Outreach');
 });
 
-import { createLifeStateFromProfile } from '../src/state/lifeState.js';
-
 const completedProfile = {
   setupComplete: true,
   hasFixedSchedule: false,
   fixedKind: 'work',
-  fixedDays: [],
+  fixedDays: [1, 2, 3, 4, 5],
   fixedStart: '09:00',
   fixedEnd: '17:00',
   sleepStart: '23:00',
   sleepEnd: '07:00',
-  priorities: ['health'],
-  nonNegotiables: ['health'],
-  currentFocus: 'Find beta users',
-  focusMinutes: 60
+  fixedGuidanceMode: 'outside',
+  activities: [
+    {
+      id: 'devotion',
+      name: 'Daily Devotion',
+      days: [0, 1, 2, 3, 4, 5, 6],
+      start: '10:00',
+      end: '10:30'
+    },
+    {
+      id: 'content',
+      name: 'Content Creation',
+      days: [1, 2, 3, 4, 5],
+      start: '10:30',
+      end: '12:00'
+    }
+  ]
 };
 
-test('profile-driven state uses the user current focus outside fixed reality', () => {
-  const date = new Date(2026, 7, 19, 10, 0, 0);
+test('profile-driven state runs the activity scheduled for the current time', () => {
+  const date = new Date(2026, 7, 19, 10, 15, 0);
   const state = createLifeStateFromProfile(completedProfile, date);
-  assert.equal(currentActivity(state).shortTitle, 'Find beta users');
-  assert.equal(formatClock(currentActivity(state).end), '11:00 AM');
+  assert.equal(currentActivity(state).shortTitle, 'Daily Devotion');
+  assert.equal(formatClock(currentActivity(state).end), '10:30 AM');
 });
 
-test('profile-driven state protects an active fixed work schedule', () => {
-  const date = new Date(2026, 7, 19, 10, 0, 0); // Wednesday
+test('outside-only mode treats active fixed schedule as one protected block', () => {
+  const date = new Date(2026, 7, 19, 10, 15, 0);
   const state = createLifeStateFromProfile({
     ...completedProfile,
     hasFixedSchedule: true,
-    fixedDays: [1, 2, 3, 4, 5],
     fixedStart: '09:00',
     fixedEnd: '17:00'
   }, date);
   assert.equal(currentActivity(state).shortTitle, 'WORK');
 });
 
+test('breakdown mode lets a mapped activity run inside fixed hours', () => {
+  const date = new Date(2026, 7, 19, 10, 15, 0);
+  const state = createLifeStateFromProfile({
+    ...completedProfile,
+    hasFixedSchedule: true,
+    fixedGuidanceMode: 'breakdown',
+    fixedStart: '09:00',
+    fixedEnd: '17:00'
+  }, date);
+  assert.equal(currentActivity(state).shortTitle, 'Daily Devotion');
+});
+
 test('profile-driven state supports overnight fixed schedules', () => {
-  const date = new Date(2026, 7, 20, 2, 0, 0); // Thursday 2 AM, belongs to Wednesday night shift
+  const date = new Date(2026, 7, 20, 2, 0, 0); // Thursday 2 AM belongs to Wednesday night shift
   const state = createLifeStateFromProfile({
     ...completedProfile,
     hasFixedSchedule: true,
@@ -89,19 +112,19 @@ test('profile-driven state supports overnight fixed schedules', () => {
   assert.equal(currentActivity(state).shortTitle, 'WORK');
 });
 
-test('profile-driven focus never overruns the next fixed commitment', () => {
-  const date = new Date(2026, 7, 19, 10, 55, 0); // Wednesday
+test('sleep remains protected over a conflicting scheduled activity', () => {
+  const date = new Date(2026, 7, 19, 23, 30, 0);
   const state = createLifeStateFromProfile({
     ...completedProfile,
-    hasFixedSchedule: true,
-    fixedDays: [1, 2, 3, 4, 5],
-    fixedStart: '11:00',
-    fixedEnd: '17:00',
-    sleepStart: '23:00',
-    sleepEnd: '07:00',
-    focusMinutes: 90
+    activities: [
+      { id: 'late', name: 'Late project', days: [3], start: '23:00', end: '23:59' }
+    ]
   }, date);
-  assert.equal(currentActivity(state).shortTitle, 'Find beta users');
-  assert.equal(formatClock(currentActivity(state).end), '11:00 AM');
-  assert.equal(currentActivity(state).recommendedMinutes, 5);
+  assert.equal(currentActivity(state).shortTitle, 'Sleep');
+});
+
+test('unmapped time is explicitly open time', () => {
+  const date = new Date(2026, 7, 19, 14, 0, 0);
+  const state = createLifeStateFromProfile(completedProfile, date);
+  assert.equal(currentActivity(state).shortTitle, 'Open Time');
 });
