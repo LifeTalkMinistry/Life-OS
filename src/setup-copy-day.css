@@ -24,11 +24,49 @@
   outline: none;
 }
 
+/* A day does not have to be completely mapped. Anything after the last saved
+ * activity remains Open Time, so this is intentionally quieter than Continue. */
+.setup-finish-day-button {
+  appearance: none;
+  min-width: 118px;
+  margin: 7px auto 0;
+  padding: 5px 10px 6px;
+  border: 1px solid rgba(190, 166, 218, 0.14);
+  border-radius: 999px;
+  background: rgba(8, 5, 22, 0.2);
+  color: rgba(215, 204, 227, 0.72);
+  font: inherit;
+  font-size: clamp(0.57rem, 2.15vw, 0.66rem);
+  font-weight: 460;
+  letter-spacing: 0.015em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.setup-finish-day-button:is(:hover, :focus-visible) {
+  border-color: rgba(210, 181, 246, 0.34);
+  background: rgba(27, 16, 49, 0.34);
+  color: rgba(242, 233, 250, 0.94);
+  outline: none;
+}
+
+/* Keep Back visually separate from the optional finish action. */
+.setup-step-activities .setup-day-builder > .setup-finish-day-button + .setup-back {
+  margin-top: 7px !important;
+}
+
 @media (max-width: 360px) {
   .setup-copy-day-button {
     min-width: 116px;
     margin-bottom: 11px;
     padding: 6px 10px 7px;
     font-size: 0.6rem;
+  }
+
+  .setup-finish-day-button {
+    min-width: 108px;
+    margin-top: 6px;
+    padding: 4px 9px 5px;
+    font-size: 0.56rem;
   }
 }
