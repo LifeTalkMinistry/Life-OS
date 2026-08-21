@@ -44,6 +44,7 @@ function saveLifeProfile(profile) {
 function createActivityDraft() {
   return {
     name: '',
+    icon: 'general',
     start: '',
     end: ''
   };
@@ -266,9 +267,14 @@ function handleSetupAction(dataset) {
     return startActivityBuilder();
   }
 
+  if (dataset.setupActivityIcon) {
+    setupActivityDraft = { ...setupActivityDraft, icon: dataset.setupActivityIcon };
+    return render();
+  }
+
   if (dataset.setupAction === 'activity-add') {
     const name = setupActivityDraft.name.trim();
-    const { start, end } = setupActivityDraft;
+    const { icon, start, end } = setupActivityDraft;
     if (!name || !start || !end || start === end) return;
 
     const conflict = findTimeConflict(lifeProfile, setupActivityDay, start, end);
@@ -277,6 +283,7 @@ function handleSetupAction(dataset) {
     const activity = {
       id: `activity-${Date.now()}-${lifeProfile.activities.length + 1}`,
       name: name.slice(0, 48),
+      icon: icon || 'general',
       days: [setupActivityDay],
       start,
       end
