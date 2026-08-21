@@ -1,5 +1,6 @@
 import { OrbArtwork } from './OrbArtwork.js';
 import { findTimeConflict } from '../state/lifeProfile.js';
+import { activityIconOptions, activityIconSvgMarkup } from '../activity-icons.js';
 
 const dayOptions = [
   { id: 1, label: 'M', short: 'Mon', name: 'Monday' },
@@ -11,17 +12,6 @@ const dayOptions = [
   { id: 0, label: 'S', short: 'Sun', name: 'Sunday' }
 ];
 
-const activityIconOptions = [
-  { id: 'general', label: 'General' },
-  { id: 'work', label: 'Work' },
-  { id: 'study', label: 'Study' },
-  { id: 'fitness', label: 'Fitness' },
-  { id: 'faith', label: 'Faith' },
-  { id: 'creative', label: 'Creative' },
-  { id: 'social', label: 'Social' },
-  { id: 'routine', label: 'Routine' }
-];
-
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -29,18 +19,6 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
-}
-
-function activityIconSvg(icon = 'general') {
-  const common = 'viewBox="0 0 24 24" aria-hidden="true" focusable="false"';
-  if (icon === 'work') return `<svg ${common}><rect x="4" y="7" width="16" height="11" rx="2"/><path d="M9 7V5h6v2M4 11h16M10 11v2h4v-2"/></svg>`;
-  if (icon === 'study') return `<svg ${common}><path d="M4 5.5c2.5-.7 5-.3 8 1.5v12c-3-1.8-5.5-2.2-8-1.5zM20 5.5c-2.5-.7-5-.3-8 1.5v12c3-1.8 5.5-2.2 8-1.5z"/></svg>`;
-  if (icon === 'fitness') return `<svg ${common}><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></svg>`;
-  if (icon === 'faith') return `<svg ${common}><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>`;
-  if (icon === 'creative') return `<svg ${common}><path d="m5 19 3.8-.8L18 9l-3-3-9.2 9.2zM13.8 7.2l3 3M5 19l2-2"/></svg>`;
-  if (icon === 'social') return `<svg ${common}><circle cx="9" cy="9" r="3"/><circle cx="16.5" cy="10" r="2.5"/><path d="M3.5 19c.6-3 2.5-4.5 5.5-4.5s4.9 1.5 5.5 4.5M14 15c2.9-.5 5 .8 6 4"/></svg>`;
-  if (icon === 'routine') return `<svg ${common}><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>`;
-  return `<svg ${common}><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg>`;
 }
 
 function backButton(action = 'back') {
@@ -250,8 +228,18 @@ function currentDayActivities(profile, day) {
     .sort((a, b) => a.start.localeCompare(b.start));
 }
 
+function iconButton(option, selected) {
+  return `
+    <button type="button" data-setup-activity-icon="${option.id}" class="${selected === option.id ? 'is-selected' : ''}" aria-label="${option.label}" title="${option.label}">
+      ${activityIconSvgMarkup(option.id)}
+    </button>
+  `;
+}
+
 function iconPicker(draft) {
   const selected = draft?.icon || 'general';
+  const quickOptions = activityIconOptions.filter((option) => option.quick);
+  const moreOptions = activityIconOptions.filter((option) => !option.quick);
   return `
     <div class="setup-activity-name-row">
       <label class="setup-focus-field setup-activity-name-field">
@@ -259,14 +247,18 @@ function iconPicker(draft) {
         <input type="text" maxlength="48" autocomplete="off" data-setup-draft-field="name" value="${escapeHtml(draft?.name)}" placeholder="Activity name">
       </label>
       <button type="button" class="setup-icon-picker-toggle" data-setup-icon-toggle aria-label="Choose activity icon" aria-expanded="false" title="Choose activity icon">
-        ${activityIconSvg(selected)}
+        ${activityIconSvgMarkup(selected)}
       </button>
       <div class="setup-icon-picker" data-setup-icon-picker hidden aria-label="Activity icons">
-        ${activityIconOptions.map((option) => `
-          <button type="button" data-setup-activity-icon="${option.id}" class="${selected === option.id ? 'is-selected' : ''}" aria-label="${option.label}" title="${option.label}">
-            ${activityIconSvg(option.id)}
-          </button>
-        `).join('')}
+        <div class="setup-icon-picker-grid setup-icon-picker-quick">
+          ${quickOptions.map((option) => iconButton(option, selected)).join('')}
+        </div>
+        <button type="button" class="setup-icon-more-toggle" data-setup-icon-more-toggle aria-expanded="false">More icons</button>
+        <div class="setup-icon-more-panel" data-setup-icon-more-panel hidden>
+          <div class="setup-icon-picker-grid">
+            ${moreOptions.map((option) => iconButton(option, selected)).join('')}
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -312,7 +304,7 @@ function activityEndContent(profile, draft, activityDay) {
       <p class="setup-eyebrow">${escapeHtml(dayName(activityDay).toUpperCase())}</p>
       <h1 class="setup-question setup-question-small">Until what time?</h1>
       <div class="setup-selected-activity">
-        <span class="setup-day-list-icon">${activityIconSvg(draft?.icon)}</span>
+        <span class="setup-day-list-icon">${activityIconSvgMarkup(draft?.icon)}</span>
         <span>${escapeHtml(draft?.name)}</span>
       </div>
       <div class="setup-time-grid setup-time-grid-single">
@@ -331,7 +323,7 @@ function reviewContent(profile) {
     : '';
   const activitySummary = dayOptions.map((day) => currentDayActivities(profile, day.id).map((activity) => `
     <button type="button" disabled>
-      <span class="setup-day-list-icon">${activityIconSvg(activity.icon)}</span>
+      <span class="setup-day-list-icon">${activityIconSvgMarkup(activity.icon)}</span>
       <span>${escapeHtml(`${day.short} · ${activity.name} · ${formatTime(activity.start)}–${formatTime(activity.end)}`)}</span>
     </button>
   `).join('')).join('');
@@ -484,7 +476,7 @@ export function LifeSetupOrb({ step, profile, activityDraft, activityDay = 1, on
   orb.querySelectorAll('button').forEach((button) => {
     button.addEventListener('click', (event) => {
       event.stopPropagation();
-      if (button.dataset.setupIconToggle !== undefined) return;
+      if (button.dataset.setupIconToggle !== undefined || button.dataset.setupIconMoreToggle !== undefined) return;
       onAction?.(button.dataset);
     });
   });
@@ -496,6 +488,16 @@ export function LifeSetupOrb({ step, profile, activityDraft, activityDay = 1, on
     if (!iconPickerNode) return;
     iconPickerNode.hidden = !iconPickerNode.hidden;
     iconToggle.setAttribute('aria-expanded', iconPickerNode.hidden ? 'false' : 'true');
+  });
+
+  const iconMoreToggle = orb.querySelector('[data-setup-icon-more-toggle]');
+  const iconMorePanel = orb.querySelector('[data-setup-icon-more-panel]');
+  iconMoreToggle?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (!iconMorePanel) return;
+    iconMorePanel.hidden = !iconMorePanel.hidden;
+    iconMoreToggle.setAttribute('aria-expanded', iconMorePanel.hidden ? 'false' : 'true');
+    iconMoreToggle.textContent = iconMorePanel.hidden ? 'More icons' : 'Fewer icons';
   });
 
   orb.querySelectorAll('[data-setup-field]').forEach((input) => {
