@@ -37,9 +37,27 @@ const html = `<!doctype html>
     <meta name="theme-color" content="#030307" />
     <meta name="color-scheme" content="dark" />
     <meta name="description" content="LIFE OS — Control your life." />
+    <meta name="application-name" content="LIFE OS" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="LIFE OS" />
+    <meta name="format-detection" content="telephone=no" />
     <title>LIFE OS — Control your life.</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='25' fill='%23070416' stroke='%239d67ff' stroke-width='4'/%3E%3Ccircle cx='23' cy='25' r='7' fill='%23596dff' opacity='.85'/%3E%3C/svg%3E" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./pwa/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./pwa/icon-192.png" />
     <style>${css}</style>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js', {
+            scope: './',
+            updateViaCache: 'none'
+          }).catch(() => {});
+        });
+      }
+    </script>
   </head>
   <body>
     <main id="app" aria-live="polite"></main>
@@ -54,5 +72,10 @@ writeFileSync('dist/index.html', html);
 if (existsSync('src/assets')) {
   cpSync('src/assets', 'dist/assets', { recursive: true });
 }
+if (existsSync('pwa')) {
+  cpSync('pwa', 'dist/pwa', { recursive: true });
+}
+cpSync('manifest.webmanifest', 'dist/manifest.webmanifest');
+cpSync('sw.js', 'dist/sw.js');
 
 console.log('Built self-contained LIFE OS V1 into dist/index.html.');
