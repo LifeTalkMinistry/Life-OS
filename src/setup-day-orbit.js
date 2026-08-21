@@ -1,5 +1,5 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const ORBIT_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
 function parseTime(time) {
   const [hour, minute] = String(time || '00:00').split(':').map(Number);
@@ -132,7 +132,7 @@ function fragmentsForDay(profile, day) {
       icon: 'sleep',
       start: profile.sleepStart,
       end: profile.sleepEnd
-    }, ALL_DAYS, day));
+    }, ORBIT_DAYS, day));
   }
 
   if (profile.hasFixedSchedule && profile.fixedStart && profile.fixedEnd) {
