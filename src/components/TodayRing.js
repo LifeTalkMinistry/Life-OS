@@ -15,6 +15,15 @@ function positionForTime(time) {
   };
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function iconForActivity(id) {
   const icons = {
     devotion: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5c2.5-.8 5-.3 8 1.7v11c-3-2-5.5-2.5-8-1.7z"/><path d="M20 5.5c-2.5-.8-5-.3-8 1.7v11c3-2 5.5-2.5 8-1.7z"/></svg>',
@@ -22,7 +31,10 @@ function iconForActivity(id) {
     'clara-outreach': '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 4 2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.3-4.5 2.3.9-5-3.6-3.5 5-.7z"/></svg>',
     workout: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4M6 8v8M18 8v8M21 10v4M6 12h12"/></svg>',
     family: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="2.5"/><circle cx="16.5" cy="9" r="2"/><path d="M4.5 18c.5-3 2-4.5 4.5-4.5s4 1.5 4.5 4.5M14 14.5c2.5-.8 4.5.5 5.5 3.5"/></svg>',
-    work: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="10" rx="2"/><path d="M9 8V6h6v2M4 12.5c4.5 2 11.5 2 16 0M10.5 13h3"/></svg>'
+    work: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="10" rx="2"/><path d="M9 8V6h6v2M4 12.5c4.5 2 11.5 2 16 0M10.5 13h3"/></svg>',
+    'current-focus': '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
+    'fixed-schedule': '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="7" width="16" height="11" rx="2"/><path d="M8 7V5h8v2M4 11h16"/></svg>',
+    sleep: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 15.5A7.5 7.5 0 0 1 8.5 5a7.5 7.5 0 1 0 10.5 10.5Z"/></svg>'
   };
   return icons[id] || '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/></svg>';
 }
@@ -53,8 +65,8 @@ export function TodayRing(activities, currentId) {
     node.style.top = `${y}%`;
     node.innerHTML = `
       <span class="activity-node-dot" aria-hidden="true">${iconForActivity(activity.id)}</span>
-      <span class="activity-node-time">${activity.timeLabel}</span>
-      <span class="activity-node-title">${activity.shortTitle}</span>
+      <span class="activity-node-time">${escapeHtml(activity.timeLabel)}</span>
+      <span class="activity-node-title">${escapeHtml(activity.shortTitle)}</span>
     `;
     ring.appendChild(node);
   });
