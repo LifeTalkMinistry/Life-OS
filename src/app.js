@@ -25,6 +25,11 @@ import {
 
 const app = document.querySelector('#app');
 const ACTIVITY_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const ANCHOR_PRE_FIXED = 'anchor-pre-fixed';
+const ANCHOR_PRE_SLEEP = 'anchor-pre-sleep';
+const ANCHOR_HOME = 'anchor-home-arrival';
+const ANCHOR_IDS = new Set([ANCHOR_PRE_FIXED, ANCHOR_PRE_SLEEP, ANCHOR_HOME]);
 
 function loadLifeProfile() {
   try {
@@ -41,13 +46,63 @@ function saveLifeProfile(profile) {
   } catch {}
 }
 
-function createActivityDraft() {
+function createActivityDraft(start = '') {
   return {
     name: '',
     icon: 'general',
-    start: '',
+    start,
     end: ''
   };
+}
+
+function isAnchorActivity(activity) {
+  return ANCHOR_IDS.has(activity?.id);
+}
+
+function anchorActivity(profile, id) {
+  return profile.activities.find((activity) => activity.id === id) ?? null;
+}
+
+function fixedSubject(kind) {
+  if (kind === 'school') return 'school';
+  if (kind === 'both') return 'work / school';
+  return 'work';
+}
+
+function upsertAnchorActivity(id, name, days, start, end, icon = 'routine') {
+  const anchor = {
+    id,
+    name,
+    icon,
+    days: [...days],
+    start,
+    end
+  };
+  lifeProfile = {
+    ...lifeProfile,
+    activities: [...lifeProfile.activities.filter((activity) => activity.id !== id), anchor]
+  };
+}
+
+function activityCursorForDay(day) {
+  const home = anchorActivity(lifeProfile, ANCHOR_HOME);
+  const fixedDay = lifeProfile.hasFixedSchedule && lifeProfile.fixedDays.includes(day);
+  let cursor = fixedDay && home?.end ? home.end : lifeProfile.sleepEnd;
+
+  const custom = lifeProfile.activities
+    .filter((activity) => !isAnchorActivity(activity) && activity.days.includes(day))
+    .sort((a, b) => a.start.localeCompare(b.start));
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const next = custom.find((activity) => activity.start === cursor);
+    if (next) {
+      cursor = next.end;
+      changed = true;
+    }
+  }
+  return cursor;
 }
 
 let lifeProfile = loadLifeProfile();
@@ -61,6 +116,7 @@ let hintVisible = true;
 let setupStep = 'welcome';
 let setupHistory = [];
 let setupActivityDay = 1;
+let setupActivityCursor = '';
 let setupActivityDraft = createActivityDraft();
 let completionTimer = null;
 let launchTimer = null;
@@ -133,13 +189,18 @@ function goSetupBack() {
   render();
 }
 
-function resetActivityDraft() {
-  setupActivityDraft = createActivityDraft();
+function resetActivityDraft(start = '') {
+  setupActivityDraft = createActivityDraft(start);
+}
+
+function setActivityDay(day) {
+  setupActivityDay = day;
+  setupActivityCursor = activityCursorForDay(day);
+  resetActivityDraft(setupActivityCursor);
 }
 
 function startActivityBuilder() {
-  setupActivityDay = 1;
-  resetActivityDraft();
+  setActivityDay(1);
   goSetup('activities');
 }
 
@@ -164,6 +225,7 @@ function finishLifeSetup() {
   setupStep = 'welcome';
   setupHistory = [];
   setupActivityDay = 1;
+  setupActivityCursor = '';
   setupActivityDraft = createActivityDraft();
   orbMode = 'now';
   whyOpen = false;
@@ -184,6 +246,7 @@ function resetLifeSetup() {
   setupStep = 'welcome';
   setupHistory = [];
   setupActivityDay = 1;
+  setupActivityCursor = '';
   setupActivityDraft = createActivityDraft();
   orbMode = 'now';
   whyOpen = false;
@@ -264,12 +327,64 @@ function handleSetupAction(dataset) {
       ...lifeProfile,
       fixedGuidanceMode: dataset.setupScope === 'breakdown' ? 'breakdown' : 'outside'
     };
+    resetActivityDraft();
+    return goSetup('pre-fixed');
+  }
+
+  if (dataset.setupAction === 'pre-fixed-continue') {
+    const start = setupActivityDraft.start;
+    if (!start || start === lifeProfile.fixedStart) return;
+    const subject = fixedSubject(lifeProfile.fixedKind);
+    upsertAnchorActivity(
+      ANCHOR_PRE_FIXED,
+      `Prepare for ${subject}`,
+      lifeProfile.fixedDays,
+      start,
+      lifeProfile.fixedStart,
+      'routine'
+    );
+    resetActivityDraft();
+    return goSetup('pre-sleep');
+  }
+
+  if (dataset.setupAction === 'pre-sleep-continue') {
+    const start = setupActivityDraft.start;
+    if (!start || start === lifeProfile.sleepStart) return;
+    upsertAnchorActivity(
+      ANCHOR_PRE_SLEEP,
+      'Prepare for sleep',
+      ALL_DAYS,
+      start,
+      lifeProfile.sleepStart,
+      'routine'
+    );
+    resetActivityDraft();
+    return goSetup('home-arrival');
+  }
+
+  if (dataset.setupAction === 'home-arrival-continue') {
+    const end = setupActivityDraft.start;
+    if (!end || end === lifeProfile.fixedEnd) return;
+    upsertAnchorActivity(
+      ANCHOR_HOME,
+      'Travel home',
+      lifeProfile.fixedDays,
+      lifeProfile.fixedEnd,
+      end,
+      'routine'
+    );
     return startActivityBuilder();
   }
 
   if (dataset.setupActivityIcon) {
     setupActivityDraft = { ...setupActivityDraft, icon: dataset.setupActivityIcon };
     return render();
+  }
+
+  if (dataset.setupAction === 'activity-name-continue') {
+    const name = setupActivityDraft.name.trim();
+    if (!name || !setupActivityDraft.start) return;
+    return goSetup('activity-end');
   }
 
   if (dataset.setupAction === 'activity-add') {
@@ -289,34 +404,37 @@ function handleSetupAction(dataset) {
       end
     };
     lifeProfile = { ...lifeProfile, activities: [...lifeProfile.activities, activity] };
-    resetActivityDraft();
+    setupActivityCursor = end;
+    if (setupHistory[setupHistory.length - 1] === 'activities') setupHistory.pop();
+    setupStep = 'activities';
+    resetActivityDraft(setupActivityCursor);
     return render();
   }
 
   if (dataset.setupRemoveActivity) {
+    if (ANCHOR_IDS.has(dataset.setupRemoveActivity)) return;
     lifeProfile = {
       ...lifeProfile,
       activities: lifeProfile.activities.filter((activity) => activity.id !== dataset.setupRemoveActivity)
     };
+    setupActivityCursor = activityCursorForDay(setupActivityDay);
+    resetActivityDraft(setupActivityCursor);
     return render();
   }
 
   if (dataset.setupAction === 'activity-day-next') {
     const nextDay = nextActivityDay();
     if (nextDay !== null) {
-      setupActivityDay = nextDay;
-      resetActivityDraft();
+      setActivityDay(nextDay);
       return render();
     }
-    if (!lifeProfile.activities.length) return;
     return goSetup('review');
   }
 
   if (dataset.setupAction === 'activity-day-back') {
     const previousDay = previousActivityDay();
     if (previousDay !== null) {
-      setupActivityDay = previousDay;
-      resetActivityDraft();
+      setActivityDay(previousDay);
       return render();
     }
     resetActivityDraft();
@@ -326,13 +444,11 @@ function handleSetupAction(dataset) {
   if (dataset.setupAction === 'review-edit') {
     setupHistory.push(setupStep);
     setupStep = 'activities';
-    setupActivityDay = 1;
-    resetActivityDraft();
+    setActivityDay(1);
     return render();
   }
 
   if (dataset.setupAction === 'review-confirm') {
-    if (!lifeProfile.activities.length) return;
     setupHistory.push(setupStep);
     setupStep = 'ready';
     render();
@@ -553,6 +669,7 @@ window.__LIFE_OS__ = {
     lifeProfile,
     setupStep,
     setupActivityDay,
+    setupActivityCursor,
     setupActivityDraft
   }),
   reset: () => {
