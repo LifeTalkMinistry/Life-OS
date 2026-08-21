@@ -1,3 +1,5 @@
+import { activityIconSvgMarkup } from './activity-icons.js';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const HALF_DAY_MINUTES = 720;
 const FULL_DAY_MINUTES = 1440;
@@ -39,28 +41,10 @@ function fixedLabel(kind) {
   return 'WORK';
 }
 
-function iconSvg(icon = 'general') {
-  const common = 'viewBox="0 0 24 24" aria-hidden="true" focusable="false"';
-  if (icon === 'work' || icon === 'fixed') return `<svg ${common}><rect x="4" y="7" width="16" height="11" rx="2"/><path d="M9 7V5h6v2M4 11h16M10 11v2h4v-2"/></svg>`;
-  if (icon === 'study') return `<svg ${common}><path d="M4 5.5c2.5-.7 5-.3 8 1.5v12c-3-1.8-5.5-2.2-8-1.5zM20 5.5c-2.5-.7-5-.3-8 1.5v12c3-1.8 5.5-2.2 8-1.5z"/></svg>`;
-  if (icon === 'fitness') return `<svg ${common}><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></svg>`;
-  if (icon === 'faith') return `<svg ${common}><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>`;
-  if (icon === 'creative') return `<svg ${common}><path d="m5 19 3.8-.8L18 9l-3-3-9.2 9.2zM13.8 7.2l3 3M5 19l2-2"/></svg>`;
-  if (icon === 'social') return `<svg ${common}><circle cx="9" cy="9" r="3"/><circle cx="16.5" cy="10" r="2.5"/><path d="M3.5 19c.6-3 2.5-4.5 5.5-4.5s4.9 1.5 5.5 4.5M14 15c2.9-.5 5 .8 6 4"/></svg>`;
-  if (icon === 'routine') return `<svg ${common}><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>`;
-  if (icon === 'sleep') return `<svg ${common}><path d="M19 15.5A7.5 7.5 0 0 1 8.5 5a7.5 7.5 0 1 0 10.5 10.5Z"/></svg>`;
-  return `<svg ${common}><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg>`;
-}
-
 function finishIconSvg() {
   return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 20V4M8 5h9l-2.2 3L17 11H8"/></svg>';
 }
 
-/*
- * Two standard 12-hour clocks share the same angles:
- * 12 = top, 3 = right, 6 = bottom, 9 = left.
- * Inner ring is AM; outer ring is PM.
- */
 function positionForClockMinute(clockMinute, period) {
   const normalizedClockMinute = ((clockMinute % HALF_DAY_MINUTES) + HALF_DAY_MINUTES) % HALF_DAY_MINUTES;
   const degrees = (normalizedClockMinute / HALF_DAY_MINUTES) * 360;
@@ -79,7 +63,6 @@ function blockDuration(start, end) {
   return ((endMinute - startMinute) + FULL_DAY_MINUTES) % FULL_DAY_MINUTES;
 }
 
-/* Split at noon/midnight so every line segment lives on the correct ring. */
 function segmentsForBlock(block) {
   const startMinute = parseTime(block.start);
   const duration = blockDuration(block.start, block.end);
@@ -154,7 +137,7 @@ function createStartNode(block, shell) {
 
   const dot = document.createElement('span');
   dot.className = 'setup-day-orbit-dot';
-  dot.innerHTML = iconSvg(block.icon);
+  dot.innerHTML = activityIconSvgMarkup(block.icon);
 
   const time = document.createElement('span');
   time.className = 'setup-day-orbit-time';
@@ -176,7 +159,6 @@ function createStartNode(block, shell) {
   return node;
 }
 
-/* One universal finish flag marks the exact end of every block. */
 function createEndMarker(block) {
   const endMinute = parseTime(block.end);
   const period = periodForMinute(endMinute);
