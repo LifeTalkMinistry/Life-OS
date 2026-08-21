@@ -1,13 +1,40 @@
 export const LIFE_PROFILE_STORAGE_KEY = 'life-os-v1-profile';
 
-export const priorityOptions = [
-  { id: 'faith', label: 'Faith' },
-  { id: 'family', label: 'Family' },
-  { id: 'health', label: 'Health' },
-  { id: 'learning', label: 'Learning' },
-  { id: 'business', label: 'Side project' },
-  { id: 'creative', label: 'Creative' }
-];
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+function normalizeDays(value, fallback = []) {
+  if (!Array.isArray(value)) return [...fallback];
+  return [...new Set(value.map(Number).filter((day) => day >= 0 && day <= 6))];
+}
+
+function normalizeTime(value, fallback = '') {
+  const text = String(value ?? '');
+  const match = /^(\d{2}):(\d{2})$/.exec(text);
+  if (!match) return fallback;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 ? text : fallback;
+}
+
+function normalizeActivities(value) {
+  if (!Array.isArray(value)) return [];
+
+  return value.slice(0, 12).map((activity, index) => {
+    const name = String(activity?.name ?? '').trim().slice(0, 48);
+    const days = normalizeDays(activity?.days);
+    const start = normalizeTime(activity?.start);
+    const end = normalizeTime(activity?.end);
+    if (!name || !days.length || !start || !end || start === end) return null;
+
+    return {
+      id: String(activity?.id || `activity-${index + 1}`),
+      name,
+      days,
+      start,
+      end
+    };
+  }).filter(Boolean);
+}
 
 export function createEmptyLifeProfile() {
   return {
@@ -20,39 +47,31 @@ export function createEmptyLifeProfile() {
     fixedEnd: '17:00',
     sleepStart: '23:00',
     sleepEnd: '07:00',
-    priorities: [],
-    nonNegotiables: [],
-    currentFocus: '',
-    focusMinutes: 60
+    fixedGuidanceMode: 'outside',
+    activities: []
   };
 }
 
 export function normalizeLifeProfile(value = {}) {
   const base = createEmptyLifeProfile();
-  const fixedDays = Array.isArray(value.fixedDays)
-    ? [...new Set(value.fixedDays.map(Number).filter((day) => day >= 0 && day <= 6))]
-    : base.fixedDays;
-  const priorities = Array.isArray(value.priorities)
-    ? value.priorities.filter((id) => priorityOptions.some((item) => item.id === id)).slice(0, 4)
-    : [];
-  const nonNegotiables = Array.isArray(value.nonNegotiables)
-    ? value.nonNegotiables.filter((id) => priorities.includes(id)).slice(0, 2)
-    : [];
+  const hasFixedSchedule = value.hasFixedSchedule === true || value.hasFixedSchedule === false
+    ? value.hasFixedSchedule
+    : null;
 
   return {
-    ...base,
-    ...value,
     version: 1,
-    hasFixedSchedule: value.hasFixedSchedule === true || value.hasFixedSchedule === false
-      ? value.hasFixedSchedule
-      : null,
+    setupComplete: value.setupComplete === true,
+    hasFixedSchedule,
     fixedKind: ['work', 'school', 'both'].includes(value.fixedKind) ? value.fixedKind : base.fixedKind,
-    fixedDays,
-    priorities,
-    nonNegotiables,
-    currentFocus: String(value.currentFocus ?? '').trim().slice(0, 48),
-    focusMinutes: [30, 60, 90].includes(Number(value.focusMinutes)) ? Number(value.focusMinutes) : 60,
-    setupComplete: value.setupComplete === true
+    fixedDays: normalizeDays(value.fixedDays, base.fixedDays),
+    fixedStart: normalizeTime(value.fixedStart, base.fixedStart),
+    fixedEnd: normalizeTime(value.fixedEnd, base.fixedEnd),
+    sleepStart: normalizeTime(value.sleepStart, base.sleepStart),
+    sleepEnd: normalizeTime(value.sleepEnd, base.sleepEnd),
+    fixedGuidanceMode: ['outside', 'breakdown'].includes(value.fixedGuidanceMode)
+      ? value.fixedGuidanceMode
+      : base.fixedGuidanceMode,
+    activities: normalizeActivities(value.activities)
   };
 }
 
@@ -64,8 +83,7 @@ export function isLifeProfileComplete(profile) {
   return value.setupComplete
     && fixedReady
     && Boolean(value.sleepStart && value.sleepEnd)
-    && value.priorities.length > 0
-    && Boolean(value.currentFocus);
+    && value.activities.length > 0;
 }
 
 export function fixedKindLabel(kind) {
@@ -74,6 +92,4 @@ export function fixedKindLabel(kind) {
   return 'WORK';
 }
 
-export function priorityLabel(id) {
-  return priorityOptions.find((item) => item.id === id)?.label ?? id;
-}
+export const allDays = ALL_DAYS;
