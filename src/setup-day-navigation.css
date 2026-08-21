@@ -139,6 +139,60 @@
   margin-top: 9px;
 }
 
+/* The icon picker shows eight everyday choices first. More opens the full
+ * library in a small scrollable panel rather than flooding the Orb. */
+.setup-icon-picker {
+  width: 138px;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 5px !important;
+}
+
+.setup-icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 28px);
+  gap: 4px;
+}
+
+.setup-icon-more-toggle {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 22px;
+  padding: 4px 5px !important;
+  border-radius: 7px !important;
+  color: rgba(207, 191, 229, 0.8) !important;
+  font-size: 0.54rem !important;
+  font-weight: 520;
+  letter-spacing: 0.04em;
+}
+
+.setup-icon-more-toggle:is(:hover, :focus-visible) {
+  color: #eadcff !important;
+  border-color: rgba(215, 183, 255, 0.62) !important;
+  outline: none;
+}
+
+.setup-icon-more-panel[hidden] {
+  display: none !important;
+}
+
+.setup-icon-more-panel {
+  max-height: 132px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(175, 132, 235, 0.32) transparent;
+}
+
+.setup-icon-more-panel::-webkit-scrollbar {
+  width: 3px;
+}
+
+.setup-icon-more-panel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(175, 132, 235, 0.32);
+}
+
 @media (max-width: 360px) {
   .setup-step-activities .setup-safe-zone.is-wide {
     inset: 12% 9% 13%;
@@ -161,5 +215,9 @@
 
   .setup-step-activity-end .setup-safe-zone.is-wide {
     inset: 11% 9% 13%;
+  }
+
+  .setup-icon-more-panel {
+    max-height: 108px;
   }
 }
