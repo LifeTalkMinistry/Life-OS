@@ -196,9 +196,12 @@ function createStartNode(block, shell) {
   return node;
 }
 
+/*
+ * Every block gets a visible finish point. The start keeps the full icon/name;
+ * the end stays compact and explicitly says END + time so it cannot be mistaken
+ * for another activity.
+ */
 function createEndMarker(block) {
-  if (!['fixed', 'sleep'].includes(block.kind)) return null;
-
   const endMinute = parseTime(block.end);
   const period = periodForMinute(endMinute);
   const clockMinute = clockMinuteForMinute(endMinute);
@@ -214,7 +217,7 @@ function createEndMarker(block) {
   dot.className = 'setup-day-orbit-endpoint-dot';
   const time = document.createElement('span');
   time.className = 'setup-day-orbit-endpoint-time';
-  time.textContent = shortTimeFromMinutes(endMinute);
+  time.textContent = `END ${shortTimeFromMinutes(endMinute)}`;
   marker.append(dot, time);
   return marker;
 }
@@ -307,9 +310,7 @@ function buildOrbit(profile, day, shell) {
   blocksForDay(profile, day).forEach((block) => {
     segmentsForBlock(block).forEach((segment) => svg.appendChild(createArc(segment)));
     ring.appendChild(createStartNode(block, shell));
-
-    const endMarker = createEndMarker(block);
-    if (endMarker) ring.appendChild(endMarker);
+    ring.appendChild(createEndMarker(block));
   });
 
   return ring;
