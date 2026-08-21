@@ -21,6 +21,7 @@ test('completed V1 profile requires reality, sleep, and at least one timed activ
       {
         id: 'devotion',
         name: 'Daily Devotion',
+        icon: 'faith',
         days: [0, 1, 2, 3, 4, 5, 6],
         start: '10:00',
         end: '10:30'
@@ -29,17 +30,19 @@ test('completed V1 profile requires reality, sleep, and at least one timed activ
   });
   assert.equal(isLifeProfileComplete(profile), true);
   assert.equal(profile.activities[0].name, 'Daily Devotion');
+  assert.equal(profile.activities[0].icon, 'faith');
 });
 
-test('profile normalization drops invalid activities and cleans days', () => {
+test('profile normalization drops invalid activities, cleans days, and defaults invalid icons', () => {
   const profile = normalizeLifeProfile({
     activities: [
-      { id: 'learning', name: 'Learning', days: [1, 1, 8, -1, 3], start: '18:00', end: '19:00' },
+      { id: 'learning', name: 'Learning', icon: 'not-an-icon', days: [1, 1, 8, -1, 3], start: '18:00', end: '19:00' },
       { id: 'bad', name: '', days: [1], start: '18:00', end: '19:00' }
     ]
   });
   assert.equal(profile.activities.length, 1);
   assert.deepEqual(profile.activities[0].days, [1, 3]);
+  assert.equal(profile.activities[0].icon, 'general');
 });
 
 test('activity time cannot overlap another activity on the same day', () => {
