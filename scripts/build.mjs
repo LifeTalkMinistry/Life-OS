@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
 const scriptOrder = [
   'src/data/activities.js',
@@ -49,4 +49,9 @@ const html = `<!doctype html>
 rmSync('dist', { recursive: true, force: true });
 mkdirSync('dist', { recursive: true });
 writeFileSync('dist/index.html', html);
+
+if (existsSync('src/assets')) {
+  cpSync('src/assets', 'dist/assets', { recursive: true });
+}
+
 console.log('Built self-contained LIFE OS V1 into dist/index.html.');
