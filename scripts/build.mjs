@@ -1,6 +1,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
 const scriptOrder = [
+  'src/activity-icons.js',
   'src/data/activities.js',
   'src/state/lifeProfile.js',
   'src/state/lifeState.js',
