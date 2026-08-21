@@ -39,7 +39,8 @@ const css = [
   readFileSync('src/setup-activity-end-back.css', 'utf8'),
   readFileSync('src/setup-icon-modal.css', 'utf8'),
   readFileSync('src/setup-copy-day.css', 'utf8'),
-  readFileSync('src/system-controls.css', 'utf8')
+  readFileSync('src/system-controls.css', 'utf8'),
+  readFileSync('src/today-ring-dual.css', 'utf8')
 ].join('\n\n');
 const js = scriptOrder
   .map((file) => `// ${file}\n${stripModuleSyntax(readFileSync(file, 'utf8'))}`)
