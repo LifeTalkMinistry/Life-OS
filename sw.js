@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-os-shell-v25';
+const CACHE_NAME = 'life-os-shell-v26';
 const BASE_URL = new URL('./', self.location.href);
 
 const toUrl = (path) => new URL(path, BASE_URL).href;
@@ -30,6 +30,21 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+async function networkFirst(request, fallbackUrl = null) {
+  try {
+    const response = await fetch(request);
+    if (response && response.status === 200 && response.type === 'basic') {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+    }
+    return response;
+  } catch {
+    return (await caches.match(request))
+      || (fallbackUrl ? await caches.match(fallbackUrl) : undefined)
+      || Response.error();
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
@@ -38,18 +53,15 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(toUrl('./index.html'), copy));
-          return response;
-        })
-        .catch(async () =>
-          (await caches.match(toUrl('./index.html'))) ||
-          (await caches.match(toUrl('./')))
-        )
-    );
+    event.respondWith(networkFirst(request, toUrl('./index.html')));
+    return;
+  }
+
+  /* JS and CSS must not come from an old cache while HTML points at a new
+   * build. Network-first avoids the mixed-version state that can blank/crash
+   * the app after rapid deploys. */
+  if (request.destination === 'script' || request.destination === 'style') {
+    event.respondWith(networkFirst(request));
     return;
   }
 
