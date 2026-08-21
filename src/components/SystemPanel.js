@@ -1,4 +1,4 @@
-import { fixedKindLabel } from '../state/lifeProfile.js';
+import { findTimeConflict, fixedKindLabel } from '../state/lifeProfile.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -186,6 +186,17 @@ function hasInvalidTimeRange(next, profile) {
   return next.activities.some((activity) => !activity.start || !activity.end || activity.start === activity.end);
 }
 
+function scheduleConflictMessage(next, profile) {
+  const nextProfile = { ...profile, ...next };
+  for (const activity of next.activities) {
+    for (const day of activity.days) {
+      const conflict = findTimeConflict(nextProfile, day, activity.start, activity.end, activity.id);
+      if (conflict) return `${activity.name} overlaps ${conflict.label}. Choose another time.`;
+    }
+  }
+  return '';
+}
+
 export function SystemPanel({ view = 'settings', profile, onClose, onNavigate, onSaveTimes, onReset }) {
   const backdrop = document.createElement('div');
   backdrop.className = 'system-backdrop';
@@ -214,6 +225,13 @@ export function SystemPanel({ view = 'settings', profile, onClose, onNavigate, o
       if (error) error.textContent = 'Start and end times must be different.';
       return;
     }
+
+    const conflictMessage = scheduleConflictMessage(next, profile);
+    if (conflictMessage) {
+      if (error) error.textContent = conflictMessage;
+      return;
+    }
+
     onSaveTimes?.(next);
   });
 
