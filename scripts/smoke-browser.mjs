@@ -111,6 +111,40 @@ try {
   await evaluate(`document.open(); document.write(${JSON.stringify(builtHtml)}); document.close();`);
   await sleep(2200);
 
+  // First-time setup begins inside the orb.
+  await assertText('.setup-hero', 'READY TOTAKE CONTROL?');
+  await evaluate('document.querySelector(".setup-orb").click()');
+  await assertText('.setup-question', 'Do you have a fixed work or school schedule?');
+  await evaluate('document.querySelector("button[data-setup-fixed=no]").click()');
+  await assertText('.setup-question', 'When do you usually sleep?');
+  await evaluate(`(() => {
+    const sleep = document.querySelector('[data-setup-field="sleepStart"]');
+    const wake = document.querySelector('[data-setup-field="sleepEnd"]');
+    sleep.value = '23:00'; sleep.dispatchEvent(new Event('input', {bubbles:true}));
+    wake.value = '07:00'; wake.dispatchEvent(new Event('input', {bubbles:true}));
+  })()`);
+  await evaluate('document.querySelector("button[data-setup-action=sleep-continue]").click()');
+  await evaluate('document.querySelector("button[data-setup-priority=health]").click()');
+  await evaluate('document.querySelector("button[data-setup-priority=business]").click()');
+  await evaluate('document.querySelector("button[data-setup-action=priorities-continue]").click()');
+  await evaluate('document.querySelector("button[data-setup-nonneg=health]").click()');
+  await evaluate('document.querySelector("button[data-setup-action=nonneg-continue]").click()');
+  await assertText('.setup-question', 'What are you trying to move forward right now?');
+  await evaluate(`(() => {
+    const input = document.querySelector('[data-setup-field="currentFocus"]');
+    input.value = 'Launch newsletter';
+    input.dispatchEvent(new Event('input', {bubbles:true}));
+  })()`);
+  await evaluate('document.querySelector("button[data-setup-action=focus-continue]").click()');
+  await assertText('.setup-question', 'How much focused time should LIFE OS protect?');
+  await evaluate("document.querySelector('button[data-setup-minutes=\"60\"]')?.click()");
+  await assertText('.setup-eyebrow', 'LIFE OS IS READY');
+  await sleep(1080);
+  await assertText('.orb-kicker', 'WHAT MATTERS NOW');
+  assert.equal(await evaluate('window.__LIFE_OS__.getState().lifeProfile.currentFocus'), 'Launch newsletter');
+
+  // Reset to the deterministic demo state for the core gesture regression suite.
+  await reset();
   await assertText('.orb-title', 'CLARAOUTREACH');
 
   // Single tap -> WHY
