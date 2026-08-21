@@ -1,4 +1,4 @@
-/* Activity Setup: the Orb is for creating the next activity; the day map lives outside it. */
+/* Activity Setup: the Orb creates the next activity; the 24-hour day map stays outside it. */
 .setup-step-activities .setup-day-list,
 .setup-step-activities .setup-day-builder > .setup-help:not(.setup-time-conflict) {
   display: none !important;
@@ -6,25 +6,26 @@
 
 .setup-day-orbit {
   position: absolute;
-  inset: 0;
+  inset: -5%;
   z-index: 2;
   border-radius: 50%;
   pointer-events: none;
   animation: ring-in 280ms ease both;
 }
 
+/* Hour ticks live well beyond the physical sphere. 24 ticks = one per hour. */
 .setup-day-orbit-ticks {
   position: absolute;
-  inset: 7.5%;
+  inset: 3.5%;
   border-radius: 50%;
-  opacity: 0.48;
+  opacity: 0.5;
   background: repeating-conic-gradient(
-    from -0.6deg,
-    rgba(190, 157, 255, 0.72) 0deg 0.55deg,
-    transparent 0.55deg 15deg
+    from -0.45deg,
+    rgba(190, 157, 255, 0.74) 0deg 0.5deg,
+    transparent 0.5deg 15deg
   );
-  -webkit-mask: radial-gradient(circle, transparent 0 48.1%, #000 48.4% 49.2%, transparent 49.5%);
-  mask: radial-gradient(circle, transparent 0 48.1%, #000 48.4% 49.2%, transparent 49.5%);
+  -webkit-mask: radial-gradient(circle, transparent 0 48.25%, #000 48.55% 49.15%, transparent 49.45%);
+  mask: radial-gradient(circle, transparent 0 48.25%, #000 48.55% 49.15%, transparent 49.45%);
   filter: drop-shadow(0 0 5px rgba(125, 79, 255, 0.26));
 }
 
@@ -37,9 +38,9 @@
 }
 
 .setup-day-orbit-arc {
-  stroke-width: 1.15;
+  stroke-width: 1.1;
   stroke-linecap: round;
-  opacity: 0.72;
+  opacity: 0.74;
   vector-effect: non-scaling-stroke;
   filter: drop-shadow(0 0 1.8px currentColor);
 }
@@ -54,9 +55,10 @@
 
 .setup-day-orbit-arc.is-activity {
   stroke: rgba(188, 132, 255, 0.96);
-  stroke-width: 1.55;
+  stroke-width: 1.5;
 }
 
+/* Fixed 24-hour anchors: midnight top, 6 AM right, noon bottom, 6 PM left. */
 .setup-day-orbit-marker {
   position: absolute;
   z-index: 3;
@@ -69,26 +71,26 @@
 }
 
 .setup-day-orbit-marker.is-top {
-  top: 6.5%;
+  top: 1.6%;
   left: 50%;
   transform: translateX(-50%);
 }
 
 .setup-day-orbit-marker.is-right {
   top: 50%;
-  right: 6%;
+  right: 1.25%;
   transform: translateY(-50%);
 }
 
 .setup-day-orbit-marker.is-bottom {
-  bottom: 6.5%;
+  bottom: 1.6%;
   left: 50%;
   transform: translateX(-50%);
 }
 
 .setup-day-orbit-marker.is-left {
   top: 50%;
-  left: 6%;
+  left: 1.25%;
   transform: translateY(-50%);
 }
 
@@ -96,7 +98,7 @@
   appearance: none;
   position: absolute;
   z-index: 5;
-  width: clamp(58px, 16vw, 74px);
+  width: clamp(58px, 16vw, 76px);
   min-width: 0;
   padding: 0;
   border: 0;
@@ -104,7 +106,7 @@
   transform: translate(-50%, -50%);
   display: grid;
   justify-items: center;
-  color: rgba(223, 216, 233, 0.9);
+  color: rgba(223, 216, 233, 0.92);
   text-align: center;
   pointer-events: none;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.95);
@@ -117,27 +119,27 @@ button.setup-day-orbit-node.is-activity {
 }
 
 .setup-day-orbit-dot {
-  width: clamp(24px, 6.4vw, 30px);
+  width: clamp(24px, 6.4vw, 31px);
   aspect-ratio: 1;
   margin-bottom: 2px;
   display: grid;
   place-items: center;
   border: 1px solid rgba(177, 132, 255, 0.62);
   border-radius: 50%;
-  background: rgba(5, 3, 18, 0.9);
+  background: rgba(5, 3, 18, 0.94);
   box-shadow: 0 0 8px rgba(112, 78, 255, 0.24);
 }
 
 .setup-day-orbit-node.is-sleep .setup-day-orbit-dot {
-  border-color: rgba(118, 139, 255, 0.68);
+  border-color: rgba(118, 139, 255, 0.72);
 }
 
 .setup-day-orbit-node.is-fixed .setup-day-orbit-dot {
-  border-color: rgba(238, 124, 201, 0.58);
+  border-color: rgba(238, 124, 201, 0.64);
 }
 
 .setup-day-orbit-node.is-activity .setup-day-orbit-dot {
-  border-color: rgba(205, 161, 255, 0.95);
+  border-color: rgba(205, 161, 255, 0.96);
   box-shadow: 0 0 8px rgba(134, 83, 255, 0.48), 0 0 17px rgba(134, 83, 255, 0.18);
 }
 
@@ -152,7 +154,7 @@ button.setup-day-orbit-node.is-activity {
 }
 
 .setup-day-orbit-time {
-  color: rgba(196, 150, 255, 0.88);
+  color: rgba(196, 150, 255, 0.92);
   font-size: clamp(0.45rem, 1.7vw, 0.56rem);
   line-height: 1.05;
 }
@@ -161,11 +163,46 @@ button.setup-day-orbit-node.is-activity {
   max-width: 72px;
   margin-top: 1px;
   overflow: hidden;
-  color: rgba(236, 231, 242, 0.9);
+  color: rgba(236, 231, 242, 0.92);
   font-size: clamp(0.46rem, 1.75vw, 0.58rem);
   line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* End markers show where protected/fixed blocks actually finish without duplicating the activity label. */
+.setup-day-orbit-endpoint {
+  position: absolute;
+  z-index: 4;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  pointer-events: none;
+  color: rgba(206, 191, 221, 0.8);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.95);
+}
+
+.setup-day-orbit-endpoint-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 7px currentColor;
+}
+
+.setup-day-orbit-endpoint.is-fixed {
+  color: rgba(238, 124, 201, 0.76);
+}
+
+.setup-day-orbit-endpoint.is-sleep {
+  color: rgba(124, 144, 255, 0.82);
+}
+
+.setup-day-orbit-endpoint-time {
+  color: rgba(223, 215, 232, 0.76);
+  font-size: clamp(0.42rem, 1.55vw, 0.53rem);
+  line-height: 1;
 }
 
 button.setup-day-orbit-node.is-activity:is(:hover, :focus-visible) .setup-day-orbit-dot {
@@ -187,6 +224,10 @@ button.setup-day-orbit-node.is-activity:focus-visible {
 }
 
 @media (max-width: 360px) {
+  .setup-day-orbit {
+    inset: -3%;
+  }
+
   .setup-day-orbit-node {
     width: 54px;
   }
