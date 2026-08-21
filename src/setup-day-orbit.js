@@ -34,11 +34,15 @@ function iconSvg(icon = 'general') {
   return `<svg ${common}><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg>`;
 }
 
-function fragmentPosition(fragment) {
-  const midpoint = fragment.startMinute + ((fragment.endMinute - fragment.startMinute) / 2);
-  const degrees = (midpoint / 1440) * 360;
+/*
+ * LIFE OS uses a true 24-hour clock around the setup Orb:
+ * 00:00 = top, 06:00 = right, 12:00 = bottom, 18:00 = left.
+ * Every visible time is positioned from the exact minute it represents.
+ */
+function positionForMinute(minute, radius = 45.5) {
+  const normalized = ((minute % 1440) + 1440) % 1440;
+  const degrees = (normalized / 1440) * 360;
   const radians = (degrees * Math.PI) / 180;
-  const radius = 41.5;
   return {
     x: 50 + Math.sin(radians) * radius,
     y: 50 - Math.cos(radians) * radius,
@@ -53,16 +57,43 @@ function fragmentsForRecurring(block, days, day) {
   const previousDay = (day + 6) % 7;
 
   if (start < end) {
-    if (days.includes(day)) fragments.push({ ...block, startMinute: start, endMinute: end });
+    if (days.includes(day)) {
+      fragments.push({
+        ...block,
+        startMinute: start,
+        endMinute: end,
+        carried: false,
+        actualStartMinute: start,
+        actualEndMinute: end
+      });
+    }
     return fragments;
   }
 
+  // Overnight block: the portion after midnight belongs to the prior day's start.
   if (days.includes(previousDay) && end > 0) {
-    fragments.push({ ...block, startMinute: 0, endMinute: end, carried: true });
+    fragments.push({
+      ...block,
+      startMinute: 0,
+      endMinute: end,
+      carried: true,
+      actualStartMinute: start,
+      actualEndMinute: end
+    });
   }
+
+  // The block starts on this day and continues through midnight.
   if (days.includes(day) && start < 1440) {
-    fragments.push({ ...block, startMinute: start, endMinute: 1440 });
+    fragments.push({
+      ...block,
+      startMinute: start,
+      endMinute: 1440,
+      carried: false,
+      actualStartMinute: start,
+      actualEndMinute: end
+    });
   }
+
   return fragments;
 }
 
@@ -72,7 +103,7 @@ function createArc(fragment) {
   const durationPercent = ((fragment.endMinute - fragment.startMinute) / 1440) * 100;
   circle.setAttribute('cx', '50');
   circle.setAttribute('cy', '50');
-  circle.setAttribute('r', '36.5');
+  circle.setAttribute('r', '41.5');
   circle.setAttribute('pathLength', '100');
   circle.setAttribute('fill', 'none');
   circle.setAttribute('stroke-dasharray', `${durationPercent} ${Math.max(0, 100 - durationPercent)}`);
@@ -82,14 +113,21 @@ function createArc(fragment) {
   return circle;
 }
 
-function createNode(fragment, shell) {
-  const { x, y, degrees } = fragmentPosition(fragment);
-  const node = document.createElement(fragment.kind === 'activity' ? 'button' : 'div');
-  if (node instanceof HTMLButtonElement) node.type = 'button';
-  node.className = `setup-day-orbit-node is-${fragment.kind}`;
+function decoratePosition(node, degrees) {
   if (degrees > 135 && degrees < 225) node.classList.add('is-bottom');
   if (degrees > 45 && degrees < 135) node.classList.add('is-right');
   if (degrees > 225 && degrees < 315) node.classList.add('is-left');
+}
+
+function createStartNode(fragment, shell) {
+  // A carried fragment started yesterday, so it must not invent a false 12:00 AM start.
+  if (fragment.carried) return null;
+
+  const { x, y, degrees } = positionForMinute(fragment.actualStartMinute);
+  const node = document.createElement(fragment.kind === 'activity' ? 'button' : 'div');
+  if (node instanceof HTMLButtonElement) node.type = 'button';
+  node.className = `setup-day-orbit-node is-${fragment.kind}`;
+  decoratePosition(node, degrees);
   node.style.left = `${x}%`;
   node.style.top = `${y}%`;
 
@@ -99,7 +137,7 @@ function createNode(fragment, shell) {
 
   const time = document.createElement('span');
   time.className = 'setup-day-orbit-time';
-  time.textContent = shortTimeFromMinutes(fragment.startMinute);
+  time.textContent = shortTimeFromMinutes(fragment.actualStartMinute);
 
   const title = document.createElement('span');
   title.className = 'setup-day-orbit-title';
@@ -109,7 +147,7 @@ function createNode(fragment, shell) {
 
   if (fragment.kind === 'activity') {
     node.dataset.activityId = fragment.id;
-    node.setAttribute('aria-label', `${fragment.label}, ${shortTimeFromMinutes(fragment.startMinute)}. Tap to remove this activity.`);
+    node.setAttribute('aria-label', `${fragment.label}, ${shortTimeFromMinutes(fragment.actualStartMinute)}. Tap to remove this activity.`);
     node.title = 'Tap to remove';
     node.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -119,6 +157,31 @@ function createNode(fragment, shell) {
   }
 
   return node;
+}
+
+function createEndMarker(fragment) {
+  // Keep end markers subtle and only use them for protected/fixed blocks.
+  if (!['fixed', 'sleep'].includes(fragment.kind)) return null;
+
+  const isVisibleEnd = fragment.carried || fragment.endMinute < 1440;
+  if (!isVisibleEnd) return null;
+
+  const endMinute = fragment.actualEndMinute;
+  const { x, y, degrees } = positionForMinute(endMinute, 43.4);
+  const marker = document.createElement('div');
+  marker.className = `setup-day-orbit-endpoint is-${fragment.kind}`;
+  decoratePosition(marker, degrees);
+  marker.style.left = `${x}%`;
+  marker.style.top = `${y}%`;
+  marker.setAttribute('aria-label', `${fragment.label} ends ${shortTimeFromMinutes(endMinute)}`);
+
+  const dot = document.createElement('span');
+  dot.className = 'setup-day-orbit-endpoint-dot';
+  const time = document.createElement('span');
+  time.className = 'setup-day-orbit-endpoint-time';
+  time.textContent = shortTimeFromMinutes(endMinute);
+  marker.append(dot, time);
+  return marker;
 }
 
 function fragmentsForDay(profile, day) {
@@ -181,7 +244,7 @@ function buildOrbit(profile, day, shell) {
   const ring = document.createElement('div');
   ring.className = 'setup-day-orbit';
   ring.dataset.stateKey = stateKey(profile, day);
-  ring.setAttribute('aria-label', 'Current day map');
+  ring.setAttribute('aria-label', 'Current day 24-hour map');
 
   const ticks = document.createElement('div');
   ticks.className = 'setup-day-orbit-ticks';
@@ -207,7 +270,12 @@ function buildOrbit(profile, day, shell) {
 
   fragmentsForDay(profile, day).forEach((fragment) => {
     svg.appendChild(createArc(fragment));
-    ring.appendChild(createNode(fragment, shell));
+
+    const startNode = createStartNode(fragment, shell);
+    if (startNode) ring.appendChild(startNode);
+
+    const endMarker = createEndMarker(fragment);
+    if (endMarker) ring.appendChild(endMarker);
   });
 
   return ring;
