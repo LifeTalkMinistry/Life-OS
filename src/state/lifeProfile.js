@@ -150,10 +150,11 @@ export function isLifeProfileComplete(profile) {
   const fixedReady = value.hasFixedSchedule === false
     || (value.hasFixedSchedule === true && value.fixedDays.length > 0 && value.fixedStart && value.fixedEnd);
 
+  // Open Time is a valid outcome. A user does not need to map every gap—or
+  // even add a custom activity—for LIFE OS setup to be considered complete.
   return value.setupComplete
     && fixedReady
-    && Boolean(value.sleepStart && value.sleepEnd)
-    && value.activities.length > 0;
+    && Boolean(value.sleepStart && value.sleepEnd);
 }
 
 export function fixedKindLabel(kind) {
