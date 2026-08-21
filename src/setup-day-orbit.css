@@ -4,6 +4,16 @@
   display: none !important;
 }
 
+/*
+ * Reserve real breathing room below the brand/header.
+ * Move the complete day-builder composition (Orb + 24-hour orbit) together,
+ * preserving all clock geometry while keeping 11 PM–12 AM nodes away from
+ * "Control your life.".
+ */
+.setup-step-activities {
+  transform: translateY(clamp(30px, 4.6svh, 42px));
+}
+
 .setup-day-orbit {
   position: absolute;
   inset: -5%;
@@ -224,6 +234,10 @@ button.setup-day-orbit-node.is-activity:focus-visible {
 }
 
 @media (max-width: 360px) {
+  .setup-step-activities {
+    transform: translateY(clamp(24px, 4svh, 34px));
+  }
+
   .setup-day-orbit {
     inset: -3%;
   }
