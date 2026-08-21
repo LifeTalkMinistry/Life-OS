@@ -151,10 +151,11 @@
  * Life Setup safe zone.
  * The sphere rim is visual space; onboarding content lives in an inset box
  * and is scaled as one unit only when a step would otherwise cross it.
+ * Keep enough vertical room for Back on every navigable step.
  */
 .setup-safe-zone {
   position: absolute;
-  inset: 14% 12%;
+  inset: 10% 12%;
   z-index: 4;
   display: grid;
   place-items: center;
@@ -163,7 +164,7 @@
 }
 
 .setup-safe-zone.is-wide {
-  inset: 12% 9%;
+  inset: 9% 9%;
 }
 
 .setup-fit {
@@ -176,6 +177,25 @@
 .setup-safe-zone .setup-content-wide {
   width: 100%;
   max-width: 100%;
+}
+
+/* Back is a required escape hatch on every navigable onboarding step. */
+.setup-safe-zone .setup-back {
+  display: block !important;
+  justify-self: center;
+  min-height: 20px;
+  margin-top: 7px;
+  padding: 4px 12px 5px;
+  color: rgba(225, 218, 235, 0.86) !important;
+  font-size: clamp(0.62rem, 2.55vw, 0.72rem);
+  line-height: 1.1;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 8;
+}
+
+.setup-safe-zone .setup-back:is(:hover, :focus-visible) {
+  color: #eee5f8 !important;
 }
 
 /* Launch uses the same full native SVG canvas, including reflection space. */
@@ -223,11 +243,16 @@
   }
 
   .setup-safe-zone {
-    inset: 15% 12%;
+    inset: 11% 12%;
   }
 
   .setup-safe-zone.is-wide {
-    inset: 13% 9%;
+    inset: 10% 9%;
+  }
+
+  .setup-safe-zone .setup-back {
+    margin-top: 5px;
+    font-size: 0.64rem;
   }
 }
 
