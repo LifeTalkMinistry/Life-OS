@@ -1,0 +1,60 @@
+/* Day-by-day Life Setup navigation.
+ * Keep Back permanently visible inside the Orb while building Monday–Sunday.
+ * The existing activity-day-back action already knows how to return to the
+ * previous day (Tuesday -> Monday, Wednesday -> Tuesday, etc.).
+ */
+.setup-step-activities .setup-day-builder {
+  position: relative;
+  padding-bottom: 22px;
+}
+
+.setup-step-activities .setup-day-builder > .setup-back {
+  position: absolute !important;
+  left: 2px;
+  bottom: 0;
+  z-index: 30;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  margin: 0 !important;
+  padding: 3px 8px 4px !important;
+  border: 1px solid rgba(198, 170, 236, 0.16);
+  border-radius: 999px;
+  background: rgba(7, 4, 20, 0.5);
+  color: rgba(229, 221, 240, 0.88) !important;
+  font-size: clamp(0.52rem, 1.9vw, 0.62rem) !important;
+  font-weight: 500;
+  line-height: 1;
+  opacity: 1 !important;
+  visibility: visible !important;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.setup-step-activities .setup-day-builder > .setup-back::before {
+  content: '←';
+  margin-right: 4px;
+  color: rgba(199, 166, 255, 0.9);
+}
+
+.setup-step-activities .setup-day-builder > .setup-back:is(:hover, :focus-visible) {
+  border-color: rgba(210, 180, 255, 0.4);
+  background: rgba(30, 18, 58, 0.58);
+  color: #f2ebfb !important;
+  outline: none;
+}
+
+@media (max-width: 360px) {
+  .setup-step-activities .setup-day-builder {
+    padding-bottom: 20px;
+  }
+
+  .setup-step-activities .setup-day-builder > .setup-back {
+    left: 0;
+    min-height: 20px;
+    padding: 3px 7px !important;
+    font-size: 0.5rem !important;
+  }
+}
