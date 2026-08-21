@@ -2,9 +2,11 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
 const scriptOrder = [
   'src/data/activities.js',
+  'src/state/lifeProfile.js',
   'src/state/lifeState.js',
   'src/gestures/orbGestures.js',
   'src/components/Brand.js',
+  'src/components/LifeSetupOrb.js',
   'src/components/TodayRing.js',
   'src/components/WhyPanel.js',
   'src/components/Orb.js',
