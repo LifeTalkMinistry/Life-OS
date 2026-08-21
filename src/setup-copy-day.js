@@ -91,12 +91,38 @@ function installPreviousDayCopyShortcut() {
   else builder.appendChild(shortcut);
 }
 
+function installFinishCurrentDayShortcut() {
+  if (screen !== 'setup' || setupStep !== 'activities') return;
+
+  const builder = document.querySelector('.setup-step-activities .setup-day-builder:not(.setup-day-complete)');
+  if (!builder || builder.querySelector('[data-finish-current-day]')) return;
+
+  const dayName = COPY_DAY_NAMES[setupActivityDay] || 'Day';
+  const finishButton = document.createElement('button');
+  finishButton.type = 'button';
+  finishButton.className = 'setup-finish-day-button';
+  finishButton.dataset.finishCurrentDay = String(setupActivityDay);
+  finishButton.textContent = `Finish ${dayName}`;
+  finishButton.setAttribute('aria-label', `Finish ${dayName} and leave remaining time open`);
+
+  finishButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    handleSetupAction({ setupAction: 'activity-day-next' });
+  });
+
+  const backButton = builder.querySelector(':scope > .setup-back');
+  if (backButton) builder.insertBefore(finishButton, backButton);
+  else builder.appendChild(finishButton);
+}
+
 let copyDayFrame = null;
 function queuePreviousDayCopyShortcut() {
   if (copyDayFrame !== null) cancelAnimationFrame(copyDayFrame);
   copyDayFrame = requestAnimationFrame(() => {
     copyDayFrame = null;
     installPreviousDayCopyShortcut();
+    installFinishCurrentDayShortcut();
   });
 }
 
