@@ -1,8 +1,6 @@
 const ORB_SVG = `
 <svg xmlns="http://www.w3.org/2000/svg" class="orb-artwork" viewBox="0 0 1254 1254" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#02010d"/><stop offset=".55" stop-color="#02010a"/><stop offset="1" stop-color="#010107"/></linearGradient>
-    <radialGradient id="atmo" cx="50%" cy="44%" r="74%"><stop offset="0" stop-color="#08004c" stop-opacity=".30"/><stop offset=".48" stop-color="#05002c" stop-opacity=".16"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
     <radialGradient id="body" cx="50%" cy="48%" r="55%"><stop offset="0" stop-color="#01010c"/><stop offset=".58" stop-color="#02010f"/><stop offset=".83" stop-color="#050119"/><stop offset="1" stop-color="#0c0328"/></radialGradient>
     <radialGradient id="top" cx="50%" cy="-4%" r="82%"><stop offset="0" stop-color="#5e2af0" stop-opacity=".34"/><stop offset=".40" stop-color="#35159d" stop-opacity=".48"/><stop offset=".80" stop-color="#1b0958" stop-opacity=".20"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
     <radialGradient id="left" cx="-4%" cy="62%" r="74%"><stop offset="0" stop-color="#243cff" stop-opacity=".58"/><stop offset=".38" stop-color="#1328c7" stop-opacity=".46"/><stop offset=".76" stop-color="#09135f" stop-opacity=".18"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
@@ -29,11 +27,6 @@ const ORB_SVG = `
     <linearGradient id="g6" gradientUnits="userSpaceOnUse" x1="628.0" y1="168.5" x2="917.6" y2="290.5"><stop offset="0" stop-color="#982aff"/><stop offset="1" stop-color="#ed4fa8"/></linearGradient>
     <linearGradient id="g7" gradientUnits="userSpaceOnUse" x1="917.6" y1="290.5" x2="1037.5" y2="585.0"><stop offset="0" stop-color="#ed4fa8"/><stop offset="1" stop-color="#ff8a7f"/></linearGradient>
   </defs>
-
-  <g class="orb-artwork__background" data-orb-part="background">
-    <rect width="1254" height="1254" fill="url(#bg)"/>
-    <rect width="1254" height="1254" fill="url(#atmo)"/>
-  </g>
 
   <g class="orb-artwork__outer-glow" data-orb-part="outer-glow">
     <path d="M1037.5,585.0 A409.5,416.5 0 0 1 917.6,879.5" fill="none" stroke="url(#g0)" stroke-width="66" stroke-linecap="round" opacity="0.26" filter="url(#ew)"/><path d="M917.6,879.5 A409.5,416.5 0 0 1 628.0,1001.5" fill="none" stroke="url(#g1)" stroke-width="66" stroke-linecap="round" opacity="0.26" filter="url(#ew)"/><path d="M628.0,1001.5 A409.5,416.5 0 0 1 338.4,879.5" fill="none" stroke="url(#g2)" stroke-width="66" stroke-linecap="round" opacity="0.26" filter="url(#ew)"/><path d="M338.4,879.5 A409.5,416.5 0 0 1 218.5,585.0" fill="none" stroke="url(#g3)" stroke-width="66" stroke-linecap="round" opacity="0.26" filter="url(#ew)"/><path d="M218.5,585.0 A409.5,416.5 0 0 1 338.4,290.5" fill="none" stroke="url(#g4)" stroke-width="66" stroke-linecap="round" opacity="0.26" filter="url(#ew)"/><path d="M338.4,290.5 A409.5,416.5 0 0 1 628.0,168.5" fill="none" stroke="url(#g5)" stroke-width="66" stroke-linecap="round" opacity="0.26" filter="url(#ew)"/><path d="M628.0,168.5 A409.5,416.5 0 0 1 917.6,290.5" fill="none" stroke="url(#g6)" stroke-width="66" stroke-linecap="round" opacity="0.26" filter="url(#ew)"/><path d="M917.6,290.5 A409.5,416.5 0 0 1 1037.5,585.0" fill="none" stroke="url(#g7)" stroke-width="66" stroke-linecap="round" opacity="0.26" filter="url(#ew)"/>
