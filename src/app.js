@@ -2,6 +2,7 @@ import { Brand } from './components/Brand.js';
 import { LifeSetupOrb } from './components/LifeSetupOrb.js';
 import { Orb } from './components/Orb.js';
 import { OrbArtwork } from './components/OrbArtwork.js';
+import { SystemPanel } from './components/SystemPanel.js';
 import { TodayRing } from './components/TodayRing.js';
 import { WhyPanel } from './components/WhyPanel.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
@@ -58,6 +59,7 @@ let lifeState = hasCompletedSetup ? createLifeStateFromProfile(lifeProfile) : cr
 let screen = 'launch';
 let orbMode = 'now';
 let whyOpen = false;
+let systemView = null;
 let hintVisible = true;
 let setupStep = 'welcome';
 let setupHistory = [];
@@ -78,12 +80,45 @@ function setMode(mode) {
 
 function openWhy() {
   hideHint();
+  systemView = null;
   whyOpen = true;
   render();
 }
 
 function closeWhy() {
   whyOpen = false;
+  render();
+}
+
+function openSystemView(view) {
+  hideHint();
+  whyOpen = false;
+  orbMode = 'now';
+  systemView = view;
+  render();
+}
+
+function closeSystemView() {
+  systemView = null;
+  render();
+}
+
+function navigateSystemView(view) {
+  systemView = view;
+  render();
+}
+
+function saveActivityTimes(changes) {
+  lifeProfile = normalizeLifeProfile({
+    ...lifeProfile,
+    ...changes,
+    setupComplete: true
+  });
+  saveLifeProfile(lifeProfile);
+  hasCompletedSetup = isLifeProfileComplete(lifeProfile);
+  lifeState = createLifeStateFromProfile(lifeProfile);
+  systemView = 'settings';
+  orbMode = 'now';
   render();
 }
 
@@ -115,6 +150,26 @@ function finishLifeSetup() {
   setupActivityDraft = createActivityDraft(lifeProfile);
   orbMode = 'now';
   whyOpen = false;
+  systemView = null;
+  hintVisible = true;
+  render();
+}
+
+function resetLifeSetup() {
+  clearTimeout(completionTimer);
+  clearTimeout(launchTimer);
+  clearTimeout(setupTimer);
+  try { localStorage.removeItem(LIFE_PROFILE_STORAGE_KEY); } catch {}
+  lifeProfile = createEmptyLifeProfile();
+  hasCompletedSetup = false;
+  lifeState = createInitialLifeState();
+  screen = 'setup';
+  setupStep = 'welcome';
+  setupHistory = [];
+  setupActivityDraft = createActivityDraft(lifeProfile);
+  orbMode = 'now';
+  whyOpen = false;
+  systemView = null;
   hintVisible = true;
   render();
 }
@@ -297,28 +352,18 @@ function getGestureController() {
     onDoubleTap: () => {
       hideHint();
       whyOpen = false;
+      systemView = null;
       orbMode = 'adjust';
       render();
     },
     onHoldStart: () => {
       hideHint();
       whyOpen = false;
+      systemView = null;
       orbMode = 'today';
-
-      const releaseHold = () => {
-        if (orbMode !== 'today') return;
-        orbMode = 'now';
-        render();
-      };
-      window.addEventListener('pointerup', releaseHold, { once: true });
-      window.addEventListener('pointercancel', releaseHold, { once: true });
       render();
     },
-    onHoldEnd: () => {
-      if (orbMode !== 'today') return;
-      orbMode = 'now';
-      render();
-    }
+    onHoldEnd: () => {}
   });
 
   return {
@@ -378,27 +423,56 @@ function MainScreen() {
   stage.className = 'orb-stage';
 
   if (orbMode === 'today') {
-    stage.appendChild(TodayRing(lifeState.activities, activity.id));
+    stage.appendChild(TodayRing(lifeState.activities, activity.id, openSystemView));
   }
 
-  stage.appendChild(Orb({
+  const orbShell = Orb({
     activity,
     mode: orbMode,
     gestureHandlers: orbMode === 'now' ? getGestureController() : null,
     onAction: handleAdjustment
-  }));
+  });
 
+  if (orbMode === 'today') {
+    const orb = orbShell.querySelector('.orb');
+    orb?.setAttribute('tabindex', '0');
+    orb?.setAttribute('aria-label', 'Current activity. Tap to close today view.');
+    orb?.addEventListener('click', () => {
+      orbMode = 'now';
+      render();
+    });
+    orb?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        orbMode = 'now';
+        render();
+      }
+    });
+  }
+
+  stage.appendChild(orbShell);
   view.appendChild(stage);
 
   const hint = document.createElement('p');
   hint.className = `gesture-hint${hintVisible && orbMode === 'now' ? ' is-visible' : ''}`;
   hint.textContent = orbMode === 'today'
-    ? 'Release to return to now'
+    ? 'Settings + Info above 12:00 · Tap orb to return'
     : 'Tap for why · Hold for today · Double tap to adjust';
   view.appendChild(hint);
 
   if (whyOpen) {
     view.appendChild(WhyPanel(activity, closeWhy));
+  }
+
+  if (systemView) {
+    view.appendChild(SystemPanel({
+      view: systemView,
+      profile: lifeProfile,
+      onClose: closeSystemView,
+      onNavigate: navigateSystemView,
+      onSaveTimes: saveActivityTimes,
+      onReset: resetLifeSetup
+    }));
   }
 
   return view;
@@ -412,6 +486,7 @@ function render() {
 
 function onKeydown(event) {
   if (event.key === 'Escape') {
+    if (systemView) return closeSystemView();
     if (screen === 'setup' && setupHistory.length) return goSetupBack();
     if (whyOpen) return closeWhy();
     if (orbMode !== 'now') {
@@ -430,7 +505,7 @@ launchTimer = setTimeout(() => {
 }, 1800);
 
 window.__LIFE_OS__ = {
-  getState: () => ({ screen, orbMode, whyOpen, lifeState, lifeProfile, setupStep, setupActivityDraft }),
+  getState: () => ({ screen, orbMode, whyOpen, systemView, lifeState, lifeProfile, setupStep, setupActivityDraft }),
   reset: () => {
     clearTimeout(completionTimer);
     clearTimeout(launchTimer);
@@ -439,24 +514,9 @@ window.__LIFE_OS__ = {
     screen = 'now';
     orbMode = 'now';
     whyOpen = false;
+    systemView = null;
     hintVisible = true;
     render();
   },
-  resetOnboarding: () => {
-    clearTimeout(completionTimer);
-    clearTimeout(launchTimer);
-    clearTimeout(setupTimer);
-    try { localStorage.removeItem(LIFE_PROFILE_STORAGE_KEY); } catch {}
-    lifeProfile = createEmptyLifeProfile();
-    hasCompletedSetup = false;
-    lifeState = createInitialLifeState();
-    screen = 'setup';
-    setupStep = 'welcome';
-    setupHistory = [];
-    setupActivityDraft = createActivityDraft(lifeProfile);
-    orbMode = 'now';
-    whyOpen = false;
-    hintVisible = true;
-    render();
-  }
+  resetOnboarding: resetLifeSetup
 };
