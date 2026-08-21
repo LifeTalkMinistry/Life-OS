@@ -12,13 +12,19 @@ function escapeHtml(value) {
 
 function nowContent(activity) {
   const lines = activity.title.split('\n').map(escapeHtml).join('<br>');
-  return `
-    <div class="orb-content orb-now-content">
-      <p class="orb-kicker">WHAT MATTERS NOW</p>
-      <h1 class="orb-title">${lines}</h1>
-      <span class="orb-divider" aria-hidden="true"><i></i></span>
+  const timing = activity.kind === 'open'
+    ? '<p class="orb-until">No activity scheduled</p>'
+    : `
       <p class="orb-until">Until</p>
       <p class="orb-time">${formatClock(activity.end)}</p>
+    `;
+
+  return `
+    <div class="orb-content orb-now-content">
+      <p class="orb-kicker">RUNNING NOW</p>
+      <h1 class="orb-title">${lines}</h1>
+      <span class="orb-divider" aria-hidden="true"><i></i></span>
+      ${timing}
     </div>
   `;
 }
@@ -97,7 +103,7 @@ export function Orb({ activity, mode = 'now', gestureHandlers, onAction }) {
   orb.setAttribute('role', 'button');
   orb.setAttribute('tabindex', mode === 'now' ? '0' : '-1');
   orb.setAttribute('aria-label', mode === 'now'
-    ? 'Current focus. Tap for why, hold for today, double tap to adjust.'
+    ? 'Current activity. Tap for why, hold for today, double tap to adjust.'
     : 'LIFE OS adjustment controls');
 
   if (mode === 'now' || mode === 'today') orb.innerHTML = nowContent(activity);
