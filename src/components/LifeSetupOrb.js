@@ -151,7 +151,6 @@ function fixedScopeContent(profile) {
     <div class="orb-content setup-content setup-content-wide">
       <p class="setup-eyebrow">FIXED TIME</p>
       <h1 class="setup-question setup-question-small">How should LIFE OS treat those fixed hours?</h1>
-      <p class="setup-help">Recommended: guide only the time you control.</p>
       <div class="setup-options setup-options-compact">
         <button type="button" data-setup-scope="outside" class="${profile.fixedGuidanceMode === 'outside' ? 'is-selected' : ''}">Just outside my fixed schedule</button>
         <button type="button" data-setup-scope="breakdown" class="${profile.fixedGuidanceMode === 'breakdown' ? 'is-selected' : ''}">Break down my fixed schedule too</button>
