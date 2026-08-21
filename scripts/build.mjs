@@ -13,7 +13,8 @@ const scriptOrder = [
   'src/components/Orb.js',
   'src/components/SystemPanel.js',
   'src/app.js',
-  'src/setup-day-orbit.js'
+  'src/setup-day-orbit.js',
+  'src/setup-day-summary.js'
 ];
 
 function stripModuleSyntax(source) {
