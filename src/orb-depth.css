@@ -62,7 +62,7 @@
   aspect-ratio: 1 / 1;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  overflow: visible;
+  overflow: hidden;
   background: transparent !important;
   box-shadow: none !important;
   filter: none !important;
@@ -158,6 +158,7 @@
   z-index: 4;
   display: grid;
   place-items: center;
+  overflow: hidden;
   text-align: center;
 }
 
