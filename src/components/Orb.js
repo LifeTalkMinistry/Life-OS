@@ -1,3 +1,4 @@
+import { OrbArtwork } from './OrbArtwork.js';
 import { formatClock } from '../state/lifeState.js';
 
 function escapeHtml(value) {
@@ -134,6 +135,6 @@ export function Orb({ activity, mode = 'now', gestureHandlers, onAction }) {
     });
   });
 
-  shell.appendChild(orb);
+  shell.append(OrbArtwork(), orb);
   return shell;
 }
