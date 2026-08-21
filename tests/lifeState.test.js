@@ -38,3 +38,70 @@ test('urgent matter becomes current and completion resumes interrupted focus', (
   state = completeCurrent(state);
   assert.equal(currentActivity(state).shortTitle, 'CLARA Outreach');
 });
+
+import { createLifeStateFromProfile } from '../src/state/lifeState.js';
+
+const completedProfile = {
+  setupComplete: true,
+  hasFixedSchedule: false,
+  fixedKind: 'work',
+  fixedDays: [],
+  fixedStart: '09:00',
+  fixedEnd: '17:00',
+  sleepStart: '23:00',
+  sleepEnd: '07:00',
+  priorities: ['health'],
+  nonNegotiables: ['health'],
+  currentFocus: 'Find beta users',
+  focusMinutes: 60
+};
+
+test('profile-driven state uses the user current focus outside fixed reality', () => {
+  const date = new Date(2026, 7, 19, 10, 0, 0);
+  const state = createLifeStateFromProfile(completedProfile, date);
+  assert.equal(currentActivity(state).shortTitle, 'Find beta users');
+  assert.equal(formatClock(currentActivity(state).end), '11:00 AM');
+});
+
+test('profile-driven state protects an active fixed work schedule', () => {
+  const date = new Date(2026, 7, 19, 10, 0, 0); // Wednesday
+  const state = createLifeStateFromProfile({
+    ...completedProfile,
+    hasFixedSchedule: true,
+    fixedDays: [1, 2, 3, 4, 5],
+    fixedStart: '09:00',
+    fixedEnd: '17:00'
+  }, date);
+  assert.equal(currentActivity(state).shortTitle, 'WORK');
+});
+
+test('profile-driven state supports overnight fixed schedules', () => {
+  const date = new Date(2026, 7, 20, 2, 0, 0); // Thursday 2 AM, belongs to Wednesday night shift
+  const state = createLifeStateFromProfile({
+    ...completedProfile,
+    hasFixedSchedule: true,
+    fixedDays: [3],
+    fixedStart: '23:00',
+    fixedEnd: '08:00',
+    sleepStart: '13:00',
+    sleepEnd: '21:00'
+  }, date);
+  assert.equal(currentActivity(state).shortTitle, 'WORK');
+});
+
+test('profile-driven focus never overruns the next fixed commitment', () => {
+  const date = new Date(2026, 7, 19, 10, 55, 0); // Wednesday
+  const state = createLifeStateFromProfile({
+    ...completedProfile,
+    hasFixedSchedule: true,
+    fixedDays: [1, 2, 3, 4, 5],
+    fixedStart: '11:00',
+    fixedEnd: '17:00',
+    sleepStart: '23:00',
+    sleepEnd: '07:00',
+    focusMinutes: 90
+  }, date);
+  assert.equal(currentActivity(state).shortTitle, 'Find beta users');
+  assert.equal(formatClock(currentActivity(state).end), '11:00 AM');
+  assert.equal(currentActivity(state).recommendedMinutes, 5);
+});
