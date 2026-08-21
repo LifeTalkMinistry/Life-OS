@@ -38,6 +38,20 @@ function saveLifeProfile(profile) {
   } catch {}
 }
 
+function defaultActivityDays(profile) {
+  if (profile.hasFixedSchedule && profile.fixedDays.length) return [...profile.fixedDays];
+  return [0, 1, 2, 3, 4, 5, 6];
+}
+
+function createActivityDraft(profile) {
+  return {
+    name: '',
+    days: defaultActivityDays(profile),
+    start: '',
+    end: ''
+  };
+}
+
 let lifeProfile = loadLifeProfile();
 let hasCompletedSetup = isLifeProfileComplete(lifeProfile);
 let lifeState = hasCompletedSetup ? createLifeStateFromProfile(lifeProfile) : createInitialLifeState();
@@ -47,6 +61,7 @@ let whyOpen = false;
 let hintVisible = true;
 let setupStep = 'welcome';
 let setupHistory = [];
+let setupActivityDraft = createActivityDraft(lifeProfile);
 let completionTimer = null;
 let launchTimer = null;
 let setupTimer = null;
@@ -85,6 +100,10 @@ function goSetupBack() {
   render();
 }
 
+function resetActivityDraft() {
+  setupActivityDraft = createActivityDraft(lifeProfile);
+}
+
 function finishLifeSetup() {
   lifeProfile = normalizeLifeProfile({ ...lifeProfile, setupComplete: true });
   saveLifeProfile(lifeProfile);
@@ -93,6 +112,7 @@ function finishLifeSetup() {
   screen = 'now';
   setupStep = 'welcome';
   setupHistory = [];
+  setupActivityDraft = createActivityDraft(lifeProfile);
   orbMode = 'now';
   whyOpen = false;
   hintVisible = true;
@@ -100,14 +120,15 @@ function finishLifeSetup() {
 }
 
 function handleSetupField(field, value) {
+  if (field.startsWith('draft.')) {
+    const draftField = field.slice('draft.'.length);
+    if (!['name', 'start', 'end'].includes(draftField)) return;
+    setupActivityDraft = { ...setupActivityDraft, [draftField]: value };
+    return;
+  }
+
   if (!(field in lifeProfile)) return;
   lifeProfile = { ...lifeProfile, [field]: value };
-}
-
-function toggleLimited(list, value, max) {
-  if (list.includes(value)) return list.filter((item) => item !== value);
-  if (list.length >= max) return list;
-  return [...list, value];
 }
 
 function handleSetupAction(dataset) {
@@ -116,7 +137,11 @@ function handleSetupAction(dataset) {
 
   if (dataset.setupFixed) {
     const hasFixedSchedule = dataset.setupFixed === 'yes';
-    lifeProfile = { ...lifeProfile, hasFixedSchedule };
+    lifeProfile = {
+      ...lifeProfile,
+      hasFixedSchedule,
+      fixedGuidanceMode: 'outside'
+    };
     return goSetup(hasFixedSchedule ? 'fixed-kind' : 'sleep');
   }
 
@@ -158,44 +183,71 @@ function handleSetupAction(dataset) {
 
   if (dataset.setupAction === 'sleep-continue') {
     if (!lifeProfile.sleepStart || !lifeProfile.sleepEnd) return;
-    return goSetup('priorities');
+    resetActivityDraft();
+    return goSetup(lifeProfile.hasFixedSchedule ? 'fixed-scope' : 'activities');
   }
 
-  if (dataset.setupPriority) {
-    const priorities = toggleLimited(lifeProfile.priorities, dataset.setupPriority, 4);
-    const nonNegotiables = lifeProfile.nonNegotiables.filter((id) => priorities.includes(id));
-    lifeProfile = { ...lifeProfile, priorities, nonNegotiables };
+  if (dataset.setupScope) {
+    lifeProfile = {
+      ...lifeProfile,
+      fixedGuidanceMode: dataset.setupScope === 'breakdown' ? 'breakdown' : 'outside'
+    };
+    resetActivityDraft();
+    return goSetup('activities');
+  }
+
+  if (dataset.setupActivityDay !== undefined) {
+    const day = Number(dataset.setupActivityDay);
+    const days = setupActivityDraft.days.includes(day)
+      ? setupActivityDraft.days.filter((item) => item !== day)
+      : [...setupActivityDraft.days, day];
+    setupActivityDraft = { ...setupActivityDraft, days };
     return render();
   }
 
-  if (dataset.setupAction === 'priorities-continue') {
-    if (!lifeProfile.priorities.length) return;
-    return goSetup('nonnegotiables');
+  if (dataset.setupAction === 'activity-add') {
+    const name = setupActivityDraft.name.trim();
+    const { days, start, end } = setupActivityDraft;
+    if (!name || !days.length || !start || !end || start === end) return;
+
+    const activity = {
+      id: `activity-${Date.now()}-${lifeProfile.activities.length + 1}`,
+      name: name.slice(0, 48),
+      days: [...days],
+      start,
+      end
+    };
+    lifeProfile = { ...lifeProfile, activities: [...lifeProfile.activities, activity] };
+    resetActivityDraft();
+    return render();
   }
 
-  if (dataset.setupNonneg) {
+  if (dataset.setupRemoveActivity) {
     lifeProfile = {
       ...lifeProfile,
-      nonNegotiables: toggleLimited(lifeProfile.nonNegotiables, dataset.setupNonneg, 2)
+      activities: lifeProfile.activities.filter((activity) => activity.id !== dataset.setupRemoveActivity)
     };
     return render();
   }
 
-  if (dataset.setupAction === 'nonneg-continue') return goSetup('focus');
-
-  if (dataset.setupAction === 'focus-continue') {
-    lifeProfile = { ...lifeProfile, currentFocus: lifeProfile.currentFocus.trim() };
-    if (!lifeProfile.currentFocus) return;
-    return goSetup('focus-time');
+  if (dataset.setupAction === 'activities-continue') {
+    if (!lifeProfile.activities.length) return;
+    return goSetup('review');
   }
 
-  if (dataset.setupMinutes) {
-    lifeProfile = { ...lifeProfile, focusMinutes: Number(dataset.setupMinutes) };
+  if (dataset.setupAction === 'review-edit') {
+    if (setupHistory.at(-1) === 'activities') setupHistory.pop();
+    setupStep = 'activities';
+    return render();
+  }
+
+  if (dataset.setupAction === 'review-confirm') {
+    if (!lifeProfile.activities.length) return;
     setupHistory.push(setupStep);
     setupStep = 'ready';
     render();
     clearTimeout(setupTimer);
-    setupTimer = setTimeout(finishLifeSetup, 1000);
+    setupTimer = setTimeout(finishLifeSetup, 900);
   }
 }
 
@@ -303,6 +355,7 @@ function SetupScreen() {
   stage.appendChild(LifeSetupOrb({
     step: setupStep,
     profile: lifeProfile,
+    activityDraft: setupActivityDraft,
     onAction: handleSetupAction,
     onField: handleSetupField
   }));
@@ -377,7 +430,7 @@ launchTimer = setTimeout(() => {
 }, 1800);
 
 window.__LIFE_OS__ = {
-  getState: () => ({ screen, orbMode, whyOpen, lifeState, lifeProfile, setupStep }),
+  getState: () => ({ screen, orbMode, whyOpen, lifeState, lifeProfile, setupStep, setupActivityDraft }),
   reset: () => {
     clearTimeout(completionTimer);
     clearTimeout(launchTimer);
@@ -400,6 +453,7 @@ window.__LIFE_OS__ = {
     screen = 'setup';
     setupStep = 'welcome';
     setupHistory = [];
+    setupActivityDraft = createActivityDraft(lifeProfile);
     orbMode = 'now';
     whyOpen = false;
     hintVisible = true;
