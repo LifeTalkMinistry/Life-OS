@@ -216,6 +216,65 @@ function contentForStep(step, profile) {
   return readyContent();
 }
 
+function installSetupSafeZone(orb, step) {
+  if (step === 'welcome') return;
+
+  const content = orb.querySelector('.setup-content');
+  if (!content) return;
+
+  const safeZone = document.createElement('div');
+  safeZone.className = `setup-safe-zone${content.classList.contains('setup-content-wide') ? ' is-wide' : ''}`;
+
+  const fit = document.createElement('div');
+  fit.className = 'setup-fit';
+
+  content.replaceWith(safeZone);
+  fit.appendChild(content);
+  safeZone.appendChild(fit);
+
+  const fitContent = () => {
+    fit.style.setProperty('--setup-fit-scale', '1');
+
+    const applyFit = () => {
+      if (!orb.isConnected) return;
+
+      const availableWidth = safeZone.clientWidth;
+      const availableHeight = safeZone.clientHeight;
+      const naturalWidth = Math.max(content.scrollWidth, fit.scrollWidth);
+      const naturalHeight = Math.max(content.scrollHeight, fit.scrollHeight);
+
+      if (!availableWidth || !availableHeight || !naturalWidth || !naturalHeight) return;
+
+      const scale = Math.min(
+        1,
+        availableWidth / naturalWidth,
+        availableHeight / naturalHeight
+      );
+
+      fit.style.setProperty('--setup-fit-scale', scale.toFixed(3));
+    };
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(applyFit);
+    } else {
+      applyFit();
+    }
+  };
+
+  fitContent();
+
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(() => {
+      if (!orb.isConnected) {
+        observer.disconnect();
+        return;
+      }
+      fitContent();
+    });
+    observer.observe(orb);
+  }
+}
+
 export function LifeSetupOrb({ step, profile, onAction, onField }) {
   const shell = document.createElement('div');
   shell.className = `orb-shell setup-orb-shell setup-step-${step}`;
@@ -223,6 +282,7 @@ export function LifeSetupOrb({ step, profile, onAction, onField }) {
   const orb = document.createElement('div');
   orb.className = 'orb setup-orb';
   orb.innerHTML = contentForStep(step, profile);
+  installSetupSafeZone(orb, step);
 
   if (step === 'welcome') {
     orb.setAttribute('role', 'button');
