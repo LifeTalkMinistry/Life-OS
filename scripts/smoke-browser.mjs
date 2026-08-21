@@ -111,37 +111,49 @@ try {
   await evaluate(`document.open(); document.write(${JSON.stringify(builtHtml)}); document.close();`);
   await sleep(2200);
 
-  // First-time setup begins inside the orb.
+  // First-time setup now ends at the V1 Life Map, not priorities or current focus.
   await assertText('.setup-hero', 'READY TOTAKE CONTROL?');
   await evaluate('document.querySelector(".setup-orb").click()');
   await assertText('.setup-question', 'Do you have a fixed work or school schedule?');
   await evaluate('document.querySelector("button[data-setup-fixed=no]").click()');
   await assertText('.setup-question', 'When do you usually sleep?');
   await evaluate(`(() => {
-    const sleep = document.querySelector('[data-setup-field="sleepStart"]');
-    const wake = document.querySelector('[data-setup-field="sleepEnd"]');
-    sleep.value = '23:00'; sleep.dispatchEvent(new Event('input', {bubbles:true}));
-    wake.value = '07:00'; wake.dispatchEvent(new Event('input', {bubbles:true}));
+    const pad = (value) => String(value).padStart(2, '0');
+    const now = new Date();
+    const sleepHour = (now.getHours() + 2) % 24;
+    const wakeHour = (sleepHour + 1) % 24;
+    const sleepInput = document.querySelector('[data-setup-field="sleepStart"]');
+    const wakeInput = document.querySelector('[data-setup-field="sleepEnd"]');
+    sleepInput.value = pad(sleepHour) + ':00';
+    wakeInput.value = pad(wakeHour) + ':00';
+    sleepInput.dispatchEvent(new Event('input', {bubbles:true}));
+    wakeInput.dispatchEvent(new Event('input', {bubbles:true}));
   })()`);
   await evaluate('document.querySelector("button[data-setup-action=sleep-continue]").click()');
-  await evaluate('document.querySelector("button[data-setup-priority=health]").click()');
-  await evaluate('document.querySelector("button[data-setup-priority=business]").click()');
-  await evaluate('document.querySelector("button[data-setup-action=priorities-continue]").click()');
-  await evaluate('document.querySelector("button[data-setup-nonneg=health]").click()');
-  await evaluate('document.querySelector("button[data-setup-action=nonneg-continue]").click()');
-  await assertText('.setup-question', 'What are you trying to move forward right now?');
+  await assertText('.setup-question', 'Let’s map the time you control.');
   await evaluate(`(() => {
-    const input = document.querySelector('[data-setup-field="currentFocus"]');
-    input.value = 'Launch newsletter';
-    input.dispatchEvent(new Event('input', {bubbles:true}));
+    const pad = (value) => String(value).padStart(2, '0');
+    const now = new Date();
+    const startHour = now.getHours();
+    const endHour = (startHour + 1) % 24;
+    const name = document.querySelector('[data-setup-draft-field="name"]');
+    const start = document.querySelector('[data-setup-draft-field="start"]');
+    const end = document.querySelector('[data-setup-draft-field="end"]');
+    name.value = 'Launch newsletter';
+    start.value = pad(startHour) + ':00';
+    end.value = pad(endHour) + ':00';
+    name.dispatchEvent(new Event('input', {bubbles:true}));
+    start.dispatchEvent(new Event('input', {bubbles:true}));
+    end.dispatchEvent(new Event('input', {bubbles:true}));
   })()`);
-  await evaluate('document.querySelector("button[data-setup-action=focus-continue]").click()');
-  await assertText('.setup-question', 'How much focused time should LIFE OS protect?');
-  await evaluate("document.querySelector('button[data-setup-minutes=\"60\"]')?.click()");
+  await evaluate('document.querySelector("button[data-setup-action=activity-add]").click()');
+  await evaluate('document.querySelector("button[data-setup-action=activities-continue]").click()');
+  await assertText('.setup-question', 'Does this look right?');
+  await evaluate('document.querySelector("button[data-setup-action=review-confirm]").click()');
   await assertText('.setup-eyebrow', 'LIFE OS IS READY');
-  await sleep(1080);
-  await assertText('.orb-kicker', 'WHAT MATTERS NOW');
-  assert.equal(await evaluate('window.__LIFE_OS__.getState().lifeProfile.currentFocus'), 'Launch newsletter');
+  await sleep(980);
+  await assertText('.orb-kicker', 'RUNNING NOW');
+  assert.equal(await evaluate('window.__LIFE_OS__.getState().lifeProfile.activities[0].name'), 'Launch newsletter');
 
   // Reset to the deterministic demo state for the core gesture regression suite.
   await reset();
@@ -202,7 +214,7 @@ try {
   const shot = await send('Page.captureScreenshot', { format: 'png' });
   await writeFile('/mnt/data/life-os-browser-smoke.png', Buffer.from(shot.result.data, 'base64'));
 
-  console.log('Browser smoke test passed: launch, single tap, hold/release, double tap, and all adjustment branches.');
+  console.log('Browser smoke test passed: V1 onboarding, launch, single tap, hold/release, double tap, and adjustment branches.');
 } finally {
   try { ws?.close(); } catch {}
   chromium.kill('SIGTERM');
