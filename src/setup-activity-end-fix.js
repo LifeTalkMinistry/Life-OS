@@ -1,54 +1,66 @@
 import { findTimeConflict } from './state/lifeProfile.js';
 
-function refreshSetupActivityEndButton() {
-  const shell = document.querySelector('.setup-step-activity-end');
+function refreshSequentialSetupButtons() {
+  const shell = document.querySelector('.setup-step-activities, .setup-step-activity-end');
   if (!shell) return;
 
   const state = window.__LIFE_OS__?.getState?.();
   const draft = state?.setupActivityDraft;
   const profile = state?.lifeProfile;
   const day = state?.setupActivityDay;
-  const endInput = shell.querySelector('[data-setup-draft-field="end"]');
-  const saveButton = shell.querySelector('[data-setup-action="activity-add"]');
-  if (!draft || !profile || day === undefined || !endInput || !saveButton) return;
+  if (!draft || !profile || day === undefined || day === null) return;
 
-  const name = String(draft.name || '').trim();
+  const nameInput = shell.querySelector('[data-setup-draft-field="name"]');
+  const endInput = shell.querySelector('[data-setup-draft-field="end"]');
+  const name = String(nameInput?.value ?? draft.name ?? '').trim();
   const start = draft.start || '';
-  const end = endInput.value || draft.end || '';
+  const end = endInput?.value || draft.end || '';
+
+  const nameContinue = shell.querySelector('[data-setup-action="activity-name-continue"]');
+  if (nameContinue) {
+    nameContinue.disabled = !(name && start);
+  }
+
+  const saveButton = shell.querySelector('[data-setup-action="activity-add"]');
+  if (!saveButton || !endInput) return;
+
   const conflict = start && end && start !== end
     ? findTimeConflict(profile, day, start, end)
     : null;
 
   const conflictNode = shell.querySelector('[data-setup-conflict]');
   if (conflictNode) {
+    const message = conflict ? `That time crosses ${conflict.label}.` : '';
     conflictNode.hidden = !conflict;
-    conflictNode.textContent = conflict ? `That time crosses ${conflict.label}.` : '';
+    if (conflictNode.textContent !== message) conflictNode.textContent = message;
   }
 
   endInput.setAttribute('aria-invalid', conflict ? 'true' : 'false');
   saveButton.disabled = !(name && start && end && start !== end && !conflict);
 }
 
-function queueSetupActivityEndRefresh() {
-  queueMicrotask(refreshSetupActivityEndButton);
+let refreshFrame = null;
+function queueSequentialRefresh() {
+  if (refreshFrame !== null) cancelAnimationFrame(refreshFrame);
+  refreshFrame = requestAnimationFrame(() => {
+    refreshFrame = null;
+    refreshSequentialSetupButtons();
+  });
+}
+
+function isSequentialSetupField(target) {
+  return target?.matches?.(
+    '.setup-step-activities [data-setup-draft-field="name"], .setup-step-activity-end [data-setup-draft-field="end"]'
+  );
 }
 
 document.addEventListener('input', (event) => {
-  if (event.target?.matches?.('.setup-step-activity-end [data-setup-draft-field="end"]')) {
-    queueSetupActivityEndRefresh();
-  }
+  if (isSequentialSetupField(event.target)) queueSequentialRefresh();
 });
 
 document.addEventListener('change', (event) => {
-  if (event.target?.matches?.('.setup-step-activity-end [data-setup-draft-field="end"]')) {
-    queueSetupActivityEndRefresh();
-  }
+  if (isSequentialSetupField(event.target)) queueSequentialRefresh();
 });
 
-const setupActivityEndAppRoot = document.querySelector('#app');
-if (setupActivityEndAppRoot) {
-  const setupActivityEndObserver = new MutationObserver(queueSetupActivityEndRefresh);
-  setupActivityEndObserver.observe(setupActivityEndAppRoot, { childList: true, subtree: true });
-}
-
-queueSetupActivityEndRefresh();
+window.addEventListener('pageshow', queueSequentialRefresh);
+queueSequentialRefresh();
