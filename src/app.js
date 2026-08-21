@@ -9,6 +9,7 @@ import { createOrbGestureController } from './gestures/orbGestures.js';
 import {
   LIFE_PROFILE_STORAGE_KEY,
   createEmptyLifeProfile,
+  findTimeConflict,
   isLifeProfileComplete,
   normalizeLifeProfile
 } from './state/lifeProfile.js';
@@ -23,6 +24,7 @@ import {
 } from './state/lifeState.js';
 
 const app = document.querySelector('#app');
+const ACTIVITY_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 function loadLifeProfile() {
   try {
@@ -39,15 +41,9 @@ function saveLifeProfile(profile) {
   } catch {}
 }
 
-function defaultActivityDays(profile) {
-  if (profile.hasFixedSchedule && profile.fixedDays.length) return [...profile.fixedDays];
-  return [0, 1, 2, 3, 4, 5, 6];
-}
-
-function createActivityDraft(profile) {
+function createActivityDraft() {
   return {
     name: '',
-    days: defaultActivityDays(profile),
     start: '',
     end: ''
   };
@@ -63,7 +59,8 @@ let systemView = null;
 let hintVisible = true;
 let setupStep = 'welcome';
 let setupHistory = [];
-let setupActivityDraft = createActivityDraft(lifeProfile);
+let setupActivityDay = 1;
+let setupActivityDraft = createActivityDraft();
 let completionTimer = null;
 let launchTimer = null;
 let setupTimer = null;
@@ -136,7 +133,25 @@ function goSetupBack() {
 }
 
 function resetActivityDraft() {
-  setupActivityDraft = createActivityDraft(lifeProfile);
+  setupActivityDraft = createActivityDraft();
+}
+
+function startActivityBuilder() {
+  setupActivityDay = 1;
+  resetActivityDraft();
+  goSetup('activities');
+}
+
+function nextActivityDay() {
+  const index = ACTIVITY_DAY_ORDER.indexOf(setupActivityDay);
+  if (index < 0 || index === ACTIVITY_DAY_ORDER.length - 1) return null;
+  return ACTIVITY_DAY_ORDER[index + 1];
+}
+
+function previousActivityDay() {
+  const index = ACTIVITY_DAY_ORDER.indexOf(setupActivityDay);
+  if (index <= 0) return null;
+  return ACTIVITY_DAY_ORDER[index - 1];
 }
 
 function finishLifeSetup() {
@@ -147,7 +162,8 @@ function finishLifeSetup() {
   screen = 'now';
   setupStep = 'welcome';
   setupHistory = [];
-  setupActivityDraft = createActivityDraft(lifeProfile);
+  setupActivityDay = 1;
+  setupActivityDraft = createActivityDraft();
   orbMode = 'now';
   whyOpen = false;
   systemView = null;
@@ -166,7 +182,8 @@ function resetLifeSetup() {
   screen = 'setup';
   setupStep = 'welcome';
   setupHistory = [];
-  setupActivityDraft = createActivityDraft(lifeProfile);
+  setupActivityDay = 1;
+  setupActivityDraft = createActivityDraft();
   orbMode = 'now';
   whyOpen = false;
   systemView = null;
@@ -238,8 +255,7 @@ function handleSetupAction(dataset) {
 
   if (dataset.setupAction === 'sleep-continue') {
     if (!lifeProfile.sleepStart || !lifeProfile.sleepEnd) return;
-    resetActivityDraft();
-    return goSetup(lifeProfile.hasFixedSchedule ? 'fixed-scope' : 'activities');
+    return lifeProfile.hasFixedSchedule ? goSetup('fixed-scope') : startActivityBuilder();
   }
 
   if (dataset.setupScope) {
@@ -247,28 +263,21 @@ function handleSetupAction(dataset) {
       ...lifeProfile,
       fixedGuidanceMode: dataset.setupScope === 'breakdown' ? 'breakdown' : 'outside'
     };
-    resetActivityDraft();
-    return goSetup('activities');
-  }
-
-  if (dataset.setupActivityDay !== undefined) {
-    const day = Number(dataset.setupActivityDay);
-    const days = setupActivityDraft.days.includes(day)
-      ? setupActivityDraft.days.filter((item) => item !== day)
-      : [...setupActivityDraft.days, day];
-    setupActivityDraft = { ...setupActivityDraft, days };
-    return render();
+    return startActivityBuilder();
   }
 
   if (dataset.setupAction === 'activity-add') {
     const name = setupActivityDraft.name.trim();
-    const { days, start, end } = setupActivityDraft;
-    if (!name || !days.length || !start || !end || start === end) return;
+    const { start, end } = setupActivityDraft;
+    if (!name || !start || !end || start === end) return;
+
+    const conflict = findTimeConflict(lifeProfile, setupActivityDay, start, end);
+    if (conflict) return;
 
     const activity = {
       id: `activity-${Date.now()}-${lifeProfile.activities.length + 1}`,
       name: name.slice(0, 48),
-      days: [...days],
+      days: [setupActivityDay],
       start,
       end
     };
@@ -285,14 +294,33 @@ function handleSetupAction(dataset) {
     return render();
   }
 
-  if (dataset.setupAction === 'activities-continue') {
+  if (dataset.setupAction === 'activity-day-next') {
+    const nextDay = nextActivityDay();
+    if (nextDay !== null) {
+      setupActivityDay = nextDay;
+      resetActivityDraft();
+      return render();
+    }
     if (!lifeProfile.activities.length) return;
     return goSetup('review');
   }
 
+  if (dataset.setupAction === 'activity-day-back') {
+    const previousDay = previousActivityDay();
+    if (previousDay !== null) {
+      setupActivityDay = previousDay;
+      resetActivityDraft();
+      return render();
+    }
+    resetActivityDraft();
+    return goSetupBack();
+  }
+
   if (dataset.setupAction === 'review-edit') {
-    if (setupHistory.at(-1) === 'activities') setupHistory.pop();
+    setupHistory.push(setupStep);
     setupStep = 'activities';
+    setupActivityDay = 1;
+    resetActivityDraft();
     return render();
   }
 
@@ -401,6 +429,7 @@ function SetupScreen() {
     step: setupStep,
     profile: lifeProfile,
     activityDraft: setupActivityDraft,
+    activityDay: setupActivityDay,
     onAction: handleSetupAction,
     onField: handleSetupField
   }));
@@ -487,6 +516,9 @@ function render() {
 function onKeydown(event) {
   if (event.key === 'Escape') {
     if (systemView) return closeSystemView();
+    if (screen === 'setup' && setupStep === 'activities') {
+      return handleSetupAction({ setupAction: 'activity-day-back' });
+    }
     if (screen === 'setup' && setupHistory.length) return goSetupBack();
     if (whyOpen) return closeWhy();
     if (orbMode !== 'now') {
@@ -505,7 +537,17 @@ launchTimer = setTimeout(() => {
 }, 1800);
 
 window.__LIFE_OS__ = {
-  getState: () => ({ screen, orbMode, whyOpen, systemView, lifeState, lifeProfile, setupStep, setupActivityDraft }),
+  getState: () => ({
+    screen,
+    orbMode,
+    whyOpen,
+    systemView,
+    lifeState,
+    lifeProfile,
+    setupStep,
+    setupActivityDay,
+    setupActivityDraft
+  }),
   reset: () => {
     clearTimeout(completionTimer);
     clearTimeout(launchTimer);
