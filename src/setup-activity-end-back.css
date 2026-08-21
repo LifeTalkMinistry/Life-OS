@@ -1,0 +1,69 @@
+/* Keep Back permanently accessible on the "Until what time?" step.
+ * It is intentionally placed first in the content flow so the Orb's lower
+ * boundary can never hide the user's escape route.
+ */
+.setup-step-activity-end .setup-activity-end > .setup-back {
+  order: -10;
+  justify-self: start;
+  position: relative;
+  z-index: 80;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 25px;
+  margin: 0 0 8px 2px !important;
+  padding: 5px 9px !important;
+  border: 1px solid rgba(198, 170, 236, 0.18);
+  border-radius: 999px;
+  background: rgba(7, 4, 20, 0.38);
+  color: rgba(232, 224, 242, 0.9) !important;
+  font-size: clamp(0.56rem, 2.05vw, 0.66rem) !important;
+  font-weight: 450;
+  line-height: 1;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.setup-step-activity-end .setup-activity-end > .setup-back::before {
+  content: '←';
+  margin-right: 4px;
+  color: rgba(205, 177, 255, 0.94);
+}
+
+.setup-step-activity-end .setup-activity-end > .setup-back:is(:hover, :focus-visible) {
+  border-color: rgba(215, 183, 255, 0.42);
+  background: rgba(30, 18, 58, 0.52);
+  color: #f4edfb !important;
+  outline: none;
+}
+
+/* Slightly tighten the remaining stack so the persistent Back button does not
+ * force any of the real form controls toward the lower rim. */
+.setup-step-activity-end .setup-eyebrow {
+  margin-bottom: 8px;
+}
+
+.setup-step-activity-end .setup-question-small {
+  margin-bottom: 11px;
+}
+
+.setup-step-activity-end .setup-selected-activity {
+  margin-bottom: 8px;
+}
+
+.setup-step-activity-end .setup-time-grid.setup-time-grid-single {
+  margin-top: 8px;
+}
+
+@media (max-width: 360px) {
+  .setup-step-activity-end .setup-activity-end > .setup-back {
+    min-height: 23px;
+    margin-bottom: 6px !important;
+    padding: 4px 8px !important;
+    font-size: 0.54rem !important;
+  }
+}
