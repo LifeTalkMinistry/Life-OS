@@ -1,25 +1,35 @@
-/* Tuesday onboarding shortcut.
- * Production is built as one ordered script, so this enhancement can reuse the
- * existing setup state/actions without expanding the core component again.
- * Keep identifiers uniquely prefixed to avoid bundle-scope collisions.
+/* Previous-day onboarding shortcut.
+ * Every day after Monday can reuse the custom activities from the day that was
+ * just mapped. Copies are independent so later edits never change the source.
+ * Fixed anchors (work, sleep, travel home, preparation blocks) are already
+ * shared by the profile and are intentionally not duplicated here.
  */
-const COPY_DAY_SOURCE_MONDAY = 1;
-const COPY_DAY_TARGET_TUESDAY = 2;
+const COPY_DAY_SEQUENCE = [1, 2, 3, 4, 5, 6, 0];
+const COPY_DAY_NAMES = {
+  0: 'Sunday',
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday'
+};
 
-function copyDayCustomActivities(sourceDay, targetDay) {
+function copyDayPreviousDay(targetDay) {
+  const targetIndex = COPY_DAY_SEQUENCE.indexOf(targetDay);
+  if (targetIndex <= 0) return false;
+
+  const sourceDay = COPY_DAY_SEQUENCE[targetIndex - 1];
   const sourceActivities = lifeProfile.activities
     .filter((activity) => !isAnchorActivity(activity) && activity.days.includes(sourceDay))
     .sort((a, b) => a.start.localeCompare(b.start));
 
   if (!sourceActivities.length) return false;
 
-  const targetIds = new Set(
-    lifeProfile.activities
-      .filter((activity) => !isAnchorActivity(activity) && activity.days.includes(targetDay))
-      .map((activity) => activity.id)
+  const targetActivities = lifeProfile.activities.filter(
+    (activity) => !isAnchorActivity(activity) && activity.days.includes(targetDay)
   );
-
-  if (targetIds.size) return false;
+  if (targetActivities.length) return false;
 
   const stamp = Date.now();
   const copies = sourceActivities.map((activity, index) => ({
@@ -40,32 +50,40 @@ function copyDayCustomActivities(sourceDay, targetDay) {
   return true;
 }
 
-function installTuesdayCopyShortcut() {
-  if (screen !== 'setup' || setupStep !== 'activities' || setupActivityDay !== COPY_DAY_TARGET_TUESDAY) return;
+function installPreviousDayCopyShortcut() {
+  if (screen !== 'setup' || setupStep !== 'activities') return;
+
+  const targetDay = setupActivityDay;
+  const targetIndex = COPY_DAY_SEQUENCE.indexOf(targetDay);
+  if (targetIndex <= 0) return;
+
+  const sourceDay = COPY_DAY_SEQUENCE[targetIndex - 1];
+  const sourceName = COPY_DAY_NAMES[sourceDay];
+  const targetName = COPY_DAY_NAMES[targetDay];
 
   const builder = document.querySelector('.setup-step-activities .setup-day-builder:not(.setup-day-complete)');
-  if (!builder || builder.querySelector('[data-copy-monday]')) return;
+  if (!builder || builder.querySelector('[data-copy-previous-day]')) return;
 
-  const mondayActivities = lifeProfile.activities.filter(
-    (activity) => !isAnchorActivity(activity) && activity.days.includes(COPY_DAY_SOURCE_MONDAY)
+  const sourceActivities = lifeProfile.activities.filter(
+    (activity) => !isAnchorActivity(activity) && activity.days.includes(sourceDay)
   );
-  const tuesdayActivities = lifeProfile.activities.filter(
-    (activity) => !isAnchorActivity(activity) && activity.days.includes(COPY_DAY_TARGET_TUESDAY)
+  const targetActivities = lifeProfile.activities.filter(
+    (activity) => !isAnchorActivity(activity) && activity.days.includes(targetDay)
   );
 
-  if (!mondayActivities.length || tuesdayActivities.length) return;
+  if (!sourceActivities.length || targetActivities.length) return;
 
   const shortcut = document.createElement('button');
   shortcut.type = 'button';
   shortcut.className = 'setup-copy-day-button';
-  shortcut.dataset.copyMonday = 'true';
-  shortcut.textContent = 'Same as Monday';
-  shortcut.setAttribute('aria-label', 'Copy Monday activities to Tuesday');
+  shortcut.dataset.copyPreviousDay = String(sourceDay);
+  shortcut.textContent = `Same as ${sourceName}`;
+  shortcut.setAttribute('aria-label', `Copy ${sourceName} activities to ${targetName}`);
 
   shortcut.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    copyDayCustomActivities(COPY_DAY_SOURCE_MONDAY, COPY_DAY_TARGET_TUESDAY);
+    copyDayPreviousDay(targetDay);
   });
 
   const activityRow = builder.querySelector('.setup-activity-name-row');
@@ -74,18 +92,18 @@ function installTuesdayCopyShortcut() {
 }
 
 let copyDayFrame = null;
-function queueTuesdayCopyShortcut() {
+function queuePreviousDayCopyShortcut() {
   if (copyDayFrame !== null) cancelAnimationFrame(copyDayFrame);
   copyDayFrame = requestAnimationFrame(() => {
     copyDayFrame = null;
-    installTuesdayCopyShortcut();
+    installPreviousDayCopyShortcut();
   });
 }
 
 const copyDayAppRoot = document.querySelector('#app');
 if (copyDayAppRoot) {
-  const copyDayObserver = new MutationObserver(queueTuesdayCopyShortcut);
+  const copyDayObserver = new MutationObserver(queuePreviousDayCopyShortcut);
   copyDayObserver.observe(copyDayAppRoot, { childList: true, subtree: true });
 }
 
-queueTuesdayCopyShortcut();
+queuePreviousDayCopyShortcut();
