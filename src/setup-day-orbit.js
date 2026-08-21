@@ -1,20 +1,15 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
 function parseTime(time) {
   const [hour, minute] = String(time || '00:00').split(':').map(Number);
   return (hour * 60) + minute;
 }
 
-function durationMinutes(start, end) {
-  const startMinutes = parseTime(start);
-  const endMinutes = parseTime(end);
-  return ((endMinutes - startMinutes) + 1440) % 1440 || 1440;
-}
-
-function shortTime(time) {
-  const total = parseTime(time);
-  const hour24 = Math.floor(total / 60) % 24;
-  const minute = total % 60;
+function shortTimeFromMinutes(totalMinutes) {
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const hour24 = Math.floor(normalized / 60);
+  const minute = normalized % 60;
   const suffix = hour24 >= 12 ? 'P' : 'A';
   const hour12 = hour24 % 12 || 12;
   return `${hour12}${minute ? `:${String(minute).padStart(2, '0')}` : ''}${suffix}`;
@@ -39,9 +34,8 @@ function iconSvg(icon = 'general') {
   return `<svg ${common}><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg>`;
 }
 
-function positionForBlock(start, end) {
-  const startMinutes = parseTime(start);
-  const midpoint = (startMinutes + durationMinutes(start, end) / 2) % 1440;
+function fragmentPosition(fragment) {
+  const midpoint = fragment.startMinute + ((fragment.endMinute - fragment.startMinute) / 2);
   const degrees = (midpoint / 1440) * 360;
   const radians = (degrees * Math.PI) / 180;
   const radius = 41.5;
@@ -52,10 +46,30 @@ function positionForBlock(start, end) {
   };
 }
 
-function createArc(block) {
+function fragmentsForRecurring(block, days, day) {
+  const fragments = [];
+  const start = parseTime(block.start);
+  const end = parseTime(block.end);
+  const previousDay = (day + 6) % 7;
+
+  if (start < end) {
+    if (days.includes(day)) fragments.push({ ...block, startMinute: start, endMinute: end });
+    return fragments;
+  }
+
+  if (days.includes(previousDay) && end > 0) {
+    fragments.push({ ...block, startMinute: 0, endMinute: end, carried: true });
+  }
+  if (days.includes(day) && start < 1440) {
+    fragments.push({ ...block, startMinute: start, endMinute: 1440 });
+  }
+  return fragments;
+}
+
+function createArc(fragment) {
   const circle = document.createElementNS(SVG_NS, 'circle');
-  const startPercent = (parseTime(block.start) / 1440) * 100;
-  const durationPercent = (durationMinutes(block.start, block.end) / 1440) * 100;
+  const startPercent = (fragment.startMinute / 1440) * 100;
+  const durationPercent = ((fragment.endMinute - fragment.startMinute) / 1440) * 100;
   circle.setAttribute('cx', '50');
   circle.setAttribute('cy', '50');
   circle.setAttribute('r', '36.5');
@@ -64,15 +78,15 @@ function createArc(block) {
   circle.setAttribute('stroke-dasharray', `${durationPercent} ${Math.max(0, 100 - durationPercent)}`);
   circle.setAttribute('stroke-dashoffset', `${-startPercent}`);
   circle.setAttribute('transform', 'rotate(-90 50 50)');
-  circle.classList.add('setup-day-orbit-arc', `is-${block.kind}`);
+  circle.classList.add('setup-day-orbit-arc', `is-${fragment.kind}`);
   return circle;
 }
 
-function createNode(block, shell) {
-  const { x, y, degrees } = positionForBlock(block.start, block.end);
-  const node = document.createElement(block.kind === 'activity' ? 'button' : 'div');
+function createNode(fragment, shell) {
+  const { x, y, degrees } = fragmentPosition(fragment);
+  const node = document.createElement(fragment.kind === 'activity' ? 'button' : 'div');
   if (node instanceof HTMLButtonElement) node.type = 'button';
-  node.className = `setup-day-orbit-node is-${block.kind}`;
+  node.className = `setup-day-orbit-node is-${fragment.kind}`;
   if (degrees > 135 && degrees < 225) node.classList.add('is-bottom');
   if (degrees > 45 && degrees < 135) node.classList.add('is-right');
   if (degrees > 225 && degrees < 315) node.classList.add('is-left');
@@ -81,25 +95,25 @@ function createNode(block, shell) {
 
   const dot = document.createElement('span');
   dot.className = 'setup-day-orbit-dot';
-  dot.innerHTML = iconSvg(block.icon);
+  dot.innerHTML = iconSvg(fragment.icon);
 
   const time = document.createElement('span');
   time.className = 'setup-day-orbit-time';
-  time.textContent = shortTime(block.start);
+  time.textContent = shortTimeFromMinutes(fragment.startMinute);
 
   const title = document.createElement('span');
   title.className = 'setup-day-orbit-title';
-  title.textContent = block.label;
+  title.textContent = fragment.label;
 
   node.append(dot, time, title);
 
-  if (block.kind === 'activity') {
-    node.dataset.activityId = block.id;
-    node.setAttribute('aria-label', `${block.label}, ${shortTime(block.start)}. Tap to remove this activity.`);
+  if (fragment.kind === 'activity') {
+    node.dataset.activityId = fragment.id;
+    node.setAttribute('aria-label', `${fragment.label}, ${shortTimeFromMinutes(fragment.startMinute)}. Tap to remove this activity.`);
     node.title = 'Tap to remove';
     node.addEventListener('click', (event) => {
       event.stopPropagation();
-      const removeButton = shell.querySelector(`[data-setup-remove-activity="${CSS.escape(block.id)}"]`);
+      const removeButton = shell.querySelector(`[data-setup-remove-activity="${CSS.escape(fragment.id)}"]`);
       removeButton?.click();
     });
   }
@@ -107,46 +121,47 @@ function createNode(block, shell) {
   return node;
 }
 
-function blocksForDay(profile, day) {
-  const blocks = [];
+function fragmentsForDay(profile, day) {
+  const fragments = [];
 
   if (profile.sleepStart && profile.sleepEnd) {
-    blocks.push({
+    fragments.push(...fragmentsForRecurring({
       id: 'sleep',
       kind: 'sleep',
       label: 'SLEEP',
       icon: 'sleep',
       start: profile.sleepStart,
       end: profile.sleepEnd
-    });
+    }, ALL_DAYS, day));
   }
 
-  if (profile.hasFixedSchedule && profile.fixedDays?.includes(day) && profile.fixedStart && profile.fixedEnd) {
-    blocks.push({
+  if (profile.hasFixedSchedule && profile.fixedStart && profile.fixedEnd) {
+    fragments.push(...fragmentsForRecurring({
       id: 'fixed',
       kind: 'fixed',
       label: fixedLabel(profile.fixedKind),
       icon: 'fixed',
       start: profile.fixedStart,
       end: profile.fixedEnd
-    });
+    }, profile.fixedDays || [], day));
   }
 
-  (profile.activities || [])
-    .filter((activity) => activity.days?.includes(day))
-    .forEach((activity) => blocks.push({
+  (profile.activities || []).forEach((activity) => {
+    fragments.push(...fragmentsForRecurring({
       id: activity.id,
       kind: 'activity',
       label: activity.name,
       icon: activity.icon || 'general',
       start: activity.start,
       end: activity.end
-    }));
+    }, activity.days || [], day));
+  });
 
-  return blocks;
+  return fragments;
 }
 
 function stateKey(profile, day) {
+  const previousDay = (day + 6) % 7;
   return JSON.stringify({
     day,
     sleepStart: profile.sleepStart,
@@ -156,7 +171,9 @@ function stateKey(profile, day) {
     fixedDays: profile.fixedDays,
     fixedStart: profile.fixedStart,
     fixedEnd: profile.fixedEnd,
-    activities: (profile.activities || []).filter((activity) => activity.days?.includes(day))
+    activities: (profile.activities || []).filter((activity) =>
+      activity.days?.includes(day) || activity.days?.includes(previousDay)
+    )
   });
 }
 
@@ -188,9 +205,9 @@ function buildOrbit(profile, day, shell) {
     ring.appendChild(marker);
   });
 
-  blocksForDay(profile, day).forEach((block) => {
-    svg.appendChild(createArc(block));
-    ring.appendChild(createNode(block, shell));
+  fragmentsForDay(profile, day).forEach((fragment) => {
+    svg.appendChild(createArc(fragment));
+    ring.appendChild(createNode(fragment, shell));
   });
 
   return ring;
