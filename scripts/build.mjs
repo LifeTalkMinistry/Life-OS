@@ -11,6 +11,7 @@ const scriptOrder = [
   'src/components/TodayRing.js',
   'src/components/WhyPanel.js',
   'src/components/Orb.js',
+  'src/components/SystemPanel.js',
   'src/app.js'
 ];
 
@@ -23,7 +24,8 @@ function stripModuleSyntax(source) {
 const css = [
   readFileSync('src/styles.css', 'utf8'),
   readFileSync('src/refinements.css', 'utf8'),
-  readFileSync('src/orb-depth.css', 'utf8')
+  readFileSync('src/orb-depth.css', 'utf8'),
+  readFileSync('src/system-controls.css', 'utf8')
 ].join('\n\n');
 const js = scriptOrder
   .map((file) => `// ${file}\n${stripModuleSyntax(readFileSync(file, 'utf8'))}`)
