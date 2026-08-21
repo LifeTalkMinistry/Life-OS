@@ -1,13 +1,14 @@
 import { OrbArtwork } from './OrbArtwork.js';
+import { findTimeConflict } from '../state/lifeProfile.js';
 
 const dayOptions = [
-  { id: 1, label: 'M', short: 'Mon' },
-  { id: 2, label: 'T', short: 'Tue' },
-  { id: 3, label: 'W', short: 'Wed' },
-  { id: 4, label: 'T', short: 'Thu' },
-  { id: 5, label: 'F', short: 'Fri' },
-  { id: 6, label: 'S', short: 'Sat' },
-  { id: 0, label: 'S', short: 'Sun' }
+  { id: 1, label: 'M', short: 'Mon', name: 'Monday' },
+  { id: 2, label: 'T', short: 'Tue', name: 'Tuesday' },
+  { id: 3, label: 'W', short: 'Wed', name: 'Wednesday' },
+  { id: 4, label: 'T', short: 'Thu', name: 'Thursday' },
+  { id: 5, label: 'F', short: 'Fri', name: 'Friday' },
+  { id: 6, label: 'S', short: 'Sat', name: 'Saturday' },
+  { id: 0, label: 'S', short: 'Sun', name: 'Sunday' }
 ];
 
 function escapeHtml(value) {
@@ -19,8 +20,8 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-function backButton() {
-  return '<button type="button" class="setup-back" data-setup-action="back">Back</button>';
+function backButton(action = 'back') {
+  return `<button type="button" class="setup-back" data-setup-action="${action}">Back</button>`;
 }
 
 function formatTime(time) {
@@ -35,6 +36,10 @@ function daysSummary(days = []) {
   if (normalized.length === 7) return 'Every day';
   if ([1, 2, 3, 4, 5].every((day) => normalized.includes(day)) && normalized.length === 5) return 'Mon–Fri';
   return dayOptions.filter((day) => normalized.includes(day.id)).map((day) => day.short).join(', ');
+}
+
+function dayName(day) {
+  return dayOptions.find((item) => item.id === day)?.name ?? 'Day';
 }
 
 function fixedKindCopy(kind) {
@@ -160,53 +165,46 @@ function fixedScopeContent(profile) {
   `;
 }
 
-function activityDraftReady(draft) {
-  return Boolean(
-    draft?.name?.trim()
-    && Array.isArray(draft.days)
-    && draft.days.length
-    && draft.start
-    && draft.end
-    && draft.start !== draft.end
-  );
+function currentDayActivities(profile, day) {
+  return profile.activities
+    .filter((activity) => activity.days.includes(day))
+    .sort((a, b) => a.start.localeCompare(b.start));
 }
 
-function activitiesContent(profile, draft) {
-  const scopeHelp = profile.hasFixedSchedule && profile.fixedGuidanceMode === 'breakdown'
-    ? 'Add the activities you want LIFE OS to guide, including inside work or school.'
-    : profile.hasFixedSchedule
-      ? 'Add what usually happens outside your fixed schedule.'
-      : 'Add the activities that normally make up your day.';
+function activitiesContent(profile, draft, activityDay) {
+  const name = dayName(activityDay);
+  const existing = currentDayActivities(profile, activityDay);
+  const conflict = draft?.start && draft?.end
+    ? findTimeConflict(profile, activityDay, draft.start, draft.end)
+    : null;
+  const ready = Boolean(draft?.name?.trim() && draft?.start && draft?.end && draft.start !== draft.end && !conflict);
+  const nextLabel = activityDay === 0 ? 'Review week' : `${name} looks good`;
+  const canFinish = activityDay !== 0 || profile.activities.length > 0;
 
   return `
-    <div class="orb-content setup-content setup-content-wide">
-      <p class="setup-eyebrow">YOUR TIME</p>
-      <h1 class="setup-question setup-question-small">Let’s map the time you control.</h1>
-      <p class="setup-help">${scopeHelp}</p>
+    <div class="orb-content setup-content setup-content-wide setup-day-builder">
+      <p class="setup-eyebrow">LET'S BUILD ${name.toUpperCase()}</p>
+      <h1 class="setup-question setup-question-small">What do you usually do on ${name}?</h1>
+      <p class="setup-help">Add one activity at a time. Occupied time cannot overlap.</p>
       <label class="setup-focus-field">
         <span class="sr-only">Activity name</span>
         <input type="text" maxlength="48" autocomplete="off" data-setup-draft-field="name" value="${escapeHtml(draft?.name)}" placeholder="Activity name">
       </label>
-      <div class="setup-days" aria-label="Activity days">
-        ${dayOptions.map((day) => `
-          <button type="button" data-setup-activity-day="${day.id}" class="${draft?.days?.includes(day.id) ? 'is-selected' : ''}">${day.label}</button>
-        `).join('')}
-      </div>
       <div class="setup-time-grid">
         <label><span>Start</span><input type="time" data-setup-draft-field="start" value="${escapeHtml(draft?.start)}"></label>
         <label><span>End</span><input type="time" data-setup-draft-field="end" value="${escapeHtml(draft?.end)}"></label>
       </div>
-      <button type="button" class="setup-continue" data-setup-action="activity-add" ${activityDraftReady(draft) ? '' : 'disabled'}>Add activity</button>
-      ${profile.activities.length ? `
-        <p class="setup-help">${profile.activities.length} ${profile.activities.length === 1 ? 'activity' : 'activities'} mapped.</p>
-        <div class="setup-options setup-options-compact">
-          ${profile.activities.map((activity) => `
+      <p class="setup-help setup-time-conflict" data-setup-conflict ${conflict ? '' : 'hidden'}>${conflict ? `That time is already occupied by ${escapeHtml(conflict.label)}.` : ''}</p>
+      <button type="button" class="setup-continue" data-setup-action="activity-add" ${ready ? '' : 'disabled'}>Add activity</button>
+      ${existing.length ? `
+        <div class="setup-options setup-options-compact setup-day-list">
+          ${existing.map((activity) => `
             <button type="button" data-setup-remove-activity="${escapeHtml(activity.id)}">${escapeHtml(activity.name)} · ${formatTime(activity.start)}–${formatTime(activity.end)} ×</button>
           `).join('')}
         </div>
-      ` : ''}
-      <button type="button" class="setup-continue" data-setup-action="activities-continue" ${profile.activities.length ? '' : 'disabled'}>Review map</button>
-      ${backButton()}
+      ` : '<p class="setup-help">No activities added yet.</p>'}
+      <button type="button" class="setup-continue" data-setup-action="activity-day-next" ${canFinish ? '' : 'disabled'}>${nextLabel}</button>
+      ${backButton('activity-day-back')}
     </div>
   `;
 }
@@ -217,8 +215,10 @@ function reviewContent(profile) {
     summary.push(`${fixedKindCopy(profile.fixedKind)} · ${daysSummary(profile.fixedDays)} · ${formatTime(profile.fixedStart)}–${formatTime(profile.fixedEnd)}`);
   }
   summary.push(`Sleep · ${formatTime(profile.sleepStart)}–${formatTime(profile.sleepEnd)}`);
-  profile.activities.forEach((activity) => {
-    summary.push(`${activity.name} · ${daysSummary(activity.days)} · ${formatTime(activity.start)}–${formatTime(activity.end)}`);
+  dayOptions.forEach((day) => {
+    currentDayActivities(profile, day.id).forEach((activity) => {
+      summary.push(`${day.short} · ${activity.name} · ${formatTime(activity.start)}–${formatTime(activity.end)}`);
+    });
   });
 
   return `
@@ -228,7 +228,7 @@ function reviewContent(profile) {
       <div class="setup-options setup-options-compact">
         ${summary.map((item) => `<button type="button" disabled>${escapeHtml(item)}</button>`).join('')}
       </div>
-      <button type="button" class="setup-continue" data-setup-action="review-edit">Edit activities</button>
+      <button type="button" class="setup-continue" data-setup-action="review-edit">Edit week</button>
       <button type="button" class="setup-continue" data-setup-action="review-confirm">Looks good</button>
       ${backButton()}
     </div>
@@ -245,7 +245,7 @@ function readyContent() {
   `;
 }
 
-function contentForStep(step, profile, draft) {
+function contentForStep(step, profile, draft, activityDay) {
   if (step === 'welcome') return welcomeContent();
   if (step === 'fixed') return fixedContent();
   if (step === 'fixed-kind') return fixedKindContent(profile);
@@ -254,7 +254,7 @@ function contentForStep(step, profile, draft) {
   if (step === 'fixed-time') return fixedTimeContent(profile);
   if (step === 'sleep') return sleepContent(profile);
   if (step === 'fixed-scope') return fixedScopeContent(profile);
-  if (step === 'activities') return activitiesContent(profile, draft);
+  if (step === 'activities') return activitiesContent(profile, draft, activityDay);
   if (step === 'review') return reviewContent(profile);
   return readyContent();
 }
@@ -280,28 +280,18 @@ function installSetupSafeZone(orb, step) {
 
     const applyFit = () => {
       if (!orb.isConnected) return;
-
       const availableWidth = safeZone.clientWidth;
       const availableHeight = safeZone.clientHeight;
       const naturalWidth = Math.max(content.scrollWidth, fit.scrollWidth);
       const naturalHeight = Math.max(content.scrollHeight, fit.scrollHeight);
-
       if (!availableWidth || !availableHeight || !naturalWidth || !naturalHeight) return;
 
-      const scale = Math.min(
-        1,
-        availableWidth / naturalWidth,
-        availableHeight / naturalHeight
-      );
-
+      const scale = Math.min(1, availableWidth / naturalWidth, availableHeight / naturalHeight);
       fit.style.setProperty('--setup-fit-scale', scale.toFixed(3));
     };
 
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(applyFit);
-    } else {
-      applyFit();
-    }
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(applyFit);
+    else applyFit();
   };
 
   fitContent();
@@ -318,24 +308,35 @@ function installSetupSafeZone(orb, step) {
   }
 }
 
-function refreshActivityAddButton(orb) {
+function refreshActivityAddButton(orb, profile, activityDay) {
   const addButton = orb.querySelector('[data-setup-action="activity-add"]');
   if (!addButton) return;
 
   const name = orb.querySelector('[data-setup-draft-field="name"]')?.value.trim();
   const start = orb.querySelector('[data-setup-draft-field="start"]')?.value;
   const end = orb.querySelector('[data-setup-draft-field="end"]')?.value;
-  const hasDay = Boolean(orb.querySelector('[data-setup-activity-day].is-selected'));
-  addButton.disabled = !(name && start && end && start !== end && hasDay);
+  const conflict = start && end && start !== end ? findTimeConflict(profile, activityDay, start, end) : null;
+  const conflictNode = orb.querySelector('[data-setup-conflict]');
+
+  if (conflictNode) {
+    conflictNode.hidden = !conflict;
+    conflictNode.textContent = conflict ? `That time is already occupied by ${conflict.label}.` : '';
+  }
+
+  orb.querySelectorAll('[data-setup-draft-field="start"], [data-setup-draft-field="end"]').forEach((input) => {
+    input.setAttribute('aria-invalid', conflict ? 'true' : 'false');
+  });
+
+  addButton.disabled = !(name && start && end && start !== end && !conflict);
 }
 
-export function LifeSetupOrb({ step, profile, activityDraft, onAction, onField }) {
+export function LifeSetupOrb({ step, profile, activityDraft, activityDay = 1, onAction, onField }) {
   const shell = document.createElement('div');
   shell.className = `orb-shell setup-orb-shell setup-step-${step}`;
 
   const orb = document.createElement('div');
   orb.className = 'orb setup-orb';
-  orb.innerHTML = contentForStep(step, profile, activityDraft);
+  orb.innerHTML = contentForStep(step, profile, activityDraft, activityDay);
   installSetupSafeZone(orb, step);
 
   if (step === 'welcome') {
@@ -368,7 +369,7 @@ export function LifeSetupOrb({ step, profile, activityDraft, onAction, onField }
   orb.querySelectorAll('[data-setup-draft-field]').forEach((input) => {
     const update = () => {
       onField?.(`draft.${input.dataset.setupDraftField}`, input.value);
-      refreshActivityAddButton(orb);
+      refreshActivityAddButton(orb, profile, activityDay);
     };
     input.addEventListener('input', update);
     input.addEventListener('change', update);
