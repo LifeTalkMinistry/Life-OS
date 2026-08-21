@@ -1,21 +1,10 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const ORBIT_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const HALF_DAY_MINUTES = 720;
 const FULL_DAY_MINUTES = 1440;
 
 const RING_RADIUS = {
   am: 35.8,
   pm: 43.3
-};
-
-const NODE_RADIUS = {
-  am: 39.0,
-  pm: 46.0
-};
-
-const END_RADIUS = {
-  am: 37.6,
-  pm: 44.6
 };
 
 function parseTime(time) {
@@ -63,16 +52,20 @@ function iconSvg(icon = 'general') {
   return `<svg ${common}><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg>`;
 }
 
+function finishIconSvg() {
+  return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 20V4M8 5h9l-2.2 3L17 11H8"/></svg>';
+}
+
 /*
- * Setup uses two normal 12-hour clocks with the same angles:
- * inner ring = AM, outer ring = PM.
- * 12 is always top, 3 right, 6 bottom, 9 left.
+ * Two standard 12-hour clocks share the same angles:
+ * 12 = top, 3 = right, 6 = bottom, 9 = left.
+ * Inner ring is AM; outer ring is PM.
  */
-function positionForClockMinute(clockMinute, period, radiusOverride = null) {
+function positionForClockMinute(clockMinute, period) {
   const normalizedClockMinute = ((clockMinute % HALF_DAY_MINUTES) + HALF_DAY_MINUTES) % HALF_DAY_MINUTES;
   const degrees = (normalizedClockMinute / HALF_DAY_MINUTES) * 360;
   const radians = (degrees * Math.PI) / 180;
-  const radius = radiusOverride ?? NODE_RADIUS[period];
+  const radius = RING_RADIUS[period];
   return {
     x: 50 + Math.sin(radians) * radius,
     y: 50 - Math.cos(radians) * radius,
@@ -86,10 +79,7 @@ function blockDuration(start, end) {
   return ((endMinute - startMinute) + FULL_DAY_MINUTES) % FULL_DAY_MINUTES;
 }
 
-/*
- * Split every block at noon and midnight so each segment belongs to exactly
- * one ring. Example: Work 11 PM–8 AM becomes PM 11–12 + AM 12–8.
- */
+/* Split at noon/midnight so every line segment lives on the correct ring. */
 function segmentsForBlock(block) {
   const startMinute = parseTime(block.start);
   const duration = blockDuration(block.start, block.end);
@@ -111,7 +101,6 @@ function segmentsForBlock(block) {
       ...block,
       period,
       clockStartMinute,
-      clockEndMinute: clockStartMinute + segmentDuration,
       segmentDuration
     });
 
@@ -150,23 +139,18 @@ function createArc(segment) {
   return circle;
 }
 
-function decoratePosition(node, degrees) {
-  if (degrees > 135 && degrees < 225) node.classList.add('is-bottom');
-  if (degrees > 45 && degrees < 135) node.classList.add('is-right');
-  if (degrees > 225 && degrees < 315) node.classList.add('is-left');
-}
-
 function createStartNode(block, shell) {
   const startMinute = parseTime(block.start);
   const period = periodForMinute(startMinute);
   const clockMinute = clockMinuteForMinute(startMinute);
-  const { x, y, degrees } = positionForClockMinute(clockMinute, period);
+  const { x, y } = positionForClockMinute(clockMinute, period);
   const node = document.createElement(block.kind === 'activity' ? 'button' : 'div');
   if (node instanceof HTMLButtonElement) node.type = 'button';
   node.className = `setup-day-orbit-node is-${block.kind} is-${period}`;
-  decoratePosition(node, degrees);
   node.style.left = `${x}%`;
   node.style.top = `${y}%`;
+  node.setAttribute('aria-label', `${block.label} starts ${shortTimeFromMinutes(startMinute)}`);
+  node.title = `${block.label} · ${shortTimeFromMinutes(startMinute)}`;
 
   const dot = document.createElement('span');
   dot.className = 'setup-day-orbit-dot';
@@ -176,16 +160,12 @@ function createStartNode(block, shell) {
   time.className = 'setup-day-orbit-time';
   time.textContent = shortTimeFromMinutes(startMinute);
 
-  const title = document.createElement('span');
-  title.className = 'setup-day-orbit-title';
-  title.textContent = block.label;
-
-  node.append(dot, time, title);
+  node.append(dot, time);
 
   if (block.kind === 'activity') {
     node.dataset.activityId = block.id;
-    node.setAttribute('aria-label', `${block.label}, ${shortTimeFromMinutes(startMinute)}. Tap to remove this activity.`);
-    node.title = 'Tap to remove';
+    node.setAttribute('aria-label', `${block.label} starts ${shortTimeFromMinutes(startMinute)}. Tap to remove this activity.`);
+    node.title = `${block.label} · ${shortTimeFromMinutes(startMinute)} · tap to remove`;
     node.addEventListener('click', (event) => {
       event.stopPropagation();
       const removeButton = shell.querySelector(`[data-setup-remove-activity="${CSS.escape(block.id)}"]`);
@@ -196,37 +176,31 @@ function createStartNode(block, shell) {
   return node;
 }
 
-/*
- * Every block gets a visible finish point. The start keeps the full icon/name;
- * the end stays compact and explicitly says END + time so it cannot be mistaken
- * for another activity.
- */
+/* One universal finish flag marks the exact end of every block. */
 function createEndMarker(block) {
   const endMinute = parseTime(block.end);
   const period = periodForMinute(endMinute);
   const clockMinute = clockMinuteForMinute(endMinute);
-  const { x, y, degrees } = positionForClockMinute(clockMinute, period, END_RADIUS[period]);
+  const { x, y } = positionForClockMinute(clockMinute, period);
   const marker = document.createElement('div');
   marker.className = `setup-day-orbit-endpoint is-${block.kind} is-${period}`;
-  decoratePosition(marker, degrees);
   marker.style.left = `${x}%`;
   marker.style.top = `${y}%`;
   marker.setAttribute('aria-label', `${block.label} ends ${shortTimeFromMinutes(endMinute)}`);
+  marker.title = `${block.label} ends · ${shortTimeFromMinutes(endMinute)}`;
 
-  const dot = document.createElement('span');
-  dot.className = 'setup-day-orbit-endpoint-dot';
+  const icon = document.createElement('span');
+  icon.className = 'setup-day-orbit-endpoint-icon';
+  icon.innerHTML = finishIconSvg();
+
   const time = document.createElement('span');
   time.className = 'setup-day-orbit-endpoint-time';
-  time.textContent = `END ${shortTimeFromMinutes(endMinute)}`;
-  marker.append(dot, time);
+  time.textContent = shortTimeFromMinutes(endMinute);
+
+  marker.append(icon, time);
   return marker;
 }
 
-/*
- * The selected setup day represents the routine the user is building. An
- * overnight block assigned to that day is shown in full across PM -> AM so the
- * user can understand the complete shift without switching days.
- */
 function blocksForDay(profile, day) {
   const blocks = [];
 
@@ -293,11 +267,19 @@ function createPeriodLabel(period) {
   return label;
 }
 
+function createClockAnchor(label, position) {
+  const marker = document.createElement('span');
+  marker.className = `setup-day-orbit-clock-label is-${position}`;
+  marker.textContent = label;
+  marker.setAttribute('aria-hidden', 'true');
+  return marker;
+}
+
 function buildOrbit(profile, day, shell) {
   const ring = document.createElement('div');
   ring.className = 'setup-day-orbit';
   ring.dataset.stateKey = stateKey(profile, day);
-  ring.setAttribute('aria-label', 'Current day map. Inner ring is AM. Outer ring is PM.');
+  ring.setAttribute('aria-label', 'Current day map. Inner ring is AM. Outer ring is PM. Standard clock positions: 12 top, 3 right, 6 bottom, 9 left.');
 
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.classList.add('setup-day-orbit-arcs');
@@ -305,7 +287,15 @@ function buildOrbit(profile, day, shell) {
   svg.setAttribute('aria-hidden', 'true');
   svg.append(createTickCircle('am'), createTickCircle('pm'));
   ring.appendChild(svg);
-  ring.append(createPeriodLabel('am'), createPeriodLabel('pm'));
+
+  ring.append(
+    createPeriodLabel('am'),
+    createPeriodLabel('pm'),
+    createClockAnchor('12', 'top'),
+    createClockAnchor('3', 'right'),
+    createClockAnchor('6', 'bottom'),
+    createClockAnchor('9', 'left')
+  );
 
   blocksForDay(profile, day).forEach((block) => {
     segmentsForBlock(block).forEach((segment) => svg.appendChild(createArc(segment)));
