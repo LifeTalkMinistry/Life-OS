@@ -141,7 +141,7 @@ function buildDaySummary(profile, day) {
 }
 
 function renderDaySummary() {
-  const shell = document.querySelector('.setup-step-activities');
+  const shell = document.querySelector('.setup-step-activities, .setup-step-activity-end');
   if (!shell) return;
 
   const state = window.__LIFE_OS__?.getState?.();
