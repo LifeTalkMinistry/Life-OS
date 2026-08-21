@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-os-shell-v5';
+const CACHE_NAME = 'life-os-shell-v6';
 const BASE_URL = new URL('./', self.location.href);
 
 const toUrl = (path) => new URL(path, BASE_URL).href;
