@@ -1,0 +1,34 @@
+/* Reuse a mapped day without making the Orb noisy. */
+.setup-copy-day-button {
+  appearance: none;
+  min-width: 126px;
+  margin: -4px auto 14px;
+  padding: 7px 12px 8px;
+  border: 1px solid rgba(194, 157, 255, 0.26);
+  border-radius: 999px;
+  background: rgba(16, 9, 36, 0.4);
+  color: rgba(238, 229, 248, 0.92);
+  font: inherit;
+  font-size: clamp(0.62rem, 2.45vw, 0.72rem);
+  font-weight: 520;
+  letter-spacing: 0.025em;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(127, 73, 231, 0.08);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.setup-copy-day-button:is(:hover, :focus-visible) {
+  border-color: rgba(213, 181, 255, 0.62);
+  background: rgba(42, 23, 76, 0.5);
+  color: #f3eaff;
+  outline: none;
+}
+
+@media (max-width: 360px) {
+  .setup-copy-day-button {
+    min-width: 116px;
+    margin-bottom: 11px;
+    padding: 6px 10px 7px;
+    font-size: 0.6rem;
+  }
+}
