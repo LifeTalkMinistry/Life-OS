@@ -2,26 +2,21 @@ import { activityIconSvgMarkup } from '../activity-icons.js';
 import { parseMinutes } from '../state/lifeState.js';
 
 const TODAY_SVG_NS = 'http://www.w3.org/2000/svg';
-const TODAY_HALF_DAY_MINUTES = 720;
-const TODAY_FULL_DAY_MINUTES = 1440;
 const TODAY_RING_RADIUS = {
   am: 34.8,
   pm: 43.2
 };
 
-function todayNormalizeMinute(value) {
-  return ((value % TODAY_FULL_DAY_MINUTES) + TODAY_FULL_DAY_MINUTES) % TODAY_FULL_DAY_MINUTES;
-}
-
-function todayPeriodForMinutes(totalMinutes) {
-  return todayNormalizeMinute(totalMinutes) < TODAY_HALF_DAY_MINUTES ? 'am' : 'pm';
+function todayPeriodForTime(time) {
+  const total = ((parseMinutes(time) % 1440) + 1440) % 1440;
+  return total < 720 ? 'am' : 'pm';
 }
 
 function todayPositionForTime(time) {
-  const total = todayNormalizeMinute(parseMinutes(time));
-  const period = todayPeriodForMinutes(total);
-  const clockMinutes = total % TODAY_HALF_DAY_MINUTES;
-  const degrees = (clockMinutes / TODAY_HALF_DAY_MINUTES) * 360;
+  const total = ((parseMinutes(time) % 1440) + 1440) % 1440;
+  const period = todayPeriodForTime(time);
+  const clockMinutes = total % 720;
+  const degrees = (clockMinutes / 720) * 360;
   const radians = (degrees * Math.PI) / 180;
   const radius = TODAY_RING_RADIUS[period];
 
@@ -31,36 +26,6 @@ function todayPositionForTime(time) {
     degrees,
     period
   };
-}
-
-function todayActivityDuration(start, end) {
-  return (parseMinutes(end) - parseMinutes(start) + TODAY_FULL_DAY_MINUTES) % TODAY_FULL_DAY_MINUTES;
-}
-
-function todayActivitySegments(activity) {
-  const startMinute = todayNormalizeMinute(parseMinutes(activity.start));
-  const duration = todayActivityDuration(activity.start, activity.end);
-  if (!duration) return [];
-
-  const absoluteEnd = startMinute + duration;
-  const segments = [];
-  let cursor = startMinute;
-
-  while (cursor < absoluteEnd) {
-    const nextBoundary = (Math.floor(cursor / TODAY_HALF_DAY_MINUTES) + 1) * TODAY_HALF_DAY_MINUTES;
-    const segmentEnd = Math.min(absoluteEnd, nextBoundary);
-    const normalizedStart = todayNormalizeMinute(cursor);
-
-    segments.push({
-      period: todayPeriodForMinutes(normalizedStart),
-      clockStartMinute: normalizedStart % TODAY_HALF_DAY_MINUTES,
-      duration: segmentEnd - cursor
-    });
-
-    cursor = segmentEnd;
-  }
-
-  return segments;
 }
 
 function todayEscapeHtml(value) {
@@ -124,25 +89,6 @@ function createTodayOrbitSvg() {
   return svg;
 }
 
-function appendTodayActivityArc(svg, activity, segment, isCurrent) {
-  const circle = document.createElementNS(TODAY_SVG_NS, 'circle');
-  const startPercent = (segment.clockStartMinute / TODAY_HALF_DAY_MINUTES) * 100;
-  const durationPercent = (segment.duration / TODAY_HALF_DAY_MINUTES) * 100;
-
-  circle.setAttribute('cx', '50');
-  circle.setAttribute('cy', '50');
-  circle.setAttribute('r', String(TODAY_RING_RADIUS[segment.period]));
-  circle.setAttribute('pathLength', '100');
-  circle.setAttribute('fill', 'none');
-  circle.setAttribute('stroke-dasharray', `${durationPercent} ${Math.max(0, 100 - durationPercent)}`);
-  circle.setAttribute('stroke-dashoffset', `${-startPercent}`);
-  circle.setAttribute('transform', 'rotate(-90 50 50)');
-  circle.classList.add('today-activity-arc', `is-${segment.period}`);
-  if (isCurrent) circle.classList.add('is-current');
-  if (activity.kind) circle.classList.add(`is-${activity.kind}`);
-  svg.appendChild(circle);
-}
-
 function createTodayPeriodLabel(period) {
   const label = document.createElement('span');
   label.className = `today-period-label is-${period}`;
@@ -156,16 +102,7 @@ export function TodayRing(activities, currentId, onSystemControl) {
   ring.className = 'today-ring today-ring-dual';
   ring.setAttribute('aria-label', "Today's schedule. Inner orbit is AM and outer orbit is PM.");
 
-  const orbitSvg = createTodayOrbitSvg();
-  activities
-    .filter((activity) => activity.id !== 'urgent')
-    .forEach((activity) => {
-      todayActivitySegments(activity).forEach((segment) => {
-        appendTodayActivityArc(orbitSvg, activity, segment, activity.id === currentId);
-      });
-    });
-
-  ring.appendChild(orbitSvg);
+  ring.appendChild(createTodayOrbitSvg());
   ring.append(createTodayPeriodLabel('pm'), createTodayPeriodLabel('am'));
 
   const controls = document.createElement('div');
