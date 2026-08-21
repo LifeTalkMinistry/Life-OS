@@ -71,6 +71,16 @@ function fixedKindCopy(kind) {
   return 'Work';
 }
 
+function fixedSubject(kind) {
+  if (kind === 'school') return 'school';
+  if (kind === 'both') return 'work or school';
+  return 'work';
+}
+
+function anchorActivity(profile, id) {
+  return profile.activities.find((activity) => activity.id === id) ?? null;
+}
+
 function welcomeContent() {
   return `
     <div class="orb-content setup-content setup-welcome-content">
@@ -188,6 +198,52 @@ function fixedScopeContent(profile) {
   `;
 }
 
+function singleTimeQuestion({ eyebrow, question, value, action, label = 'Time' }) {
+  return `
+    <div class="orb-content setup-content setup-anchor-content">
+      <p class="setup-eyebrow">${eyebrow}</p>
+      <h1 class="setup-question setup-question-small">${question}</h1>
+      <div class="setup-time-grid setup-time-grid-single">
+        <label><span>${label}</span><input type="time" data-setup-draft-field="start" value="${escapeHtml(value)}"></label>
+      </div>
+      <button type="button" class="setup-continue" data-setup-action="${action}" ${value ? '' : 'disabled'}>Continue</button>
+      ${backButton()}
+    </div>
+  `;
+}
+
+function preFixedContent(profile, draft) {
+  const subject = fixedSubject(profile.fixedKind);
+  return singleTimeQuestion({
+    eyebrow: 'BEFORE YOUR FIXED TIME',
+    question: `What time do you usually start getting ready for ${subject}?`,
+    value: draft?.start,
+    action: 'pre-fixed-continue',
+    label: 'Start'
+  });
+}
+
+function preSleepContent(draft) {
+  return singleTimeQuestion({
+    eyebrow: 'BEFORE SLEEP',
+    question: 'What time do you usually start preparing for sleep?',
+    value: draft?.start,
+    action: 'pre-sleep-continue',
+    label: 'Start'
+  });
+}
+
+function homeArrivalContent(profile, draft) {
+  const subject = fixedSubject(profile.fixedKind);
+  return singleTimeQuestion({
+    eyebrow: 'AFTER YOUR FIXED TIME',
+    question: `What time do you usually get home after ${subject}?`,
+    value: draft?.start,
+    action: 'home-arrival-continue',
+    label: 'Home'
+  });
+}
+
 function currentDayActivities(profile, day) {
   return profile.activities
     .filter((activity) => activity.days.includes(day))
@@ -218,38 +274,53 @@ function iconPicker(draft) {
 
 function activitiesContent(profile, draft, activityDay) {
   const name = dayName(activityDay);
-  const existing = currentDayActivities(profile, activityDay);
+  const boundary = anchorActivity(profile, 'anchor-pre-sleep')?.start || profile.sleepStart;
+  const dayDone = Boolean(draft?.start && boundary && draft.start === boundary);
+  const nextLabel = activityDay === 0 ? 'Review week' : `${name} looks good`;
+
+  if (dayDone) {
+    return `
+      <div class="orb-content setup-content setup-content-wide setup-day-builder setup-day-complete">
+        <p class="setup-eyebrow">${name.toUpperCase()}</p>
+        <h1 class="setup-question setup-question-small">${name} is mapped.</h1>
+        <button type="button" class="setup-continue" data-setup-action="activity-day-next">${nextLabel}</button>
+        ${backButton('activity-day-back')}
+      </div>
+    `;
+  }
+
+  const ready = Boolean(draft?.name?.trim() && draft?.start);
+  return `
+    <div class="orb-content setup-content setup-content-wide setup-day-builder">
+      <p class="setup-eyebrow">LET'S BUILD ${name.toUpperCase()}</p>
+      <h1 class="setup-question setup-question-small">From ${escapeHtml(formatTime(draft?.start))}, what do you do next?</h1>
+      ${iconPicker(draft)}
+      <button type="button" class="setup-continue" data-setup-action="activity-name-continue" ${ready ? '' : 'disabled'}>Continue</button>
+      ${backButton('activity-day-back')}
+    </div>
+  `;
+}
+
+function activityEndContent(profile, draft, activityDay) {
   const conflict = draft?.start && draft?.end
     ? findTimeConflict(profile, activityDay, draft.start, draft.end)
     : null;
   const ready = Boolean(draft?.name?.trim() && draft?.start && draft?.end && draft.start !== draft.end && !conflict);
-  const nextLabel = activityDay === 0 ? 'Review week' : `${name} looks good`;
-  const canFinish = activityDay !== 0 || profile.activities.length > 0;
 
   return `
-    <div class="orb-content setup-content setup-content-wide setup-day-builder">
-      <p class="setup-eyebrow">LET'S BUILD ${name.toUpperCase()}</p>
-      <h1 class="setup-question setup-question-small">What do you usually do on ${name}?</h1>
-      ${iconPicker(draft)}
-      <div class="setup-time-grid">
-        <label><span>Start</span><input type="time" data-setup-draft-field="start" value="${escapeHtml(draft?.start)}"></label>
+    <div class="orb-content setup-content setup-content-wide setup-activity-end">
+      <p class="setup-eyebrow">${escapeHtml(dayName(activityDay).toUpperCase())}</p>
+      <h1 class="setup-question setup-question-small">Until what time?</h1>
+      <div class="setup-selected-activity">
+        <span class="setup-day-list-icon">${activityIconSvg(draft?.icon)}</span>
+        <span>${escapeHtml(draft?.name)}</span>
+      </div>
+      <div class="setup-time-grid setup-time-grid-single">
         <label><span>End</span><input type="time" data-setup-draft-field="end" value="${escapeHtml(draft?.end)}"></label>
       </div>
-      <p class="setup-help setup-time-conflict" data-setup-conflict ${conflict ? '' : 'hidden'}>${conflict ? `That time is already occupied by ${escapeHtml(conflict.label)}.` : ''}</p>
-      <button type="button" class="setup-continue" data-setup-action="activity-add" ${ready ? '' : 'disabled'}>Add activity</button>
-      ${existing.length ? `
-        <div class="setup-options setup-options-compact setup-day-list">
-          ${existing.map((activity) => `
-            <button type="button" data-setup-remove-activity="${escapeHtml(activity.id)}">
-              <span class="setup-day-list-icon">${activityIconSvg(activity.icon)}</span>
-              <span>${escapeHtml(activity.name)} · ${formatTime(activity.start)}–${formatTime(activity.end)}</span>
-              <span aria-hidden="true">×</span>
-            </button>
-          `).join('')}
-        </div>
-      ` : '<p class="setup-help">No activities added yet.</p>'}
-      <button type="button" class="setup-continue" data-setup-action="activity-day-next" ${canFinish ? '' : 'disabled'}>${nextLabel}</button>
-      ${backButton('activity-day-back')}
+      <p class="setup-help setup-time-conflict" data-setup-conflict ${conflict ? '' : 'hidden'}>${conflict ? `That time crosses ${escapeHtml(conflict.label)}.` : ''}</p>
+      <button type="button" class="setup-continue" data-setup-action="activity-add" ${ready ? '' : 'disabled'}>Save & continue</button>
+      ${backButton()}
     </div>
   `;
 }
@@ -300,7 +371,11 @@ function contentForStep(step, profile, draft, activityDay) {
   if (step === 'fixed-time') return fixedTimeContent(profile);
   if (step === 'sleep') return sleepContent(profile);
   if (step === 'fixed-scope') return fixedScopeContent(profile);
+  if (step === 'pre-fixed') return preFixedContent(profile, draft);
+  if (step === 'pre-sleep') return preSleepContent(draft);
+  if (step === 'home-arrival') return homeArrivalContent(profile, draft);
   if (step === 'activities') return activitiesContent(profile, draft, activityDay);
+  if (step === 'activity-end') return activityEndContent(profile, draft, activityDay);
   if (step === 'review') return reviewContent(profile);
   return readyContent();
 }
@@ -354,22 +429,29 @@ function installSetupSafeZone(orb, step) {
   }
 }
 
-function refreshActivityAddButton(orb, profile, activityDay) {
-  const addButton = orb.querySelector('[data-setup-action="activity-add"]');
-  if (!addButton) return;
-
+function refreshActivityControls(orb, profile, activityDay) {
   const name = orb.querySelector('[data-setup-draft-field="name"]')?.value.trim();
   const start = orb.querySelector('[data-setup-draft-field="start"]')?.value;
   const end = orb.querySelector('[data-setup-draft-field="end"]')?.value;
+
+  const nameContinue = orb.querySelector('[data-setup-action="activity-name-continue"]');
+  if (nameContinue) nameContinue.disabled = !(name && start);
+
+  const anchorContinue = orb.querySelector('[data-setup-action$="-continue"]:not([data-setup-action="activity-name-continue"]):not([data-setup-action="activity-add"])');
+  if (anchorContinue && orb.querySelector('.setup-anchor-content')) anchorContinue.disabled = !start;
+
+  const addButton = orb.querySelector('[data-setup-action="activity-add"]');
+  if (!addButton) return;
+
   const conflict = start && end && start !== end ? findTimeConflict(profile, activityDay, start, end) : null;
   const conflictNode = orb.querySelector('[data-setup-conflict]');
 
   if (conflictNode) {
     conflictNode.hidden = !conflict;
-    conflictNode.textContent = conflict ? `That time is already occupied by ${conflict.label}.` : '';
+    conflictNode.textContent = conflict ? `That time crosses ${conflict.label}.` : '';
   }
 
-  orb.querySelectorAll('[data-setup-draft-field="start"], [data-setup-draft-field="end"]').forEach((input) => {
+  orb.querySelectorAll('[data-setup-draft-field="end"]').forEach((input) => {
     input.setAttribute('aria-invalid', conflict ? 'true' : 'false');
   });
 
@@ -425,7 +507,7 @@ export function LifeSetupOrb({ step, profile, activityDraft, activityDay = 1, on
   orb.querySelectorAll('[data-setup-draft-field]').forEach((input) => {
     const update = () => {
       onField?.(`draft.${input.dataset.setupDraftField}`, input.value);
-      refreshActivityAddButton(orb, profile, activityDay);
+      refreshActivityControls(orb, profile, activityDay);
     };
     input.addEventListener('input', update);
     input.addEventListener('change', update);
