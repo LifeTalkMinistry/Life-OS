@@ -1,6 +1,6 @@
 export const LIFE_PROFILE_STORAGE_KEY = 'life-os-v1-profile';
 
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const PROFILE_ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const MINUTES_PER_DAY = 1440;
 const MINUTES_PER_WEEK = MINUTES_PER_DAY * 7;
 const ACTIVITY_ICONS = ['general', 'work', 'study', 'fitness', 'faith', 'creative', 'social', 'routine'];
@@ -84,7 +84,7 @@ export function findTimeConflict(rawProfile, day, start, end, ignoreActivityId =
   const candidate = intervalForDay(numericDay, start, end);
   const occupied = [];
 
-  occupied.push(...recurringIntervals(ALL_DAYS, profile.sleepStart, profile.sleepEnd, 'Sleep'));
+  occupied.push(...recurringIntervals(PROFILE_ALL_DAYS, profile.sleepStart, profile.sleepEnd, 'Sleep'));
 
   if (profile.hasFixedSchedule && profile.fixedGuidanceMode !== 'breakdown') {
     occupied.push(...recurringIntervals(
@@ -161,4 +161,4 @@ export function fixedKindLabel(kind) {
 }
 
 export const activityIcons = ACTIVITY_ICONS;
-export const allDays = ALL_DAYS;
+export const allDays = PROFILE_ALL_DAYS;
