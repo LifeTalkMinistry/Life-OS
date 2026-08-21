@@ -4,29 +4,38 @@
 
 LIFE OS is a Personal Life Operating System designed to help people understand their commitments, priorities, goals, routines, and real-life capacity — then decide what actually deserves their attention.
 
-## Core Problem
+## V1
 
-People are often busy without being properly directed.
+The first functional V1 proves one core experience: **What matters most right now?**
 
-The problem is not simply:
+It is intentionally a single mobile-first control center built around the LIFE OS orb:
 
-> “What should I schedule?”
+- Launch → NOW transition
+- Single tap → **Why this now?**
+- Press and hold → **Today** around the orb like a clock
+- Double tap → **Adjust reality** inside the orb
+- Local deterministic activity state for completion, extra time, deferral, and urgent interruptions
 
-The deeper question is:
+No authentication, backend, dashboards, AI chat, analytics, habit tracking, or full calendar system are included in V1.
 
-> **“What actually deserves my attention right now?”**
+## Run locally
 
-## Core Philosophy
+```bash
+npm run dev
+```
 
-LIFE OS is about life direction, not maximum productivity.
+Open `http://localhost:4173`.
 
-It should help users move from:
+## Quality checks
 
-- Reactive → Intentional
-- Busy → Directed
-- Overloaded → Prioritized
-- Scattered → Structured
-- Guessing → Clear
+```bash
+npm run check
+npm test
+npm run build
+npm run test:browser
+```
+
+The browser smoke test uses local Chromium to exercise all three orb gestures and the adjustment branches.
 
 ## Core Principles
 
@@ -34,36 +43,6 @@ It should help users move from:
 2. **Activities are not the same as objectives.**
 3. **Being busy is not the same as making progress.**
 4. The system should **reduce cognitive load**, not become another responsibility.
-
-## Product Vision
-
-LIFE OS should eventually understand:
-
-- Fixed life constraints
-- Life areas
-- Activities
-- Priorities
-- Objectives
-- Commitments
-- Available capacity
-- Daily guidance
-- Accountability
-
-The goal is for the user to open LIFE OS and receive a simple answer:
-
-> **Here is what matters today.**
-
----
-
-## Current Status
-
-🚧 **Product Discovery / Early Development**
-
-The current process is:
-
-**Personal discovery → problem validation → product philosophy → user model → behavior model → MVP → experience design → technical architecture → testing → iteration → launch**
-
-The product architecture and UI are intentionally not finalized yet.
 
 ---
 
