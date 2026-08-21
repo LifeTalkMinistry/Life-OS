@@ -17,7 +17,8 @@ const scriptOrder = [
   'src/setup-day-orbit.js',
   'src/setup-day-summary.js',
   'src/setup-activity-end-fix.js',
-  'src/setup-icon-modal.js'
+  'src/setup-icon-modal.js',
+  'src/setup-copy-day.js'
 ];
 
 function stripModuleSyntax(source) {
@@ -35,6 +36,7 @@ const css = [
   readFileSync('src/setup-day-navigation.css', 'utf8'),
   readFileSync('src/setup-activity-end-back.css', 'utf8'),
   readFileSync('src/setup-icon-modal.css', 'utf8'),
+  readFileSync('src/setup-copy-day.css', 'utf8'),
   readFileSync('src/system-controls.css', 'utf8')
 ].join('\n\n');
 const js = scriptOrder
