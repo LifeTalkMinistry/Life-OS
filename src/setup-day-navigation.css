@@ -4,6 +4,8 @@
  */
 .setup-step-activities .setup-safe-zone.is-wide {
   inset: 11% 9% 12%;
+  /* Popovers may use the whole sphere; the Orb itself still clips at the rim. */
+  overflow: visible;
 }
 
 .setup-step-activities .setup-fit {
@@ -139,58 +141,57 @@
   margin-top: 9px;
 }
 
-/* The icon picker shows eight everyday choices first. More opens the full
- * library in a small scrollable panel rather than flooding the Orb. */
+/*
+ * Full icon library.
+ * Opening the picker exposes every icon immediately in one stable scrollable
+ * grid. The popover is vertically centered around the activity field so it
+ * stays inside the circular Orb instead of falling through its lower edge.
+ */
 .setup-icon-picker {
-  width: 138px;
+  top: 50% !important;
+  right: -2px !important;
+  width: 176px;
+  max-height: 158px;
+  transform: translateY(-50%);
+  display: grid;
   grid-template-columns: minmax(0, 1fr) !important;
   gap: 5px !important;
+  padding: 7px !important;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 60;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(175, 132, 235, 0.38) transparent;
+}
+
+.setup-icon-picker::-webkit-scrollbar {
+  width: 3px;
+}
+
+.setup-icon-picker::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(175, 132, 235, 0.38);
 }
 
 .setup-icon-picker-grid {
   display: grid;
-  grid-template-columns: repeat(4, 28px);
+  grid-template-columns: repeat(5, 28px);
   gap: 4px;
+  width: max-content;
 }
 
+/* The previous More/Fewer step is unnecessary now: all icons live in the same
+ * scrollable picker. Keep the existing markup harmless for backward safety. */
 .setup-icon-more-toggle {
-  width: 100% !important;
-  height: auto !important;
-  min-height: 22px;
-  padding: 4px 5px !important;
-  border-radius: 7px !important;
-  color: rgba(207, 191, 229, 0.8) !important;
-  font-size: 0.54rem !important;
-  font-weight: 520;
-  letter-spacing: 0.04em;
-}
-
-.setup-icon-more-toggle:is(:hover, :focus-visible) {
-  color: #eadcff !important;
-  border-color: rgba(215, 183, 255, 0.62) !important;
-  outline: none;
-}
-
-.setup-icon-more-panel[hidden] {
   display: none !important;
 }
 
-.setup-icon-more-panel {
-  max-height: 132px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(175, 132, 235, 0.32) transparent;
-}
-
-.setup-icon-more-panel::-webkit-scrollbar {
-  width: 3px;
-}
-
-.setup-icon-more-panel::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(175, 132, 235, 0.32);
+.setup-icon-more-panel,
+.setup-icon-more-panel[hidden] {
+  display: block !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 0 !important;
 }
 
 @media (max-width: 360px) {
@@ -217,7 +218,20 @@
     inset: 11% 9% 13%;
   }
 
-  .setup-icon-more-panel {
-    max-height: 108px;
+  .setup-icon-picker {
+    right: -1px !important;
+    width: 166px;
+    max-height: 146px;
+    padding: 6px !important;
+  }
+
+  .setup-icon-picker-grid {
+    grid-template-columns: repeat(5, 27px);
+    gap: 4px;
+  }
+
+  .setup-icon-picker button:not(.setup-icon-more-toggle) {
+    width: 27px;
+    height: 27px;
   }
 }
