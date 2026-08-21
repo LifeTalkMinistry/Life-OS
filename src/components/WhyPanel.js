@@ -1,3 +1,12 @@
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 export function WhyPanel(activity, onClose) {
   const backdrop = document.createElement('div');
   backdrop.className = 'why-backdrop';
@@ -11,14 +20,14 @@ export function WhyPanel(activity, onClose) {
   panel.innerHTML = `
     <button class="why-close" type="button" aria-label="Close why this now">×</button>
     <p class="eyebrow" id="why-title">WHY THIS NOW?</p>
-    <h2>${activity.shortTitle}</h2>
+    <h2>${escapeHtml(activity.shortTitle)}</h2>
     <div class="why-item">
       <span>CURRENT OBJECTIVE</span>
-      <p>${activity.objective}</p>
+      <p>${escapeHtml(activity.objective)}</p>
     </div>
     <div class="why-item">
       <span>WHY IT MATTERS</span>
-      <p>${activity.why}</p>
+      <p>${escapeHtml(activity.why)}</p>
     </div>
     <div class="why-item">
       <span>RECOMMENDED FOCUS</span>
