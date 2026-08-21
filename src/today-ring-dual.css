@@ -11,7 +11,8 @@
 }
 
 .today-ring-dual .today-orbit-line,
-.today-ring-dual .today-orbit-ticks {
+.today-ring-dual .today-orbit-ticks,
+.today-ring-dual .today-activity-arc {
   fill: none;
   vector-effect: non-scaling-stroke;
 }
@@ -41,6 +42,38 @@
 
 .today-ring-dual .today-orbit-ticks.is-pm {
   stroke: rgba(226, 130, 213, 0.78);
+}
+
+/* Activity duration lives on the ring itself. The start icon is rendered above
+ * these strokes, so a new activity can own the exact handoff point where the
+ * previous line ends without needing a competing end marker. */
+.today-ring-dual .today-activity-arc {
+  stroke-width: 1.05;
+  stroke-linecap: round;
+  opacity: 0.88;
+}
+
+.today-ring-dual .today-activity-arc.is-am {
+  stroke: rgba(104, 126, 255, 0.94);
+  filter: drop-shadow(0 0 2.6px rgba(76, 91, 255, 0.56));
+}
+
+.today-ring-dual .today-activity-arc.is-pm {
+  stroke: rgba(229, 101, 198, 0.9);
+  filter: drop-shadow(0 0 2.6px rgba(203, 77, 185, 0.5));
+}
+
+.today-ring-dual .today-activity-arc.is-current {
+  stroke-width: 1.35;
+  opacity: 1;
+}
+
+.today-ring-dual .today-activity-arc.is-current.is-am {
+  stroke: rgba(137, 154, 255, 0.98);
+}
+
+.today-ring-dual .today-activity-arc.is-current.is-pm {
+  stroke: rgba(244, 132, 215, 0.98);
 }
 
 .today-period-label {
@@ -126,5 +159,13 @@
   .today-period-label {
     left: 55%;
     font-size: 0.42rem;
+  }
+
+  .today-ring-dual .today-activity-arc {
+    stroke-width: 0.95;
+  }
+
+  .today-ring-dual .today-activity-arc.is-current {
+    stroke-width: 1.2;
   }
 }
