@@ -1,9 +1,11 @@
+import { activityIconIds } from '../activity-icons.js';
+
 export const LIFE_PROFILE_STORAGE_KEY = 'life-os-v1-profile';
 
 const PROFILE_ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const MINUTES_PER_DAY = 1440;
 const MINUTES_PER_WEEK = MINUTES_PER_DAY * 7;
-const ACTIVITY_ICONS = ['general', 'work', 'study', 'fitness', 'faith', 'creative', 'social', 'routine'];
+const ACTIVITY_ICONS = activityIconIds;
 
 function normalizeDays(value, fallback = []) {
   if (!Array.isArray(value)) return [...fallback];
