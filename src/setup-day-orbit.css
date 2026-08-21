@@ -180,7 +180,7 @@ button.setup-day-orbit-node.is-activity {
   white-space: nowrap;
 }
 
-/* End markers show exactly where protected/fixed blocks finish on the correct ring. */
+/* Every block gets a compact, explicit END marker on the correct AM/PM ring. */
 .setup-day-orbit-endpoint {
   position: absolute;
   z-index: 4;
@@ -209,10 +209,17 @@ button.setup-day-orbit-node.is-activity {
   color: rgba(124, 144, 255, 0.86);
 }
 
+.setup-day-orbit-endpoint.is-activity {
+  color: rgba(190, 139, 255, 0.92);
+}
+
 .setup-day-orbit-endpoint-time {
-  color: rgba(223, 215, 232, 0.78);
+  color: rgba(236, 229, 243, 0.86);
   font-size: clamp(0.42rem, 1.55vw, 0.53rem);
+  font-weight: 650;
   line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 button.setup-day-orbit-node.is-activity:is(:hover, :focus-visible) .setup-day-orbit-dot {
