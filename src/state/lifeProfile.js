@@ -3,6 +3,7 @@ export const LIFE_PROFILE_STORAGE_KEY = 'life-os-v1-profile';
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const MINUTES_PER_DAY = 1440;
 const MINUTES_PER_WEEK = MINUTES_PER_DAY * 7;
+const ACTIVITY_ICONS = ['general', 'work', 'study', 'fitness', 'faith', 'creative', 'social', 'routine'];
 
 function normalizeDays(value, fallback = []) {
   if (!Array.isArray(value)) return [...fallback];
@@ -18,6 +19,10 @@ function normalizeTime(value, fallback = '') {
   return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 ? text : fallback;
 }
 
+function normalizeActivityIcon(value) {
+  return ACTIVITY_ICONS.includes(value) ? value : 'general';
+}
+
 function normalizeActivities(value) {
   if (!Array.isArray(value)) return [];
 
@@ -31,6 +36,7 @@ function normalizeActivities(value) {
     return {
       id: String(activity?.id || `activity-${index + 1}`),
       name,
+      icon: normalizeActivityIcon(activity?.icon),
       days,
       start,
       end
@@ -154,4 +160,5 @@ export function fixedKindLabel(kind) {
   return 'WORK';
 }
 
+export const activityIcons = ACTIVITY_ICONS;
 export const allDays = ALL_DAYS;
