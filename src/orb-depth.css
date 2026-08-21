@@ -179,6 +179,72 @@
   max-width: 100%;
 }
 
+/*
+ * Activity mapping is the densest onboarding step. Give it a slightly taller
+ * usable area, bias the composition upward, and tighten only this step so the
+ * full form stays visually centered instead of collapsing into the lower half.
+ */
+.setup-step-activities .setup-safe-zone.is-wide {
+  inset: 5% 8% 11%;
+}
+
+.setup-step-activities .setup-fit {
+  transform: translateY(-4%) scale(var(--setup-fit-scale, 1));
+  transform-origin: center center;
+}
+
+.setup-step-activities .setup-eyebrow {
+  margin-bottom: 7px;
+}
+
+.setup-step-activities .setup-question-small {
+  margin-bottom: 8px;
+}
+
+.setup-step-activities .setup-help {
+  margin: -2px 0 7px;
+}
+
+.setup-step-activities .setup-focus-field {
+  margin-top: 0;
+}
+
+.setup-step-activities .setup-focus-field input {
+  padding-top: 7px;
+  padding-bottom: 8px;
+}
+
+.setup-step-activities .setup-days {
+  margin-top: 5px;
+  margin-bottom: 4px;
+}
+
+.setup-step-activities .setup-time-grid {
+  margin-top: 3px;
+  gap: 10px;
+}
+
+.setup-step-activities .setup-time-grid input {
+  padding-top: 5px;
+  padding-bottom: 6px;
+}
+
+.setup-step-activities .setup-continue {
+  margin-top: 7px;
+  padding-top: 6px;
+  padding-bottom: 7px;
+}
+
+.setup-step-activities .setup-options {
+  max-height: 48px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.setup-step-activities .setup-options::-webkit-scrollbar {
+  display: none;
+}
+
 /* Back is a required escape hatch on every navigable onboarding step. */
 .setup-safe-zone .setup-back {
   display: block !important;
@@ -192,6 +258,10 @@
   opacity: 1 !important;
   visibility: visible !important;
   z-index: 8;
+}
+
+.setup-step-activities .setup-back {
+  margin-top: 4px;
 }
 
 .setup-safe-zone .setup-back:is(:hover, :focus-visible) {
@@ -248,6 +318,14 @@
 
   .setup-safe-zone.is-wide {
     inset: 10% 9%;
+  }
+
+  .setup-step-activities .setup-safe-zone.is-wide {
+    inset: 6% 8% 12%;
+  }
+
+  .setup-step-activities .setup-fit {
+    transform: translateY(-5%) scale(var(--setup-fit-scale, 1));
   }
 
   .setup-safe-zone .setup-back {
