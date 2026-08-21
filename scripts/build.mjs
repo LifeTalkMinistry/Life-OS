@@ -22,7 +22,8 @@ function stripModuleSyntax(source) {
 const css = [
   readFileSync('src/styles.css', 'utf8'),
   readFileSync('src/refinements.css', 'utf8'),
-  readFileSync('src/orb-depth.css', 'utf8')
+  readFileSync('src/orb-depth.css', 'utf8'),
+  readFileSync('src/orb-vector.css', 'utf8')
 ].join('\n\n');
 const js = scriptOrder
   .map((file) => `// ${file}\n${stripModuleSyntax(readFileSync(file, 'utf8'))}`)
