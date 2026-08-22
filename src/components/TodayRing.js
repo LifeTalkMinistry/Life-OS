@@ -1,7 +1,6 @@
 import { activityIconSvgMarkup } from '../activity-icons.js';
 import { parseMinutes } from '../state/lifeState.js';
 
-const TODAY_SVG_NS = 'http://www.w3.org/2000/svg';
 const TODAY_RING_RADIUS = {
   am: 34.8,
   pm: 43.2
@@ -12,7 +11,7 @@ function todayPeriodForTime(time) {
   return total < 720 ? 'am' : 'pm';
 }
 
-function todayPositionForTime(time) {
+function positionForTime(time) {
   const total = ((parseMinutes(time) % 1440) + 1440) % 1440;
   const period = todayPeriodForTime(time);
   const clockMinutes = total % 720;
@@ -28,7 +27,7 @@ function todayPositionForTime(time) {
   };
 }
 
-function todayEscapeHtml(value) {
+function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -37,7 +36,7 @@ function todayEscapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-function todayIconForActivity(activity) {
+function iconForActivity(activity) {
   if (activity?.schedule?.icon) return activityIconSvgMarkup(activity.schedule.icon);
   if (activity?.id === 'fixed-schedule') return activityIconSvgMarkup('work');
   if (activity?.id === 'sleep') return activityIconSvgMarkup('sleep');
@@ -45,7 +44,7 @@ function todayIconForActivity(activity) {
   return activityIconSvgMarkup('general');
 }
 
-function todaySystemControl(kind, label) {
+function systemControl(kind, label) {
   const icon = kind === 'settings'
     ? '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l-2-.7a6 6 0 0 0-.8-1.8l.9-1.9-2.2-2.2-1.9.9a6 6 0 0 0-1.8-.8L10.5 2h-3l-.7 2a6 6 0 0 0-1.8.8l-1.9-.9L.9 6.1 1.8 8a6 6 0 0 0-.8 1.8l-2 .7v3l2 .7a6 6 0 0 0 .8 1.8l-.9 1.9 2.2 2.2 1.9-.9a6 6 0 0 0 1.8.8l.7 2h3l.7-2a6 6 0 0 0 1.8-.8l1.9.9 2.2-2.2-.9-1.9a6 6 0 0 0 .8-1.8z" transform="translate(2 0) scale(.83)"/></svg>'
     : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 10v6M12 7.25h.01"/></svg>';
@@ -54,6 +53,7 @@ function todaySystemControl(kind, label) {
   button.type = 'button';
   button.className = 'today-system-button';
   button.dataset.systemControl = kind;
+  button.dataset.holdTarget = `system:${kind}`;
   button.setAttribute('aria-label', label);
   button.innerHTML = `
     <span class="today-system-button-icon">${icon}</span>
@@ -62,20 +62,20 @@ function todaySystemControl(kind, label) {
   return button;
 }
 
-function createTodayOrbitSvg() {
-  const svg = document.createElementNS(TODAY_SVG_NS, 'svg');
+function createOrbitSvg() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.classList.add('today-orbit-svg');
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.setAttribute('aria-hidden', 'true');
 
   ['pm', 'am'].forEach((period) => {
-    const line = document.createElementNS(TODAY_SVG_NS, 'circle');
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     line.setAttribute('cx', '50');
     line.setAttribute('cy', '50');
     line.setAttribute('r', String(TODAY_RING_RADIUS[period]));
     line.classList.add('today-orbit-line', `is-${period}`);
 
-    const ticks = document.createElementNS(TODAY_SVG_NS, 'circle');
+    const ticks = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     ticks.setAttribute('cx', '50');
     ticks.setAttribute('cy', '50');
     ticks.setAttribute('r', String(TODAY_RING_RADIUS[period]));
@@ -89,7 +89,7 @@ function createTodayOrbitSvg() {
   return svg;
 }
 
-function createTodayPeriodLabel(period) {
+function createPeriodLabel(period) {
   const label = document.createElement('span');
   label.className = `today-period-label is-${period}`;
   label.textContent = period.toUpperCase();
@@ -97,20 +97,26 @@ function createTodayPeriodLabel(period) {
   return label;
 }
 
+function requestActivityEdit(activity) {
+  document.dispatchEvent(new CustomEvent('life-os:activity-edit', {
+    detail: { activityId: activity.id }
+  }));
+}
+
 export function TodayRing(activities, currentId, onSystemControl) {
   const ring = document.createElement('div');
   ring.className = 'today-ring today-ring-dual';
   ring.setAttribute('aria-label', "Today's schedule. Inner orbit is AM and outer orbit is PM.");
 
-  ring.appendChild(createTodayOrbitSvg());
-  ring.append(createTodayPeriodLabel('pm'), createTodayPeriodLabel('am'));
+  ring.appendChild(createOrbitSvg());
+  ring.append(createPeriodLabel('pm'), createPeriodLabel('am'));
 
   const controls = document.createElement('div');
   controls.className = 'today-system-controls';
   controls.setAttribute('aria-label', 'LIFE OS controls');
   ['settings', 'info'].forEach((kind) => {
     const label = kind === 'settings' ? 'Settings' : 'Info';
-    const button = todaySystemControl(kind, label);
+    const button = systemControl(kind, label);
     button.addEventListener('click', (event) => {
       event.stopPropagation();
       onSystemControl?.(kind);
@@ -126,19 +132,27 @@ export function TodayRing(activities, currentId, onSystemControl) {
     ring.appendChild(marker);
   });
 
-  activities.filter((activity) => activity.id !== 'urgent').forEach((activity) => {
-    const { x, y, degrees, period } = todayPositionForTime(activity.start);
-    const node = document.createElement('div');
+  activities.filter((activity) => activity.id !== 'urgent' && activity.id !== 'open-time').forEach((activity) => {
+    const { x, y, degrees, period } = positionForTime(activity.start);
+    const node = document.createElement('button');
     const isCardinal = [0, 90, 180, 270].some((angle) => Math.abs(degrees - angle) < 0.01);
     const isBottom = degrees > 135 && degrees < 225;
+    node.type = 'button';
     node.className = `activity-node is-${period}${activity.id === currentId ? ' is-current' : ''}${isCardinal ? ' is-cardinal' : ''}${isBottom ? ' is-bottom' : ''}`;
+    node.dataset.holdTarget = `activity:${activity.id}`;
+    node.dataset.activityId = activity.id;
     node.style.left = `${x}%`;
     node.style.top = `${y}%`;
+    node.setAttribute('aria-label', `Edit ${activity.shortTitle} at ${activity.timeLabel}`);
     node.innerHTML = `
-      <span class="activity-node-dot" aria-hidden="true">${todayIconForActivity(activity)}</span>
-      <span class="activity-node-time">${todayEscapeHtml(activity.timeLabel)}</span>
-      <span class="activity-node-title">${todayEscapeHtml(activity.shortTitle)}</span>
+      <span class="activity-node-dot" aria-hidden="true">${iconForActivity(activity)}</span>
+      <span class="activity-node-time">${escapeHtml(activity.timeLabel)}</span>
+      <span class="activity-node-title">${escapeHtml(activity.shortTitle)}</span>
     `;
+    node.addEventListener('click', (event) => {
+      event.stopPropagation();
+      requestActivityEdit(activity);
+    });
     ring.appendChild(node);
   });
 
