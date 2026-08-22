@@ -86,6 +86,17 @@
   margin-bottom: 4px !important;
 }
 
+/* Base Orb styling uses touch-action:none for hold gestures. That blocks native
+ * vertical scrolling on Android. Review is not a hold-gesture screen, so give
+ * touch scrolling back explicitly here. */
+.setup-step-review .setup-orb,
+.setup-step-review .setup-safe-zone,
+.setup-step-review .setup-fit,
+.setup-step-review .setup-content-wide,
+.setup-step-review .setup-review-list {
+  touch-action: pan-y !important;
+}
+
 .setup-step-review .setup-review-list {
   width: 100% !important;
   max-height: none !important;
