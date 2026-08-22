@@ -28,6 +28,12 @@ jobs:
         with:
           node-version: 20
 
+      - name: Syntax check
+        run: npm run check
+
+      - name: Unit and persistence regression tests
+        run: npm test
+
       - name: Build LIFE OS
         run: npm run build
 
