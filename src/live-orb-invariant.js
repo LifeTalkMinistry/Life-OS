@@ -1,10 +1,9 @@
-/* Raw onboarding completion diagnostic.
+/* Raw Finish Sunday diagnostic.
  *
- * This intentionally bypasses every LIFE OS render layer after the final
- * onboarding button: no finishLifeSetup(), no MainScreen(), no Orb(), no SVG,
- * no animation, and no app CSS dependency. If this text appears on Android,
- * the final onboarding click is reaching JavaScript and the failure lives in a
- * later render/state layer rather than the click/navigation itself.
+ * This intercepts the exact final activity-mapping action on Sunday BEFORE
+ * LIFE OS attempts to render the Review screen. It intentionally bypasses
+ * goSetup('review'), reviewContent(), MainScreen(), Orb(), SVG layering, and
+ * bundled CSS so we can isolate whether the Sunday button itself reaches JS.
  */
 (() => {
   function showRawWelcome() {
@@ -12,14 +11,12 @@
     clearTimeout(launchTimer);
     clearTimeout(completionTimer);
 
-    screen = 'raw-onboarding-diagnostic';
+    screen = 'raw-finish-sunday-diagnostic';
 
-    app.innerHTML = '<div id="raw-onboarding-welcome">WELCOME</div>';
-    const node = document.getElementById('raw-onboarding-welcome');
+    app.innerHTML = '<div id="raw-finish-sunday-welcome">WELCOME</div>';
+    const node = document.getElementById('raw-finish-sunday-welcome');
     if (!node) return;
 
-    // Inline-only styling on purpose: this test must not depend on any bundled
-    // stylesheet, Orb stacking context, viewport media query, or animation.
     node.style.cssText = [
       'position:fixed',
       'inset:0',
@@ -38,10 +35,10 @@
 
   document.addEventListener('click', (event) => {
     const target = event.target instanceof Element
-      ? event.target.closest('[data-setup-action="review-confirm"]')
+      ? event.target.closest('[data-setup-action="activity-day-next"]')
       : null;
 
-    if (!target || screen !== 'setup') return;
+    if (!target || screen !== 'setup' || setupActivityDay !== 0) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();
