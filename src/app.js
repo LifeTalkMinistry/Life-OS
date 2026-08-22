@@ -108,7 +108,7 @@ function activityCursorForDay(day) {
 let lifeProfile = loadLifeProfile();
 let hasCompletedSetup = isLifeProfileComplete(lifeProfile);
 let lifeState = hasCompletedSetup ? createLifeStateFromProfile(lifeProfile) : createInitialLifeState();
-let screen = 'launch';
+let screen = hasCompletedSetup ? 'now' : 'launch';
 let orbMode = 'now';
 let whyOpen = false;
 let systemView = null;
@@ -160,6 +160,42 @@ function closeSystemView() {
 function navigateSystemView(view) {
   systemView = view;
   render();
+}
+
+function openLiveFromProfile(profile) {
+  const normalized = normalizeLifeProfile(profile);
+  if (!isLifeProfileComplete(normalized)) return false;
+
+  clearTimeout(launchTimer);
+  clearTimeout(setupTimer);
+  lifeProfile = normalized;
+  hasCompletedSetup = true;
+  lifeState = createLifeStateFromProfile(lifeProfile);
+  screen = 'now';
+  setupStep = 'welcome';
+  setupHistory = [];
+  setupActivityDay = 1;
+  setupActivityCursor = '';
+  setupActivityDraft = createActivityDraft();
+  orbMode = 'now';
+  whyOpen = false;
+  systemView = null;
+  hintVisible = true;
+  render();
+  return true;
+}
+
+function verifyLiveState() {
+  if (!hasCompletedSetup || screen !== 'now') return;
+  const activity = currentActivity(lifeState);
+  if (activity && document.querySelector('.main-screen .orb')) return;
+
+  const persisted = loadLifeProfile();
+  if (isLifeProfileComplete(persisted)) {
+    lifeProfile = persisted;
+    lifeState = createLifeStateFromProfile(persisted);
+    render();
+  }
 }
 
 function saveActivityTimes(changes) {
@@ -218,6 +254,7 @@ function previousActivityDay() {
 
 function finishLifeSetup() {
   clearTimeout(setupTimer);
+  clearTimeout(launchTimer);
   lifeProfile = normalizeLifeProfile({ ...lifeProfile, setupComplete: true });
   saveLifeProfile(lifeProfile);
   hasCompletedSetup = isLifeProfileComplete(lifeProfile);
@@ -229,18 +266,10 @@ function finishLifeSetup() {
     return;
   }
 
-  lifeState = createLifeStateFromProfile(lifeProfile);
-  screen = 'now';
-  setupStep = 'welcome';
-  setupHistory = [];
-  setupActivityDay = 1;
-  setupActivityCursor = '';
-  setupActivityDraft = createActivityDraft();
-  orbMode = 'now';
-  whyOpen = false;
-  systemView = null;
-  hintVisible = true;
-  render();
+  openLiveFromProfile(lifeProfile);
+  queueMicrotask(verifyLiveState);
+  requestAnimationFrame(() => requestAnimationFrame(verifyLiveState));
+  setTimeout(verifyLiveState, 100);
 }
 
 function resetLifeSetup() {
@@ -659,10 +688,16 @@ function onKeydown(event) {
 document.addEventListener('keydown', onKeydown);
 render();
 
-launchTimer = setTimeout(() => {
-  screen = hasCompletedSetup ? 'now' : 'setup';
-  render();
-}, 1800);
+if (hasCompletedSetup) {
+  queueMicrotask(verifyLiveState);
+  requestAnimationFrame(() => requestAnimationFrame(verifyLiveState));
+  setTimeout(verifyLiveState, 100);
+} else {
+  launchTimer = setTimeout(() => {
+    screen = 'setup';
+    render();
+  }, 1800);
+}
 
 window.__LIFE_OS__ = {
   getState: () => ({
@@ -677,6 +712,7 @@ window.__LIFE_OS__ = {
     setupActivityCursor,
     setupActivityDraft
   }),
+  restore: () => openLiveFromProfile(loadLifeProfile()),
   reset: () => {
     clearTimeout(completionTimer);
     clearTimeout(launchTimer);
