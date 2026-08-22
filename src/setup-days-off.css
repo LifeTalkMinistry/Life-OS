@@ -3,6 +3,11 @@
   pointer-events: none;
 }
 
+/*
+ * Days Off is content-only. The native SVG sphere remains the only visual
+ * background for the Orb so there is no second circular/rectangular paint
+ * layer that can extend beyond the physical sphere edge.
+ */
 .setup-day-off-confirm {
   position: absolute;
   inset: 0;
@@ -11,8 +16,9 @@
   place-items: center;
   border-radius: 50%;
   padding: 20% 17%;
-  background:
-    radial-gradient(circle at 50% 42%, rgb(34, 19, 74), rgb(8, 6, 22) 68%, rgb(3, 3, 10));
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
   text-align: center;
   overflow: hidden;
 }
