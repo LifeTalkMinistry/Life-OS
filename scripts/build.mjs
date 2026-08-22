@@ -39,7 +39,8 @@ const css = [
   readFileSync('src/setup-activity-end-back.css', 'utf8'),
   readFileSync('src/setup-icon-modal.css', 'utf8'),
   readFileSync('src/setup-copy-day.css', 'utf8'),
-  readFileSync('src/system-controls.css', 'utf8')
+  readFileSync('src/system-controls.css', 'utf8'),
+  readFileSync('src/live-orb-overlay.css', 'utf8')
 ].join('\n\n');
 const js = scriptOrder
   .map((file) => `// ${file}\n${stripModuleSyntax(readFileSync(file, 'utf8'))}`)
@@ -65,9 +66,6 @@ const html = `<!doctype html>
     <link rel="icon" type="image/png" sizes="192x192" href="./pwa/icon-192.png" />
     <style>${css}</style>
     <script>
-      // Temporary cache reset while the Android PWA persistence regression is
-      // being repaired. Keep the app network-fresh and remove any previously
-      // installed LIFE OS service worker/cache before the runtime initializes.
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations()
           .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
