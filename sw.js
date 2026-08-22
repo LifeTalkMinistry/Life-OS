@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-os-shell-v48';
+const CACHE_NAME = 'life-os-shell-v49';
 const BASE_URL = new URL('./', self.location.href);
 
 const toUrl = (path) => new URL(path, BASE_URL).href;
@@ -32,7 +32,7 @@ self.addEventListener('activate', (event) => {
 
 async function networkFirst(request, fallbackUrl = null) {
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, { cache: 'no-store' });
     if (response && response.status === 200 && response.type === 'basic') {
       const copy = response.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
