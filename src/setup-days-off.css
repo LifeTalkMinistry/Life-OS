@@ -1,36 +1,30 @@
-.orb.has-day-off-confirm .setup-safe-zone {
+.orb.has-day-off-sleep .setup-safe-zone {
   visibility: hidden;
   pointer-events: none;
 }
 
-/*
- * Days Off is content-only. The native SVG sphere remains the only visual
- * background for the Orb so there is no second circular/rectangular paint
- * layer that can extend beyond the physical sphere edge.
- */
-.setup-day-off-confirm {
+/* Day-off sleep is a real onboarding step inside the native sphere.
+ * It intentionally paints no extra background so nothing can leak outside
+ * the Orb artwork boundary. */
+.setup-day-off-sleep {
   position: absolute;
-  inset: 0;
+  inset: 10% 11%;
   z-index: 30;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  padding: 20% 17%;
-  background: transparent !important;
-  box-shadow: none !important;
-  filter: none !important;
   text-align: center;
-  overflow: hidden;
+  background: transparent;
+  pointer-events: auto;
 }
 
-.setup-day-off-confirm-content {
-  width: min(100%, 218px);
+.setup-day-off-sleep-content {
+  width: min(100%, 228px);
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: 9px;
 }
 
-.setup-day-off-eyebrow {
+.setup-day-off-sleep-eyebrow {
   margin: 0;
   color: #b990ff;
   font-size: clamp(0.56rem, 2.2vw, 0.68rem);
@@ -38,42 +32,87 @@
   letter-spacing: 0.12em;
 }
 
-.setup-day-off-confirm h2 {
-  margin: 0 0 2px;
+.setup-day-off-sleep h2 {
+  margin: 0;
   color: #f7f4fb;
-  font-size: clamp(0.98rem, 4.25vw, 1.24rem);
+  font-size: clamp(0.98rem, 4.15vw, 1.22rem);
   line-height: 1.18;
   font-weight: 470;
   letter-spacing: -0.02em;
 }
 
-.setup-day-off-primary,
-.setup-day-off-secondary {
+.setup-day-off-sleep-days {
+  margin: -2px 0 1px;
+  color: rgba(206, 192, 226, 0.66);
+  font-size: clamp(0.6rem, 2.35vw, 0.7rem);
+  line-height: 1.25;
+}
+
+.setup-day-off-sleep-times {
+  width: min(100%, 202px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.setup-day-off-sleep-times label {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  color: rgba(210, 200, 224, 0.76);
+  font-size: clamp(0.56rem, 2.2vw, 0.66rem);
+  text-align: left;
+}
+
+.setup-day-off-sleep-times input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 7px;
+  border: 1px solid rgba(173, 133, 241, 0.36);
+  border-radius: 10px;
+  background: rgba(7, 4, 20, 0.54);
+  color: #f2ebfa;
+  font: inherit;
+  color-scheme: dark;
+}
+
+.setup-day-off-sleep-primary,
+.setup-day-off-sleep-back {
   appearance: none;
-  width: min(100%, 176px);
-  border-radius: 999px;
-  font-size: clamp(0.7rem, 2.8vw, 0.8rem);
   cursor: pointer;
 }
 
-.setup-day-off-primary {
+.setup-day-off-sleep-primary {
+  width: min(100%, 176px);
   min-height: 36px;
   border: 1px solid rgba(186, 147, 255, 0.64);
+  border-radius: 999px;
   background: rgba(114, 75, 214, 0.18);
   color: #efe5ff;
+  font-size: clamp(0.7rem, 2.8vw, 0.8rem);
 }
 
-.setup-day-off-secondary {
-  min-height: 30px;
+.setup-day-off-sleep-primary:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.setup-day-off-sleep-back {
+  min-height: 26px;
+  padding: 2px 12px;
   border: 0;
   background: transparent;
   color: rgba(205, 190, 226, 0.76);
+  font-size: clamp(0.64rem, 2.55vw, 0.74rem);
 }
 
-.setup-day-off-primary:focus-visible,
-.setup-day-off-secondary:focus-visible {
+.setup-day-off-sleep-primary:focus-visible,
+.setup-day-off-sleep-back:focus-visible,
+.setup-day-off-sleep-times input:focus-visible {
   outline: 2px solid rgba(202, 171, 255, 0.88);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
 
 .setup-day-builder.is-day-off .setup-eyebrow {
@@ -81,16 +120,21 @@
 }
 
 @media (max-width: 360px) {
-  .setup-day-off-confirm {
-    padding: 19% 16%;
+  .setup-day-off-sleep {
+    inset: 9% 10%;
   }
 
-  .setup-day-off-confirm-content {
-    width: min(100%, 205px);
-    gap: 8px;
+  .setup-day-off-sleep-content {
+    width: min(100%, 210px);
+    gap: 7px;
   }
 
-  .setup-day-off-confirm h2 {
-    font-size: clamp(0.94rem, 4.05vw, 1.12rem);
+  .setup-day-off-sleep h2 {
+    font-size: clamp(0.92rem, 4vw, 1.08rem);
+  }
+
+  .setup-day-off-sleep-times {
+    width: min(100%, 190px);
+    gap: 7px;
   }
 }
