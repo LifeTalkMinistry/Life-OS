@@ -433,3 +433,84 @@
     transform: translateY(3.5%);
   }
 }
+
+/*
+ * LIFE OS layout invariant.
+ * Brand, tagline, and the physical Orb use one shared set of anchors in every
+ * state. State/content changes are allowed to happen inside or around the Orb,
+ * but they must never move the LIFE OS header or the Orb's center point.
+ */
+:root {
+  --life-brand-pad-top: clamp(8px, 2.5svh, 24px);
+  --life-orb-stage-gap: clamp(6px, 1svh, 14px);
+  --life-orb-stage-pad: clamp(2px, 1svh, 10px);
+}
+
+/* Launch now follows the exact same three-row skeleton as Setup/Main. */
+.launch-screen {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: center;
+  justify-items: center;
+}
+
+.launch-brand {
+  align-self: auto;
+  margin: 0;
+  padding-top: var(--life-brand-pad-top);
+  text-align: center;
+}
+
+/* Do not let the launch state enlarge the brand and create a visual jump. */
+.brand-title-launch {
+  font-size: clamp(1.8rem, 8vw, 2.7rem);
+}
+
+.brand,
+.setup-screen .brand {
+  padding-top: var(--life-brand-pad-top);
+}
+
+/* All normal Orb states start from the same stage origin. */
+.main-screen .orb-stage,
+.setup-stage {
+  align-self: start;
+  place-items: start center;
+  min-height: 0;
+  margin-top: var(--life-orb-stage-gap);
+  padding-top: var(--life-orb-stage-pad);
+}
+
+/* Same physical canvas size in launch, onboarding, and normal live mode. */
+.launch-orb,
+.setup-orb-shell {
+  width: var(--orb-size);
+}
+
+/* Launch has no stage wrapper, so reproduce the shared stage gap directly. */
+.launch-orb {
+  align-self: start;
+  margin-top: calc(var(--life-orb-stage-gap) + var(--life-orb-stage-pad));
+}
+
+/*
+ * Today deliberately changes sizes to make room for AM/PM rings, but it must
+ * scale around the SAME center rather than jumping to a new position.
+ */
+.is-today .orb-shell {
+  margin-top: calc((var(--orb-size) - var(--orb-hold-size)) / 2);
+}
+
+.is-today .today-ring {
+  margin-top: calc((var(--orb-size) - var(--ring-size)) / 2);
+}
+
+@media (max-width: 360px) {
+  :root {
+    --life-orb-stage-pad: 0px;
+  }
+
+  .brand-title-launch {
+    font-size: clamp(1.8rem, 8vw, 2.7rem);
+  }
+}
