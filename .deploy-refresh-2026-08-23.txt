@@ -1,0 +1,1 @@
+Force a fresh GitHub Pages deployment after rollback to the pre-completion-guard runtime.
