@@ -2,7 +2,7 @@
  *
  * Users are never required to map all seven days. Any unfinished time stays
  * OPEN TIME. After any day they can either move to the next day or finish the
- * Life Setup and review what they have mapped so far.
+ * Life Setup immediately and enter LIFE OS.
  */
 const COPY_DAY_SEQUENCE = [1, 2, 3, 4, 5, 6, 0];
 const COPY_DAY_NAMES = {
@@ -92,9 +92,7 @@ function installPreviousDayCopyShortcut() {
 }
 
 function finishSetupFromCurrentDay() {
-  setupHistory.push(setupStep);
-  setupStep = 'review';
-  render();
+  return finishLifeSetup();
 }
 
 function installFlexibleDayExit() {
@@ -109,17 +107,15 @@ function installFlexibleDayExit() {
     : null;
   const dayName = COPY_DAY_NAMES[setupActivityDay] || 'Day';
 
-  // If the native completed-day button exists, make its purpose explicit.
   const nativeNext = builder.querySelector('[data-setup-action="activity-day-next"]');
   if (nativeNext) {
-    nativeNext.textContent = nextDay === null ? 'Review setup' : `Map ${COPY_DAY_NAMES[nextDay]}`;
+    nativeNext.textContent = nextDay === null ? 'Finish setup' : `Map ${COPY_DAY_NAMES[nextDay]}`;
     nativeNext.setAttribute(
       'aria-label',
-      nextDay === null ? 'Review Life Setup' : `Continue mapping ${COPY_DAY_NAMES[nextDay]}`
+      nextDay === null ? 'Finish Life Setup' : `Continue mapping ${COPY_DAY_NAMES[nextDay]}`
     );
   }
 
-  // On a partially mapped day there is no native next-day button, so add one.
   if (nextDay !== null && !nativeNext && !builder.querySelector('[data-map-next-day]')) {
     const nextButton = document.createElement('button');
     nextButton.type = 'button';
@@ -138,7 +134,6 @@ function installFlexibleDayExit() {
     else builder.appendChild(nextButton);
   }
 
-  // This is the important V1 rule: the user may end setup on ANY day.
   if (!builder.querySelector('[data-finish-life-setup]')) {
     const finishButton = document.createElement('button');
     finishButton.type = 'button';
