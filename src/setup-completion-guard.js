@@ -1,10 +1,8 @@
 /* Atomic onboarding -> live Orb handoff.
  *
- * GitHub Pages builds LIFE OS as one ordered script, so this file runs after
- * app.js and can harden the final transition. The final confirmation must do
- * three things together: persist setupComplete, build the real live state,
- * and render the interactive Orb. There is intentionally no intermediate
- * artwork-only/ready state here.
+ * This file is intentionally the final production runtime guard. Finishing
+ * setup must persist the profile, rebuild the current live state, and render
+ * RUNNING NOW without requiring a browser refresh.
  */
 (() => {
   const canReachAppScope =
@@ -13,33 +11,23 @@
     && typeof isLifeProfileComplete === 'function'
     && typeof createLifeStateFromProfile === 'function'
     && typeof saveLifeProfile === 'function'
+    && typeof createActivityDraft === 'function'
     && typeof render === 'function';
 
   if (!canReachAppScope) return;
 
-  function completeSetupAndOpenLiveOrb() {
-    clearTimeout(setupTimer);
-    clearTimeout(launchTimer);
-
-    lifeProfile = normalizeLifeProfile({
-      ...lifeProfile,
-      setupComplete: true
-    });
-
-    // Persist first. A refresh after this exact point must stay out of onboarding.
-    saveLifeProfile(lifeProfile);
-    hasCompletedSetup = isLifeProfileComplete(lifeProfile);
-
-    if (!hasCompletedSetup) {
-      // Do not leave the user on a blank transition state if required fixed/sleep
-      // data is somehow incomplete. Return to review where they can edit it.
-      screen = 'setup';
-      setupStep = 'review';
-      render();
-      return;
+  function readPersistedCompletedProfile() {
+    try {
+      const raw = localStorage.getItem(LIFE_PROFILE_STORAGE_KEY);
+      if (!raw) return null;
+      const profile = normalizeLifeProfile(JSON.parse(raw));
+      return isLifeProfileComplete(profile) ? profile : null;
+    } catch {
+      return null;
     }
+  }
 
-    lifeState = createLifeStateFromProfile(lifeProfile);
+  function resetLiveUiState() {
     screen = 'now';
     setupStep = 'welcome';
     setupHistory = [];
@@ -50,7 +38,66 @@
     whyOpen = false;
     systemView = null;
     hintVisible = true;
+  }
+
+  function openLiveFromProfile(profile) {
+    lifeProfile = normalizeLifeProfile(profile);
+    hasCompletedSetup = isLifeProfileComplete(lifeProfile);
+    if (!hasCompletedSetup) return false;
+
+    lifeState = createLifeStateFromProfile(lifeProfile);
+    resetLiveUiState();
     render();
+    return true;
+  }
+
+  function verifyLiveOrb() {
+    const liveOrbVisible =
+      screen === 'now'
+      && Boolean(document.querySelector('.main-screen .orb-now-content'));
+
+    if (liveOrbVisible) return;
+
+    /* The profile is already durable at this point. If a render/state race left
+     * the decorative sphere on screen, recover from the exact saved profile in
+     * memory instead of making the user refresh the browser. */
+    const persisted = readPersistedCompletedProfile();
+    if (persisted) openLiveFromProfile(persisted);
+  }
+
+  function scheduleLiveVerification() {
+    if (typeof queueMicrotask === 'function') queueMicrotask(verifyLiveOrb);
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => requestAnimationFrame(verifyLiveOrb));
+    }
+    setTimeout(verifyLiveOrb, 80);
+  }
+
+  function completeSetupAndOpenLiveOrb() {
+    clearTimeout(setupTimer);
+    clearTimeout(launchTimer);
+
+    lifeProfile = normalizeLifeProfile({
+      ...lifeProfile,
+      setupComplete: true
+    });
+
+    /* Persist before rendering. A refresh at any point after this line must
+     * resolve to the exact same completed profile. */
+    saveLifeProfile(lifeProfile);
+    hasCompletedSetup = isLifeProfileComplete(lifeProfile);
+
+    if (!hasCompletedSetup) {
+      screen = 'setup';
+      setupStep = 'review';
+      render();
+      return;
+    }
+
+    /* Schedule the verifier before the first live render so even an unexpected
+     * first-render race can recover on the next frame. */
+    scheduleLiveVerification();
+    openLiveFromProfile(lifeProfile);
   }
 
   const originalSetupActionForCompletion = handleSetupAction;
@@ -62,8 +109,8 @@
     return originalSetupActionForCompletion(dataset);
   };
 
-  // Capture the final button before component listeners. This makes completion
-  // independent from any future refactor of LifeSetupOrb's button wiring.
+  /* Capture the final confirmation before component listeners. This removes
+   * the old intermediate READY/timer state from the production handoff. */
   document.addEventListener('click', (event) => {
     const target = event.target instanceof Element
       ? event.target.closest('[data-setup-action="review-confirm"]')
@@ -75,15 +122,11 @@
     completeSetupAndOpenLiveOrb();
   }, true);
 
-  // Returning completed users must never pause on the decorative launch Orb.
-  if (hasCompletedSetup && screen === 'launch') {
+  /* Completed users should also never remain on the decorative launch sphere. */
+  const persistedOnBoot = readPersistedCompletedProfile();
+  if (persistedOnBoot && screen === 'launch') {
     clearTimeout(launchTimer);
-    lifeState = createLifeStateFromProfile(lifeProfile);
-    screen = 'now';
-    orbMode = 'now';
-    whyOpen = false;
-    systemView = null;
-    hintVisible = true;
-    render();
+    openLiveFromProfile(persistedOnBoot);
+    scheduleLiveVerification();
   }
 })();
