@@ -22,7 +22,8 @@ const scriptOrder = [
   'src/setup-days-off.js',
   'src/hold-release-fix.js',
   'src/hold-drag-editor.js',
-  'src/setup-completion-guard.js'
+  'src/setup-completion-guard.js',
+  'src/live-orb-recovery.js'
 ];
 
 function stripModuleSyntax(source) {
