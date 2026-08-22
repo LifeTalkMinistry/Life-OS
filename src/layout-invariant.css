@@ -32,10 +32,14 @@
   padding-top: 0;
 }
 
-/* The orb container itself never reflows when the state changes. */
+/* The launch logo must be visually identical to the normal app logo. */
+.brand-title-launch {
+  font-size: clamp(1.8rem, 8vw, 2.7rem);
+}
+
+/* The real app stage owns the full middle slot. */
 .main-screen > .orb-stage,
-.main-screen > .setup-stage,
-.launch-screen > .launch-orb {
+.main-screen > .setup-stage {
   align-self: center;
   justify-self: center;
   width: 100%;
@@ -46,11 +50,16 @@
   place-items: center;
 }
 
-/* Launch uses the same visual anchor as the real orb rather than a separate
- * vertically-biased splash position. */
+/* Launch orb is itself the grid item. Do NOT stretch it to the full stage
+ * height: that was the source of the visible jump between splash and idle.
+ * Give it the exact loaded-orb dimensions and center it in the same row. */
 .launch-screen > .launch-orb {
+  align-self: center;
+  justify-self: center;
   width: var(--orb-size);
+  height: auto;
   aspect-ratio: 1 / 1;
+  margin: 0;
 }
 
 /* Setup can change the content inside the sphere, never the sphere position. */
