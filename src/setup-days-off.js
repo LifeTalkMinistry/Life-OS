@@ -1,4 +1,4 @@
-const SETUP_DAY_OFF_ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const SETUP_DAY_OFF_ALL_DAYS = [1, 2, 3, 4, 5, 6, 0];
 const SETUP_DAY_OFF_NAMES = {
   0: 'Sunday',
   1: 'Monday',
@@ -63,7 +63,6 @@ function setupDayOffOpenConfirm(originalButton, fixedDays) {
     <div class="setup-day-off-confirm-content">
       <p class="setup-day-off-eyebrow">DAYS OFF</p>
       <h2>${setupDayOffQuestion(fixedDays)}</h2>
-      <p class="setup-day-off-note">LIFE OS will treat those days differently from your fixed work or school days.</p>
       <button type="button" class="setup-day-off-primary" data-day-off-confirm>Yes</button>
       <button type="button" class="setup-day-off-secondary" data-day-off-change>Change days</button>
     </div>
