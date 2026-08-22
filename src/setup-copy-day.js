@@ -89,6 +89,11 @@ function installPreviousDayCopyShortcut() {
   const activityRow = builder.querySelector('.setup-activity-name-row');
   if (activityRow) builder.insertBefore(shortcut, activityRow);
   else builder.appendChild(shortcut);
+
+  /* The shortcut is injected after LifeSetupOrb has performed its initial
+   * safe-zone fit. Mark that fit explicitly so copied-day builders keep the
+   * same visual anchor as Monday instead of being pushed downward. */
+  builder.closest('.setup-fit')?.classList.add('has-copy-day-shortcut');
 }
 
 function installFinishCurrentDayShortcut() {
