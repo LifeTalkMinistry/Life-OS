@@ -20,7 +20,8 @@ const scriptOrder = [
   'src/setup-icon-modal.js',
   'src/setup-copy-day.js',
   'src/setup-completion-guard.js',
-  'src/hold-release-fix.js'
+  'src/hold-release-fix.js',
+  'src/hold-drag-editor.js'
 ];
 
 function stripModuleSyntax(source) {
@@ -40,7 +41,8 @@ const css = [
   readFileSync('src/setup-icon-modal.css', 'utf8'),
   readFileSync('src/setup-copy-day.css', 'utf8'),
   readFileSync('src/system-controls.css', 'utf8'),
-  readFileSync('src/today-ring-dual.css', 'utf8')
+  readFileSync('src/today-ring-dual.css', 'utf8'),
+  readFileSync('src/hold-drag.css', 'utf8')
 ].join('\n\n');
 const js = scriptOrder
   .map((file) => `// ${file}\n${stripModuleSyntax(readFileSync(file, 'utf8'))}`)
