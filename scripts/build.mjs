@@ -19,7 +19,8 @@ const scriptOrder = [
   'src/setup-day-summary.js',
   'src/setup-activity-end-fix.js',
   'src/setup-icon-modal.js',
-  'src/setup-copy-day.js'
+  'src/setup-copy-day.js',
+  'src/live-orb-invariant.js'
 ];
 
 function stripModuleSyntax(source) {
