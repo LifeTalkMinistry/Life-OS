@@ -50,3 +50,47 @@
 .live-orb-overlay .orb-time {
   color: #b993ff !important;
 }
+
+/* Mobile review fix.
+ * The review step can contain many rows. The generic setup fitter was scaling
+ * the entire review down to fit the sphere, which can make the content
+ * effectively invisible on a phone. Keep the review at normal scale and let
+ * only the summary list scroll inside the orb.
+ */
+.setup-step-review .setup-fit {
+  transform: none !important;
+}
+
+.setup-step-review .setup-safe-zone.is-wide {
+  inset: 10% 9% !important;
+  overflow: hidden !important;
+}
+
+.setup-step-review .setup-content-wide {
+  width: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+
+.setup-step-review .setup-review-list {
+  width: 100% !important;
+  max-height: 150px !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.setup-step-review .setup-review-list::-webkit-scrollbar {
+  display: none;
+}
+
+.setup-step-review .setup-question {
+  margin-bottom: 10px !important;
+}
+
+.setup-step-review .setup-continue {
+  margin-top: 8px !important;
+}
