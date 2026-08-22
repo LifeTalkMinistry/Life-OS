@@ -30,6 +30,12 @@ export function createOrbGestureController({
     releaseListenersAttached = false;
   };
 
+  const returnRenderedHoldViewToIdle = () => {
+    if (typeof document === 'undefined') return;
+    const todayOrb = document.querySelector('.main-screen.is-today .orb');
+    todayOrb?.click();
+  };
+
   const finishHold = () => {
     if (!holding) return false;
     holding = false;
@@ -38,6 +44,11 @@ export function createOrbGestureController({
     clearSingleTimer();
     detachReleaseListeners();
     onHoldEnd?.();
+
+    // onHoldStart renders the Today view, replacing the element that received
+    // pointerdown. If the app-level hold-end callback has not already restored
+    // idle mode, close that rendered hold view through its normal orb action.
+    returnRenderedHoldViewToIdle();
     return true;
   };
 
