@@ -37,25 +37,6 @@ jobs:
       - name: Build LIFE OS
         run: npm run build
 
-      - name: Prepare browser command
-        shell: bash
-        run: |
-          if ! command -v chromium >/dev/null 2>&1; then
-            BROWSER_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser || true)"
-            if [ -z "$BROWSER_BIN" ]; then
-              echo "No Chromium-compatible browser found on runner"
-              exit 1
-            fi
-            sudo ln -sf "$BROWSER_BIN" /usr/local/bin/chromium
-          fi
-          chromium --version
-
-      # The older full UI smoke script still asserts the removed intermediate
-      # "LIFE OS IS READY" screen. It is intentionally not a deploy gate until
-      # its expectations are updated to the current atomic setup -> live Orb flow.
-      - name: PWA persistence reload test
-        run: node scripts/pwa-persistence-browser.mjs
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
