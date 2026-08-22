@@ -1,8 +1,8 @@
-/* Previous-day onboarding shortcut.
- * Every day after Monday can reuse the custom activities from the day that was
- * just mapped. Copies are independent so later edits never change the source.
- * Fixed anchors (work, sleep, travel home, preparation blocks) are already
- * shared by the profile and are intentionally not duplicated here.
+/* Flexible day-by-day onboarding.
+ *
+ * Users are never required to map all seven days. Any unfinished time stays
+ * OPEN TIME. After any day they can either move to the next day or finish the
+ * Life Setup and review what they have mapped so far.
  */
 const COPY_DAY_SEQUENCE = [1, 2, 3, 4, 5, 6, 0];
 const COPY_DAY_NAMES = {
@@ -91,29 +91,71 @@ function installPreviousDayCopyShortcut() {
   else builder.appendChild(shortcut);
 }
 
-function installFinishCurrentDayShortcut() {
+function finishSetupFromCurrentDay() {
+  setupHistory.push(setupStep);
+  setupStep = 'review';
+  render();
+}
+
+function installFlexibleDayExit() {
   if (screen !== 'setup' || setupStep !== 'activities') return;
 
-  const builder = document.querySelector('.setup-step-activities .setup-day-builder:not(.setup-day-complete)');
-  if (!builder || builder.querySelector('[data-finish-current-day]')) return;
+  const builder = document.querySelector('.setup-step-activities .setup-day-builder');
+  if (!builder) return;
 
+  const currentIndex = COPY_DAY_SEQUENCE.indexOf(setupActivityDay);
+  const nextDay = currentIndex >= 0 && currentIndex < COPY_DAY_SEQUENCE.length - 1
+    ? COPY_DAY_SEQUENCE[currentIndex + 1]
+    : null;
   const dayName = COPY_DAY_NAMES[setupActivityDay] || 'Day';
-  const finishButton = document.createElement('button');
-  finishButton.type = 'button';
-  finishButton.className = 'setup-finish-day-button';
-  finishButton.dataset.finishCurrentDay = String(setupActivityDay);
-  finishButton.textContent = `Finish ${dayName}`;
-  finishButton.setAttribute('aria-label', `Finish ${dayName} and leave remaining time open`);
 
-  finishButton.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    handleSetupAction({ setupAction: 'activity-day-next' });
-  });
+  // If the native completed-day button exists, make its purpose explicit.
+  const nativeNext = builder.querySelector('[data-setup-action="activity-day-next"]');
+  if (nativeNext) {
+    nativeNext.textContent = nextDay === null ? 'Review setup' : `Map ${COPY_DAY_NAMES[nextDay]}`;
+    nativeNext.setAttribute(
+      'aria-label',
+      nextDay === null ? 'Review Life Setup' : `Continue mapping ${COPY_DAY_NAMES[nextDay]}`
+    );
+  }
 
-  const backButton = builder.querySelector(':scope > .setup-back');
-  if (backButton) builder.insertBefore(finishButton, backButton);
-  else builder.appendChild(finishButton);
+  // On a partially mapped day there is no native next-day button, so add one.
+  if (nextDay !== null && !nativeNext && !builder.querySelector('[data-map-next-day]')) {
+    const nextButton = document.createElement('button');
+    nextButton.type = 'button';
+    nextButton.className = 'setup-finish-day-button';
+    nextButton.dataset.mapNextDay = String(nextDay);
+    nextButton.textContent = `Map ${COPY_DAY_NAMES[nextDay]}`;
+    nextButton.setAttribute('aria-label', `Leave remaining ${dayName} time open and map ${COPY_DAY_NAMES[nextDay]}`);
+    nextButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handleSetupAction({ setupAction: 'activity-day-next' });
+    });
+
+    const backButton = builder.querySelector(':scope > .setup-back');
+    if (backButton) builder.insertBefore(nextButton, backButton);
+    else builder.appendChild(nextButton);
+  }
+
+  // This is the important V1 rule: the user may end setup on ANY day.
+  if (!builder.querySelector('[data-finish-life-setup]')) {
+    const finishButton = document.createElement('button');
+    finishButton.type = 'button';
+    finishButton.className = 'setup-finish-day-button';
+    finishButton.dataset.finishLifeSetup = String(setupActivityDay);
+    finishButton.textContent = `Finish ${dayName}`;
+    finishButton.setAttribute('aria-label', `Finish Life Setup after ${dayName}; unmapped time stays open`);
+    finishButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      finishSetupFromCurrentDay();
+    });
+
+    const backButton = builder.querySelector(':scope > .setup-back');
+    if (backButton) builder.insertBefore(finishButton, backButton);
+    else builder.appendChild(finishButton);
+  }
 }
 
 let copyDayFrame = null;
@@ -122,7 +164,7 @@ function queuePreviousDayCopyShortcut() {
   copyDayFrame = requestAnimationFrame(() => {
     copyDayFrame = null;
     installPreviousDayCopyShortcut();
-    installFinishCurrentDayShortcut();
+    installFlexibleDayExit();
   });
 }
 
