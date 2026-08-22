@@ -1,688 +1,529 @@
 import { Brand } from './components/Brand.js';
-import { LifeSetupOrb } from './components/LifeSetupOrb.js';
-import { Orb } from './components/Orb.js';
 import { OrbArtwork } from './components/OrbArtwork.js';
-import { SystemPanel } from './components/SystemPanel.js';
-import { TodayRing } from './components/TodayRing.js';
-import { WhyPanel } from './components/WhyPanel.js';
-import { createOrbGestureController } from './gestures/orbGestures.js';
-import {
-  LIFE_PROFILE_STORAGE_KEY,
-  createEmptyLifeProfile,
-  findTimeConflict,
-  isLifeProfileComplete,
-  normalizeLifeProfile
-} from './state/lifeProfile.js';
-import {
-  addUrgentMatter,
-  completeCurrent,
-  createInitialLifeState,
-  createLifeStateFromProfile,
-  currentActivity,
-  deferCurrent,
-  extendCurrent
-} from './state/lifeState.js';
 
 const app = document.querySelector('#app');
-const ACTIVITY_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-const ANCHOR_PRE_FIXED = 'anchor-pre-fixed';
-const ANCHOR_PRE_SLEEP = 'anchor-pre-sleep';
-const ANCHOR_HOME = 'anchor-home-arrival';
-const ANCHOR_IDS = new Set([ANCHOR_PRE_FIXED, ANCHOR_PRE_SLEEP, ANCHOR_HOME]);
+const STORAGE_KEY = 'life-os-tracker-v1';
+const INTRO_KEY = 'life-os-tracker-intro-seen';
+const MIN_GAP_MS = 15 * 60 * 1000;
 
-function loadLifeProfile() {
+const PRESETS = [
+  ['Work', 'Responsibility'],
+  ['Sleep', 'Sleep / Recovery'],
+  ['Workout', 'Health'],
+  ['Family', 'Relationships / Family'],
+  ['Friends', 'Relationships / Family'],
+  ['Devotion', 'Faith / Meaning'],
+  ['Church', 'Faith / Meaning'],
+  ['Project', 'Purpose / Projects'],
+  ['Learning', 'Growth / Learning'],
+  ['Entertainment', 'Recreation / Enjoyment']
+];
+
+const DOMAINS = [
+  'Sleep / Recovery',
+  'Responsibility',
+  'Health',
+  'Relationships / Family',
+  'Faith / Meaning',
+  'Growth / Learning',
+  'Purpose / Projects',
+  'Recreation / Enjoyment',
+  'Other'
+];
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function uid(prefix = 'item') {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function defaultState() {
+  return {
+    sessions: [],
+    active: null,
+    customActivities: [],
+    gapLabels: {}
+  };
+}
+
+function loadState() {
   try {
-    const raw = localStorage.getItem(LIFE_PROFILE_STORAGE_KEY);
-    return raw ? normalizeLifeProfile(JSON.parse(raw)) : createEmptyLifeProfile();
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    return {
+      sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+      active: parsed.active && parsed.active.startedAt ? parsed.active : null,
+      customActivities: Array.isArray(parsed.customActivities) ? parsed.customActivities : [],
+      gapLabels: parsed.gapLabels && typeof parsed.gapLabels === 'object' ? parsed.gapLabels : {}
+    };
   } catch {
-    return createEmptyLifeProfile();
+    return defaultState();
   }
 }
 
-function saveLifeProfile(profile) {
-  try {
-    localStorage.setItem(LIFE_PROFILE_STORAGE_KEY, JSON.stringify(profile));
-  } catch {}
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
 }
 
-function createActivityDraft(start = '') {
-  return {
-    name: '',
-    icon: 'general',
-    start,
-    end: ''
-  };
-}
-
-function isAnchorActivity(activity) {
-  return ANCHOR_IDS.has(activity?.id);
-}
-
-function anchorActivity(profile, id) {
-  return profile.activities.find((activity) => activity.id === id) ?? null;
-}
-
-function fixedSubject(kind) {
-  if (kind === 'school') return 'school';
-  if (kind === 'both') return 'work / school';
-  return 'work';
-}
-
-function upsertAnchorActivity(id, name, days, start, end, icon = 'routine') {
-  const anchor = {
-    id,
-    name,
-    icon,
-    days: [...days],
-    start,
-    end
-  };
-  lifeProfile = {
-    ...lifeProfile,
-    activities: [...lifeProfile.activities.filter((activity) => activity.id !== id), anchor]
-  };
-}
-
-function activityCursorForDay(day) {
-  const home = anchorActivity(lifeProfile, ANCHOR_HOME);
-  const fixedDay = lifeProfile.hasFixedSchedule && lifeProfile.fixedDays.includes(day);
-  let cursor = fixedDay && home?.end ? home.end : lifeProfile.sleepEnd;
-
-  const custom = lifeProfile.activities
-    .filter((activity) => !isAnchorActivity(activity) && activity.days.includes(day))
-    .sort((a, b) => a.start.localeCompare(b.start));
-
-  let changed = true;
-  while (changed) {
-    changed = false;
-    const next = custom.find((activity) => activity.start === cursor);
-    if (next) {
-      cursor = next.end;
-      changed = true;
-    }
-  }
-  return cursor;
-}
-
-let lifeProfile = loadLifeProfile();
-let hasCompletedSetup = isLifeProfileComplete(lifeProfile);
-let lifeState = hasCompletedSetup ? createLifeStateFromProfile(lifeProfile) : createInitialLifeState();
+let state = loadState();
 let screen = 'launch';
-let orbMode = 'now';
-let whyOpen = false;
-let systemView = null;
-let hintVisible = true;
-let setupStep = 'welcome';
-let setupHistory = [];
-let setupActivityDay = 1;
-let setupActivityCursor = '';
-let setupActivityDraft = createActivityDraft();
-let completionTimer = null;
-let launchTimer = null;
-let setupTimer = null;
-let gestureController = null;
+let overlay = null;
+let analyticsPeriod = 'day';
+let ticker = null;
 
-function hideHint() {
-  hintVisible = false;
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
-function setMode(mode) {
-  orbMode = mode;
-  render();
+function formatDuration(ms) {
+  const totalMinutes = Math.max(0, Math.round(ms / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (!hours) return `${minutes}m`;
+  if (!minutes) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
 }
 
-function openWhy() {
-  hideHint();
-  systemView = null;
-  whyOpen = true;
-  render();
+function formatTimer(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return [h, m, s].map((v) => String(v).padStart(2, '0')).join(':');
 }
 
-function closeWhy() {
-  whyOpen = false;
-  render();
+function formatClock(iso) {
+  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
 }
 
-function openSystemView(view) {
-  hideHint();
-  whyOpen = false;
-  orbMode = 'now';
-  systemView = view;
-  render();
+function periodStart(period) {
+  const d = new Date();
+  if (period === 'day') d.setHours(0, 0, 0, 0);
+  if (period === 'week') {
+    const day = d.getDay();
+    const delta = day === 0 ? 6 : day - 1;
+    d.setDate(d.getDate() - delta);
+    d.setHours(0, 0, 0, 0);
+  }
+  if (period === 'month') {
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+  }
+  return d.getTime();
 }
 
-function closeSystemView() {
-  systemView = null;
-  render();
+function sessionEndMs(session) {
+  return session.endedAt ? new Date(session.endedAt).getTime() : Date.now();
 }
 
-function navigateSystemView(view) {
-  systemView = view;
-  render();
+function sessionsForPeriod(period) {
+  const start = periodStart(period);
+  const completed = state.sessions.filter((s) => sessionEndMs(s) >= start);
+  if (!state.active) return completed;
+  return [...completed, { ...state.active, endedAt: nowIso(), live: true }];
 }
 
-function saveActivityTimes(changes) {
-  lifeProfile = normalizeLifeProfile({
-    ...lifeProfile,
-    ...changes,
-    setupComplete: true
+function summarizeByActivity(period) {
+  const map = new Map();
+  sessionsForPeriod(period).forEach((session) => {
+    const start = Math.max(new Date(session.startedAt).getTime(), periodStart(period));
+    const duration = Math.max(0, sessionEndMs(session) - start);
+    const key = session.name || 'Other';
+    const current = map.get(key) || { name: key, domain: session.domain || 'Other', duration: 0 };
+    current.duration += duration;
+    map.set(key, current);
   });
-  saveLifeProfile(lifeProfile);
-  hasCompletedSetup = isLifeProfileComplete(lifeProfile);
-  lifeState = createLifeStateFromProfile(lifeProfile);
-  systemView = 'settings';
-  orbMode = 'now';
-  render();
+  return [...map.values()].sort((a, b) => b.duration - a.duration);
 }
 
-function goSetup(step) {
-  setupHistory.push(setupStep);
-  setupStep = step;
-  render();
-}
-
-function goSetupBack() {
-  const previous = setupHistory.pop();
-  if (!previous) return;
-  setupStep = previous;
-  render();
-}
-
-function resetActivityDraft(start = '') {
-  setupActivityDraft = createActivityDraft(start);
-}
-
-function setActivityDay(day) {
-  setupActivityDay = day;
-  setupActivityCursor = activityCursorForDay(day);
-  resetActivityDraft(setupActivityCursor);
-}
-
-function startActivityBuilder() {
-  setActivityDay(1);
-  goSetup('activities');
-}
-
-function nextActivityDay() {
-  const index = ACTIVITY_DAY_ORDER.indexOf(setupActivityDay);
-  if (index < 0 || index === ACTIVITY_DAY_ORDER.length - 1) return null;
-  return ACTIVITY_DAY_ORDER[index + 1];
-}
-
-function previousActivityDay() {
-  const index = ACTIVITY_DAY_ORDER.indexOf(setupActivityDay);
-  if (index <= 0) return null;
-  return ACTIVITY_DAY_ORDER[index - 1];
-}
-
-function finishLifeSetup() {
-  lifeProfile = normalizeLifeProfile({ ...lifeProfile, setupComplete: true });
-  saveLifeProfile(lifeProfile);
-  hasCompletedSetup = true;
-  lifeState = createLifeStateFromProfile(lifeProfile);
-  screen = 'now';
-  setupStep = 'welcome';
-  setupHistory = [];
-  setupActivityDay = 1;
-  setupActivityCursor = '';
-  setupActivityDraft = createActivityDraft();
-  orbMode = 'now';
-  whyOpen = false;
-  systemView = null;
-  hintVisible = true;
-  render();
-}
-
-function resetLifeSetup() {
-  clearTimeout(completionTimer);
-  clearTimeout(launchTimer);
-  clearTimeout(setupTimer);
-  try { localStorage.removeItem(LIFE_PROFILE_STORAGE_KEY); } catch {}
-  lifeProfile = createEmptyLifeProfile();
-  hasCompletedSetup = false;
-  lifeState = createInitialLifeState();
-  screen = 'setup';
-  setupStep = 'welcome';
-  setupHistory = [];
-  setupActivityDay = 1;
-  setupActivityCursor = '';
-  setupActivityDraft = createActivityDraft();
-  orbMode = 'now';
-  whyOpen = false;
-  systemView = null;
-  hintVisible = true;
-  render();
-}
-
-function handleSetupField(field, value) {
-  if (field.startsWith('draft.')) {
-    const draftField = field.slice('draft.'.length);
-    if (!['name', 'start', 'end'].includes(draftField)) return;
-    setupActivityDraft = { ...setupActivityDraft, [draftField]: value };
-    return;
-  }
-
-  if (!(field in lifeProfile)) return;
-  lifeProfile = { ...lifeProfile, [field]: value };
-}
-
-function handleSetupAction(dataset) {
-  if (dataset.setupAction === 'begin') return goSetup('fixed');
-  if (dataset.setupAction === 'back') return goSetupBack();
-
-  if (dataset.setupFixed) {
-    const hasFixedSchedule = dataset.setupFixed === 'yes';
-    lifeProfile = {
-      ...lifeProfile,
-      hasFixedSchedule,
-      fixedGuidanceMode: 'outside'
-    };
-    return goSetup(hasFixedSchedule ? 'fixed-kind' : 'sleep');
-  }
-
-  if (dataset.setupKind) {
-    lifeProfile = { ...lifeProfile, fixedKind: dataset.setupKind };
-    return goSetup('fixed-days');
-  }
-
-  if (dataset.setupDays) {
-    if (dataset.setupDays === 'weekdays') {
-      lifeProfile = { ...lifeProfile, fixedDays: [1, 2, 3, 4, 5] };
-      return goSetup('fixed-time');
-    }
-    if (dataset.setupDays === 'everyday') {
-      lifeProfile = { ...lifeProfile, fixedDays: [0, 1, 2, 3, 4, 5, 6] };
-      return goSetup('fixed-time');
-    }
-    return goSetup('custom-days');
-  }
-
-  if (dataset.setupDay !== undefined) {
-    const day = Number(dataset.setupDay);
-    const nextDays = lifeProfile.fixedDays.includes(day)
-      ? lifeProfile.fixedDays.filter((item) => item !== day)
-      : [...lifeProfile.fixedDays, day];
-    lifeProfile = { ...lifeProfile, fixedDays: nextDays };
-    return render();
-  }
-
-  if (dataset.setupAction === 'days-continue') {
-    if (!lifeProfile.fixedDays.length) return;
-    return goSetup('fixed-time');
-  }
-
-  if (dataset.setupAction === 'fixed-time-continue') {
-    if (!lifeProfile.fixedStart || !lifeProfile.fixedEnd) return;
-    return goSetup('sleep');
-  }
-
-  if (dataset.setupAction === 'sleep-continue') {
-    if (!lifeProfile.sleepStart || !lifeProfile.sleepEnd) return;
-    return lifeProfile.hasFixedSchedule ? goSetup('fixed-scope') : startActivityBuilder();
-  }
-
-  if (dataset.setupScope) {
-    lifeProfile = {
-      ...lifeProfile,
-      fixedGuidanceMode: dataset.setupScope === 'breakdown' ? 'breakdown' : 'outside'
-    };
-    resetActivityDraft();
-    return goSetup('pre-fixed');
-  }
-
-  if (dataset.setupAction === 'pre-fixed-continue') {
-    const start = setupActivityDraft.start;
-    if (!start || start === lifeProfile.fixedStart) return;
-    const subject = fixedSubject(lifeProfile.fixedKind);
-    upsertAnchorActivity(
-      ANCHOR_PRE_FIXED,
-      `Prepare for ${subject}`,
-      lifeProfile.fixedDays,
-      start,
-      lifeProfile.fixedStart,
-      'routine'
-    );
-    resetActivityDraft();
-    return goSetup('pre-sleep');
-  }
-
-  if (dataset.setupAction === 'pre-sleep-continue') {
-    const start = setupActivityDraft.start;
-    if (!start || start === lifeProfile.sleepStart) return;
-    upsertAnchorActivity(
-      ANCHOR_PRE_SLEEP,
-      'Prepare for sleep',
-      ALL_DAYS,
-      start,
-      lifeProfile.sleepStart,
-      'routine'
-    );
-    resetActivityDraft();
-    return goSetup('home-arrival');
-  }
-
-  if (dataset.setupAction === 'home-arrival-continue') {
-    const end = setupActivityDraft.start;
-    if (!end || end === lifeProfile.fixedEnd) return;
-    upsertAnchorActivity(
-      ANCHOR_HOME,
-      'Travel home',
-      lifeProfile.fixedDays,
-      lifeProfile.fixedEnd,
-      end,
-      'routine'
-    );
-    return startActivityBuilder();
-  }
-
-  if (dataset.setupActivityIcon) {
-    setupActivityDraft = { ...setupActivityDraft, icon: dataset.setupActivityIcon };
-    return render();
-  }
-
-  if (dataset.setupAction === 'activity-name-continue') {
-    const name = setupActivityDraft.name.trim();
-    if (!name || !setupActivityDraft.start) return;
-    return goSetup('activity-end');
-  }
-
-  if (dataset.setupAction === 'activity-add') {
-    const name = setupActivityDraft.name.trim();
-    const { icon, start, end } = setupActivityDraft;
-    if (!name || !start || !end || start === end) return;
-
-    const conflict = findTimeConflict(lifeProfile, setupActivityDay, start, end);
-    if (conflict) return;
-
-    const activity = {
-      id: `activity-${Date.now()}-${lifeProfile.activities.length + 1}`,
-      name: name.slice(0, 48),
-      icon: icon || 'general',
-      days: [setupActivityDay],
-      start,
-      end
-    };
-    lifeProfile = { ...lifeProfile, activities: [...lifeProfile.activities, activity] };
-    setupActivityCursor = end;
-    if (setupHistory[setupHistory.length - 1] === 'activities') setupHistory.pop();
-    setupStep = 'activities';
-    resetActivityDraft(setupActivityCursor);
-    return render();
-  }
-
-  if (dataset.setupRemoveActivity) {
-    if (ANCHOR_IDS.has(dataset.setupRemoveActivity)) return;
-    lifeProfile = {
-      ...lifeProfile,
-      activities: lifeProfile.activities.filter((activity) => activity.id !== dataset.setupRemoveActivity)
-    };
-    setupActivityCursor = activityCursorForDay(setupActivityDay);
-    resetActivityDraft(setupActivityCursor);
-    return render();
-  }
-
-  if (dataset.setupAction === 'activity-day-next') {
-    const nextDay = nextActivityDay();
-    if (nextDay !== null) {
-      setActivityDay(nextDay);
-      return render();
-    }
-    return goSetup('review');
-  }
-
-  if (dataset.setupAction === 'activity-day-back') {
-    const previousDay = previousActivityDay();
-    if (previousDay !== null) {
-      setActivityDay(previousDay);
-      return render();
-    }
-    resetActivityDraft();
-    return goSetupBack();
-  }
-
-  if (dataset.setupAction === 'review-edit') {
-    setupHistory.push(setupStep);
-    setupStep = 'activities';
-    setActivityDay(1);
-    return render();
-  }
-
-  if (dataset.setupAction === 'review-confirm') {
-    setupHistory.push(setupStep);
-    setupStep = 'ready';
-    render();
-    clearTimeout(setupTimer);
-    setupTimer = setTimeout(finishLifeSetup, 900);
-  }
-}
-
-function handleAdjustment(dataset) {
-  hideHint();
-
-  if (dataset.action === 'done') {
-    orbMode = 'completed';
-    render();
-    clearTimeout(completionTimer);
-    completionTimer = setTimeout(() => {
-      lifeState = completeCurrent(lifeState);
-      orbMode = 'now';
-      render();
-    }, 900);
-    return;
-  }
-
-  if (dataset.action === 'more') return setMode('more-time');
-  if (dataset.action === 'cant') return setMode('cant-now');
-  if (dataset.action === 'urgent') return setMode('urgent-time');
-
-  if (dataset.minutes) {
-    lifeState = extendCurrent(lifeState, Number(dataset.minutes));
-    orbMode = 'now';
-    return render();
-  }
-
-  if (dataset.defer) {
-    lifeState = deferCurrent(lifeState, dataset.defer);
-    orbMode = 'now';
-    return render();
-  }
-
-  if (dataset.urgent) {
-    const minutes = dataset.urgent === 'unknown' ? null : Number(dataset.urgent);
-    lifeState = addUrgentMatter(lifeState, minutes);
-    orbMode = 'now';
-    return render();
-  }
-}
-
-function getGestureController() {
-  gestureController?.destroy();
-  gestureController = createOrbGestureController({
-    onSingleTap: openWhy,
-    onDoubleTap: () => {
-      hideHint();
-      whyOpen = false;
-      systemView = null;
-      orbMode = 'adjust';
-      render();
-    },
-    onHoldStart: () => {
-      hideHint();
-      whyOpen = false;
-      systemView = null;
-      orbMode = 'today';
-      render();
-    },
-    onHoldEnd: () => {}
+function summarizeByDomain(period) {
+  const map = new Map(DOMAINS.map((domain) => [domain, 0]));
+  sessionsForPeriod(period).forEach((session) => {
+    const start = Math.max(new Date(session.startedAt).getTime(), periodStart(period));
+    const duration = Math.max(0, sessionEndMs(session) - start);
+    const domain = DOMAINS.includes(session.domain) ? session.domain : 'Other';
+    map.set(domain, (map.get(domain) || 0) + duration);
   });
+  return [...map.entries()].map(([name, duration]) => ({ name, duration })).filter((item) => item.duration > 0).sort((a, b) => b.duration - a.duration);
+}
 
-  return {
-    pointerDown: () => gestureController.pointerDown(),
-    pointerUp: () => gestureController.pointerUp(),
-    cancel: () => gestureController.cancel(),
-    keyboardTap: openWhy
-  };
+function todaySessions() {
+  const start = periodStart('day');
+  return state.sessions
+    .filter((s) => new Date(s.endedAt || s.startedAt).getTime() >= start)
+    .sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt));
+}
+
+function gapId(start, end) {
+  return `${new Date(start).toISOString()}_${new Date(end).toISOString()}`;
+}
+
+function findTodayGaps() {
+  const sessions = todaySessions();
+  const gaps = [];
+  for (let i = 1; i < sessions.length; i += 1) {
+    const previousEnd = new Date(sessions[i - 1].endedAt).getTime();
+    const nextStart = new Date(sessions[i].startedAt).getTime();
+    if (nextStart - previousEnd >= MIN_GAP_MS) {
+      const id = gapId(previousEnd, nextStart);
+      gaps.push({ id, start: previousEnd, end: nextStart, duration: nextStart - previousEnd, label: state.gapLabels[id] || null });
+    }
+  }
+  const last = sessions[sessions.length - 1];
+  if (last && !state.active) {
+    const lastEnd = new Date(last.endedAt).getTime();
+    if (Date.now() - lastEnd >= 30 * 60 * 1000) {
+      const id = gapId(lastEnd, Date.now());
+      gaps.push({ id, start: lastEnd, end: Date.now(), duration: Date.now() - lastEnd, label: state.gapLabels[id] || null, liveGap: true });
+    }
+  }
+  return gaps;
+}
+
+function startActivity(name, domain) {
+  if (state.active) stopActivity();
+  state.active = { id: uid('session'), name: name.trim().slice(0, 48), domain, startedAt: nowIso() };
+  saveState();
+  overlay = null;
+  render();
+}
+
+function stopActivity() {
+  if (!state.active) return;
+  const endedAt = nowIso();
+  const session = { ...state.active, endedAt };
+  state.sessions.push(session);
+  state.active = null;
+  saveState();
+  overlay = { type: 'complete', session };
+  render();
+}
+
+function addCustomActivity(name, domain = 'Other') {
+  const clean = name.trim().slice(0, 48);
+  if (!clean) return;
+  const existing = state.customActivities.find((item) => item.name.toLowerCase() === clean.toLowerCase());
+  if (!existing) state.customActivities.push({ id: uid('activity'), name: clean, domain });
+  saveState();
+  startActivity(clean, existing?.domain || domain);
+}
+
+function relabelGap(gap, label, domain = 'Other') {
+  const existingId = gap.id;
+  if (gap.liveGap) {
+    const stableId = gapId(gap.start, Date.now());
+    state.gapLabels[stableId] = label;
+  } else {
+    state.gapLabels[existingId] = label;
+  }
+  if (label !== 'Untracked') {
+    state.sessions.push({
+      id: uid('gap'),
+      name: label,
+      domain,
+      startedAt: new Date(gap.start).toISOString(),
+      endedAt: new Date(gap.end).toISOString(),
+      retroactive: true
+    });
+  }
+  saveState();
+  render();
 }
 
 function LaunchScreen() {
   const view = document.createElement('section');
   view.className = 'screen launch-screen';
-  view.innerHTML = `
-    <div class="launch-brand">
-      <div class="brand-title brand-title-launch" aria-label="LIFE OS">
-        <span>L I F E</span><span class="brand-os">O S</span>
-      </div>
-      <p>Control your life.</p>
-    </div>
-    <div class="launch-orb" aria-hidden="true"><div class="orb"></div></div>
-  `;
-  view.querySelector('.launch-orb')?.prepend(OrbArtwork());
   return view;
 }
 
-function SetupScreen() {
-  const view = document.createElement('section');
-  view.className = 'screen main-screen setup-screen';
-  view.appendChild(Brand());
+function IntroOverlay() {
+  const wrap = document.createElement('div');
+  wrap.className = 'tracker-intro';
+  wrap.innerHTML = `
+    <div class="tracker-intro-card">
+      <div class="tracker-intro-mark" aria-hidden="true"></div>
+      <h1>See where your life is going.</h1>
+      <p>Track what you do. LIFE OS turns your actual time into a clear picture of how your life is being distributed.</p>
+      <button class="tracker-enter" type="button">ENTER LIFE OS</button>
+    </div>`;
+  wrap.querySelector('.tracker-enter').addEventListener('click', () => {
+    try { localStorage.setItem(INTRO_KEY, '1'); } catch {}
+    overlay = null;
+    render();
+  });
+  return wrap;
+}
 
-  const stage = document.createElement('div');
-  stage.className = 'orb-stage setup-stage';
-  stage.appendChild(LifeSetupOrb({
-    step: setupStep,
-    profile: lifeProfile,
-    activityDraft: setupActivityDraft,
-    activityDay: setupActivityDay,
-    onAction: handleSetupAction,
-    onField: handleSetupField
-  }));
-  view.appendChild(stage);
+function OrbView() {
+  const shell = document.createElement('div');
+  shell.className = 'tracker-orb-shell';
+  shell.appendChild(OrbArtwork());
 
-  const hint = document.createElement('p');
-  hint.className = 'gesture-hint setup-bottom-hint';
-  hint.textContent = setupStep === 'welcome' ? 'Your life. Your reality. Your direction.' : '';
-  view.appendChild(hint);
-  return view;
+  const button = document.createElement('button');
+  button.className = 'tracker-orb';
+  button.type = 'button';
+  button.setAttribute('aria-label', state.active ? `Stop ${state.active.name}` : 'Start an activity');
+
+  if (state.active) {
+    button.innerHTML = `
+      <div class="tracker-orb-content">
+        <p class="tracker-kicker">RUNNING NOW</p>
+        <h1 class="tracker-title">${escapeHtml(state.active.name)}</h1>
+        <p class="tracker-timer" data-live-timer>${formatTimer(Date.now() - new Date(state.active.startedAt).getTime())}</p>
+        <p class="tracker-sub">Tap when you finish.</p>
+      </div>`;
+    button.addEventListener('click', stopActivity);
+  } else {
+    button.innerHTML = `
+      <div class="tracker-orb-content">
+        <p class="tracker-kicker">LIFE OS</p>
+        <h1 class="tracker-title">What are you doing?</h1>
+        <p class="tracker-sub">Tap to start tracking.</p>
+      </div>`;
+    button.addEventListener('click', () => { overlay = { type: 'choose' }; render(); });
+  }
+  shell.appendChild(button);
+  return shell;
 }
 
 function MainScreen() {
-  const activity = currentActivity(lifeState);
   const view = document.createElement('section');
-  view.className = `screen main-screen${orbMode === 'today' ? ' is-today' : ''}`;
+  view.className = 'tracker-screen';
   view.appendChild(Brand());
 
   const stage = document.createElement('div');
-  stage.className = 'orb-stage';
-
-  if (orbMode === 'today') {
-    stage.appendChild(TodayRing(lifeState.activities, activity.id, openSystemView));
-  }
-
-  const orbShell = Orb({
-    activity,
-    mode: orbMode,
-    gestureHandlers: orbMode === 'now' ? getGestureController() : null,
-    onAction: handleAdjustment
-  });
-
-  if (orbMode === 'today') {
-    const orb = orbShell.querySelector('.orb');
-    orb?.setAttribute('tabindex', '0');
-    orb?.setAttribute('aria-label', 'Current activity. Tap to close today view.');
-    orb?.addEventListener('click', () => {
-      orbMode = 'now';
-      render();
-    });
-    orb?.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        orbMode = 'now';
-        render();
-      }
-    });
-  }
-
-  stage.appendChild(orbShell);
+  stage.className = 'tracker-stage';
+  stage.appendChild(OrbView());
   view.appendChild(stage);
 
-  const hint = document.createElement('p');
-  hint.className = `gesture-hint${hintVisible && orbMode === 'now' ? ' is-visible' : ''}`;
-  hint.textContent = orbMode === 'today'
-    ? 'Settings + Info above 12:00 · Tap orb to return'
-    : 'Tap for why · Hold for today · Double tap to adjust';
-  view.appendChild(hint);
-
-  if (whyOpen) {
-    view.appendChild(WhyPanel(activity, closeWhy));
-  }
-
-  if (systemView) {
-    view.appendChild(SystemPanel({
-      view: systemView,
-      profile: lifeProfile,
-      onClose: closeSystemView,
-      onNavigate: navigateSystemView,
-      onSaveTimes: saveActivityTimes,
-      onReset: resetLifeSetup
-    }));
-  }
+  const bottom = document.createElement('div');
+  bottom.className = 'tracker-bottom';
+  const gaps = findTodayGaps().filter((gap) => !gap.label);
+  bottom.innerHTML = `
+    <button type="button" class="tracker-pill" data-bottom="analytics">HOLISTIC LIFE</button>
+    ${gaps.length ? `<button type="button" class="tracker-pill" data-bottom="gaps">${gaps.length} UNTRACKED</button>` : ''}
+  `;
+  bottom.querySelector('[data-bottom="analytics"]')?.addEventListener('click', () => { overlay = { type: 'analytics' }; render(); });
+  bottom.querySelector('[data-bottom="gaps"]')?.addEventListener('click', () => { overlay = { type: 'gaps' }; render(); });
+  view.appendChild(bottom);
 
   return view;
 }
 
-function render() {
-  if (screen === 'launch') return app.replaceChildren(LaunchScreen());
-  if (screen === 'setup') return app.replaceChildren(SetupScreen());
-  return app.replaceChildren(MainScreen());
+function Sheet(title, subtitle = '') {
+  const shade = document.createElement('div');
+  shade.className = 'tracker-overlay';
+  shade.innerHTML = `
+    <section class="tracker-sheet" role="dialog" aria-modal="true">
+      <header class="tracker-sheet-header">
+        <div><h2>${escapeHtml(title)}</h2>${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}</div>
+        <button class="tracker-close" type="button" aria-label="Close">×</button>
+      </header>
+      <div data-sheet-body></div>
+    </section>`;
+  shade.querySelector('.tracker-close').addEventListener('click', () => { overlay = null; render(); });
+  shade.addEventListener('click', (event) => {
+    if (event.target === shade) { overlay = null; render(); }
+  });
+  return shade;
 }
 
-function onKeydown(event) {
-  if (event.key === 'Escape') {
-    if (systemView) return closeSystemView();
-    if (screen === 'setup' && setupStep === 'activities') {
-      return handleSetupAction({ setupAction: 'activity-day-back' });
-    }
-    if (screen === 'setup' && setupHistory.length) return goSetupBack();
-    if (whyOpen) return closeWhy();
-    if (orbMode !== 'now') {
-      orbMode = 'now';
-      render();
-    }
+function ChooseOverlay() {
+  const shade = Sheet('Start an activity', 'What are you doing right now?');
+  const body = shade.querySelector('[data-sheet-body]');
+  const choices = document.createElement('div');
+  choices.className = 'tracker-choices';
+
+  [...PRESETS.map(([name, domain]) => ({ name, domain })), ...state.customActivities].forEach((item) => {
+    const button = document.createElement('button');
+    button.className = 'tracker-choice';
+    button.type = 'button';
+    button.innerHTML = `<strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.domain)}</span>`;
+    button.addEventListener('click', () => startActivity(item.name, item.domain));
+    choices.appendChild(button);
+  });
+
+  const custom = document.createElement('div');
+  custom.className = 'tracker-custom';
+  custom.innerHTML = `<input class="tracker-input" maxlength="48" placeholder="Something else…" aria-label="Custom activity"><button class="tracker-add" type="button">Start</button>`;
+  custom.querySelector('.tracker-add').addEventListener('click', () => addCustomActivity(custom.querySelector('input').value));
+  custom.querySelector('input').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') addCustomActivity(event.currentTarget.value);
+  });
+  choices.appendChild(custom);
+  body.appendChild(choices);
+  return shade;
+}
+
+function CompleteOverlay(session) {
+  const duration = new Date(session.endedAt).getTime() - new Date(session.startedAt).getTime();
+  const shade = Sheet('Activity recorded', `${session.name} · ${formatDuration(duration)}`);
+  const body = shade.querySelector('[data-sheet-body]');
+  body.innerHTML = `
+    <div class="metric-hero">
+      <p class="metric-eyebrow">ACTUAL TIME</p>
+      <h3>${escapeHtml(formatClock(session.startedAt))} — ${escapeHtml(formatClock(session.endedAt))}</h3>
+      <p>LIFE OS is building your real activity history. The more you track, the clearer your Holistic Life picture becomes.</p>
+    </div>`;
+  return shade;
+}
+
+function AnalyticsOverlay() {
+  const shade = Sheet('Holistic Life', 'See how your actual time is being distributed. Balance does not mean equal time.');
+  const body = shade.querySelector('[data-sheet-body]');
+  body.innerHTML = `
+    <div class="analytics-tabs">
+      <button class="analytics-tab ${analyticsPeriod === 'day' ? 'is-active' : ''}" data-period="day">TODAY</button>
+      <button class="analytics-tab ${analyticsPeriod === 'week' ? 'is-active' : ''}" data-period="week">WEEK</button>
+      <button class="analytics-tab ${analyticsPeriod === 'month' ? 'is-active' : ''}" data-period="month">MONTH</button>
+    </div>`;
+
+  body.querySelectorAll('[data-period]').forEach((button) => button.addEventListener('click', () => {
+    analyticsPeriod = button.dataset.period;
+    render();
+  }));
+
+  const domains = summarizeByDomain(analyticsPeriod);
+  const activities = summarizeByActivity(analyticsPeriod);
+  const total = domains.reduce((sum, item) => sum + item.duration, 0);
+  const dominant = domains[0];
+  const hero = document.createElement('div');
+  hero.className = 'metric-hero';
+  hero.innerHTML = total
+    ? `<p class="metric-eyebrow">HOLISTIC LIFE METRIC</p><h3>${escapeHtml(dominant.name)} currently receives the most tracked time.</h3><p>${formatDuration(total)} tracked in this period. LIFE OS looks for chronic imbalance, not mathematical equality.</p>`
+    : `<p class="metric-eyebrow">HOLISTIC LIFE METRIC</p><h3>Your picture is still forming.</h3><p>Start tracking activities and LIFE OS will show where your time is actually going.</p>`;
+  body.appendChild(hero);
+
+  if (domains.length) {
+    const list = document.createElement('div');
+    list.className = 'metric-list';
+    domains.forEach((item) => {
+      const pct = total ? Math.max(3, Math.round((item.duration / total) * 100)) : 0;
+      const row = document.createElement('div');
+      row.className = 'metric-row';
+      row.innerHTML = `<span class="metric-name">${escapeHtml(item.name)}</span><span class="metric-time">${escapeHtml(formatDuration(item.duration))}</span><span class="metric-bar"><i style="width:${pct}%"></i></span>`;
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+  }
+
+  if (activities.length) {
+    const note = document.createElement('div');
+    note.className = 'untracked-note';
+    note.innerHTML = `<strong>Most time:</strong> ${escapeHtml(activities[0].name)} — ${escapeHtml(formatDuration(activities[0].duration))}.`;
+    body.appendChild(note);
+  }
+
+  const gaps = findTodayGaps().filter((gap) => !gap.label);
+  if (analyticsPeriod === 'day' && gaps.length) {
+    const untracked = gaps.reduce((sum, gap) => sum + gap.duration, 0);
+    const note = document.createElement('div');
+    note.className = 'untracked-note';
+    note.innerHTML = `<strong>${escapeHtml(formatDuration(untracked))} is untracked today.</strong> Untracked time is unknown, not automatically wasted. Review it to make today's picture clearer.`;
+    note.addEventListener('click', () => { overlay = { type: 'gaps' }; render(); });
+    body.appendChild(note);
+  }
+  return shade;
+}
+
+function GapsOverlay() {
+  const shade = Sheet('Untracked time', 'LIFE OS noticed gaps in today. What were you doing?');
+  const body = shade.querySelector('[data-sheet-body]');
+  const gaps = findTodayGaps().filter((gap) => !gap.label);
+
+  if (!gaps.length) {
+    body.innerHTML = `<div class="metric-hero"><h3>Nothing to review.</h3><p>Your detected gaps are already classified.</p></div>`;
+    return shade;
+  }
+
+  gaps.forEach((gap) => {
+    const card = document.createElement('div');
+    card.className = 'gap-card';
+    card.innerHTML = `
+      <strong>${escapeHtml(formatClock(gap.start))} — ${escapeHtml(formatClock(gap.end))} · ${escapeHtml(formatDuration(gap.duration))}</strong>
+      <p>Did you do something, watch something, talk to someone, rest, or leave this unknown?</p>
+      <div class="gap-actions"></div>`;
+    const actions = card.querySelector('.gap-actions');
+    [
+      ['Rest / Sleep', 'Sleep / Recovery'],
+      ['Friends / Social', 'Relationships / Family'],
+      ['Entertainment', 'Recreation / Enjoyment'],
+      ['Travel / Errand', 'Responsibility'],
+      ['Other activity', 'Other'],
+      ['Untracked', 'Other']
+    ].forEach(([label, domain]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.addEventListener('click', () => relabelGap(gap, label, domain));
+      actions.appendChild(button);
+    });
+    body.appendChild(card);
+  });
+  return shade;
+}
+
+function renderOverlay() {
+  if (!overlay) return null;
+  if (overlay.type === 'intro') return IntroOverlay();
+  if (overlay.type === 'choose') return ChooseOverlay();
+  if (overlay.type === 'complete') return CompleteOverlay(overlay.session);
+  if (overlay.type === 'analytics') return AnalyticsOverlay();
+  if (overlay.type === 'gaps') return GapsOverlay();
+  return null;
+}
+
+function render() {
+  clearInterval(ticker);
+  if (screen === 'launch') {
+    app.replaceChildren(LaunchScreen());
+    return;
+  }
+  const main = MainScreen();
+  const layer = renderOverlay();
+  app.replaceChildren(layer ? [main, layer] : [main]);
+  if (state.active) {
+    ticker = setInterval(() => {
+      const timer = document.querySelector('[data-live-timer]');
+      if (timer && state.active) timer.textContent = formatTimer(Date.now() - new Date(state.active.startedAt).getTime());
+    }, 1000);
   }
 }
 
-document.addEventListener('keydown', onKeydown);
-render();
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && overlay) {
+    overlay = null;
+    render();
+  }
+});
 
-launchTimer = setTimeout(() => {
-  screen = hasCompletedSetup ? 'now' : 'setup';
+render();
+setTimeout(() => {
+  screen = 'tracker';
+  let seen = false;
+  try { seen = localStorage.getItem(INTRO_KEY) === '1'; } catch {}
+  if (!seen) overlay = { type: 'intro' };
   render();
-}, 1800);
+}, 1100);
 
 window.__LIFE_OS__ = {
-  getState: () => ({
-    screen,
-    orbMode,
-    whyOpen,
-    systemView,
-    lifeState,
-    lifeProfile,
-    setupStep,
-    setupActivityDay,
-    setupActivityCursor,
-    setupActivityDraft
-  }),
-  reset: () => {
-    clearTimeout(completionTimer);
-    clearTimeout(launchTimer);
-    clearTimeout(setupTimer);
-    lifeState = createInitialLifeState();
-    screen = 'now';
-    orbMode = 'now';
-    whyOpen = false;
-    systemView = null;
-    hintVisible = true;
+  getState: () => ({ ...state, screen, overlay, analyticsPeriod }),
+  startActivity,
+  stopActivity,
+  openAnalytics: () => { overlay = { type: 'analytics' }; render(); },
+  resetTracker: () => {
+    try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(INTRO_KEY); } catch {}
+    state = defaultState();
+    overlay = { type: 'intro' };
+    screen = 'tracker';
     render();
-  },
-  resetOnboarding: resetLifeSetup
+  }
 };
