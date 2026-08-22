@@ -217,9 +217,18 @@ function previousActivityDay() {
 }
 
 function finishLifeSetup() {
+  clearTimeout(setupTimer);
   lifeProfile = normalizeLifeProfile({ ...lifeProfile, setupComplete: true });
   saveLifeProfile(lifeProfile);
-  hasCompletedSetup = true;
+  hasCompletedSetup = isLifeProfileComplete(lifeProfile);
+
+  if (!hasCompletedSetup) {
+    screen = 'setup';
+    setupStep = 'review';
+    render();
+    return;
+  }
+
   lifeState = createLifeStateFromProfile(lifeProfile);
   screen = 'now';
   setupStep = 'welcome';
@@ -449,11 +458,7 @@ function handleSetupAction(dataset) {
   }
 
   if (dataset.setupAction === 'review-confirm') {
-    setupHistory.push(setupStep);
-    setupStep = 'ready';
-    render();
-    clearTimeout(setupTimer);
-    setupTimer = setTimeout(finishLifeSetup, 900);
+    return finishLifeSetup();
   }
 }
 
