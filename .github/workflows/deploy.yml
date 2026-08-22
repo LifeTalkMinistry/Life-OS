@@ -37,6 +37,9 @@ jobs:
       - name: Build LIFE OS
         run: npm run build
 
+      - name: Production browser lifecycle test
+        run: npm run test:browser
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
