@@ -1,35 +1,50 @@
-/* Temporary post-onboarding diagnostic.
+/* Raw onboarding completion diagnostic.
  *
- * After the reconstructed onboarding controller successfully validates,
- * persists, reads back, and builds the completed Life Map, replace the live
- * Orb with a plain WELCOME screen. This isolates the onboarding completion
- * handoff from MainScreen()/Orb() rendering.
+ * This intentionally bypasses every LIFE OS render layer after the final
+ * onboarding button: no finishLifeSetup(), no MainScreen(), no Orb(), no SVG,
+ * no animation, and no app CSS dependency. If this text appears on Android,
+ * the final onboarding click is reaching JavaScript and the failure lives in a
+ * later render/state layer rather than the click/navigation itself.
  */
 (() => {
-  const baseFinishLifeSetup = finishLifeSetup;
+  function showRawWelcome() {
+    clearTimeout(setupTimer);
+    clearTimeout(launchTimer);
+    clearTimeout(completionTimer);
 
-  function showWelcomeDiagnostic() {
-    const view = document.createElement('section');
-    view.className = 'screen main-screen';
-    view.style.display = 'grid';
-    view.style.placeItems = 'center';
-    view.style.minHeight = '100dvh';
-    view.style.padding = '24px';
-    view.innerHTML = `
-      <div style="text-align:center;color:white;font-family:system-ui,sans-serif;">
-        <h1 style="margin:0;font-size:42px;letter-spacing:.12em;font-weight:600;">WELCOME</h1>
-        <p style="margin:16px 0 0;opacity:.65;font-size:14px;letter-spacing:.08em;">ONBOARDING COMPLETED</p>
-      </div>
-    `;
-    app.replaceChildren(view);
+    screen = 'raw-onboarding-diagnostic';
+
+    app.innerHTML = '<div id="raw-onboarding-welcome">WELCOME</div>';
+    const node = document.getElementById('raw-onboarding-welcome');
+    if (!node) return;
+
+    // Inline-only styling on purpose: this test must not depend on any bundled
+    // stylesheet, Orb stacking context, viewport media query, or animation.
+    node.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'z-index:2147483647',
+      'display:flex',
+      'align-items:center',
+      'justify-content:center',
+      'background:#000',
+      'color:#fff',
+      'font-family:Arial,sans-serif',
+      'font-size:42px',
+      'font-weight:700',
+      'letter-spacing:.12em'
+    ].join(';');
   }
 
-  finishLifeSetup = function diagnosticFinishLifeSetup() {
-    const completed = baseFinishLifeSetup();
-    if (completed === true) {
-      screen = 'post-setup-welcome';
-      showWelcomeDiagnostic();
-    }
-    return completed;
-  };
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element
+      ? event.target.closest('[data-setup-action="review-confirm"]')
+      : null;
+
+    if (!target || screen !== 'setup') return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showRawWelcome();
+  }, true);
 })();
