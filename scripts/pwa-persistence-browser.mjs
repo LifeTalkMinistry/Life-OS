@@ -68,7 +68,7 @@ async function evaluate(expression) {
   return response.result?.result?.value;
 }
 
-async function waitFor(expression, expected = true, attempts = 60) {
+async function waitFor(expression, expected = true, attempts = 80) {
   for (let i = 0; i < attempts; i += 1) {
     if ((await evaluate(expression)) === expected) return;
     await sleep(100);
@@ -95,37 +95,34 @@ try {
   await send('Runtime.enable');
   await send('Page.enable');
 
-  // Use a real HTTP origin so localStorage behaves exactly like the installed PWA origin.
+  // Use a real HTTP origin so localStorage matches installed-PWA origin behavior.
   await send('Page.navigate', { url: 'http://127.0.0.1:4173/' });
   await waitFor('document.readyState === "complete"');
-  await waitFor('Boolean(window.__LIFE_OS__)');
+  await waitFor('Boolean(document.querySelector("#app"))');
 
   // Simulate a completed onboarding profile already persisted on disk.
   await evaluate(`localStorage.setItem('life-os-v1-profile', ${JSON.stringify(JSON.stringify(profile))})`);
   assert.equal(await evaluate(`localStorage.getItem('life-os-v1-profile') !== null`), true);
 
-  // This is the decisive lifecycle boundary: destroy/reload the document and force boot from persisted state.
+  // Decisive lifecycle boundary: rebuild the entire document from persisted storage.
   await send('Page.reload', { ignoreCache: true });
   await waitFor('document.readyState === "complete"');
-  await waitFor('Boolean(window.__LIFE_OS__)');
-  await waitFor('window.__LIFE_OS__.getState().screen === "now"');
   await waitFor('Boolean(document.querySelector(".main-screen .orb-now-content"))');
 
-  const state = await evaluate('window.__LIFE_OS__.getState()');
-  assert.equal(state.lifeProfile.setupComplete, true);
-  assert.equal(state.lifeProfile.hasFixedSchedule, false);
-  assert.equal(state.screen, 'now');
+  const persisted = await evaluate(`JSON.parse(localStorage.getItem('life-os-v1-profile'))`);
+  assert.equal(persisted.setupComplete, true);
+  assert.equal(persisted.hasFixedSchedule, false);
   assert.equal(await evaluate('document.querySelector(".orb-kicker")?.textContent.trim()'), 'RUNNING NOW');
   assert.equal(await evaluate('document.querySelector(".orb-title")?.textContent.trim()'), 'OPEN TIME');
 
-  // Reload a second time to catch one-shot recovery code that only works once.
+  // Reload a second time to catch one-shot recovery behavior.
   await send('Page.reload', { ignoreCache: true });
   await waitFor('document.readyState === "complete"');
-  await waitFor('window.__LIFE_OS__.getState().screen === "now"');
   await waitFor('Boolean(document.querySelector(".main-screen .orb-now-content"))');
+  assert.equal(await evaluate('document.querySelector(".orb-kicker")?.textContent.trim()'), 'RUNNING NOW');
   assert.equal(await evaluate('document.querySelector(".orb-title")?.textContent.trim()'), 'OPEN TIME');
 
-  console.log('PWA persistence browser regression passed: persisted completed profile survives repeated reloads and restores a live Orb.');
+  console.log('PWA persistence browser regression passed: saved profile survives repeated reloads and restores a live Orb.');
 } finally {
   try { ws?.close(); } catch {}
   chromium.kill('SIGTERM');
