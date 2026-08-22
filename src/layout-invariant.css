@@ -5,7 +5,6 @@
  */
 
 :root {
-  /* These anchors match the approved loaded/idle composition. */
   --lifeos-brand-top: 7.2svh;
   --lifeos-orb-center-y: 55svh;
   --lifeos-footer-bottom: 4.6svh;
@@ -34,14 +33,43 @@
   z-index: 6;
 }
 
-/* Launch must not have its own larger logo treatment. */
-.brand-title-launch {
+/*
+ * IMPORTANT: launch markup historically carried a separate
+ * .brand-title-launch treatment. That made the splash logo/tagline visibly
+ * larger before the real screen mounted. Pin the launch typography to the
+ * exact normal Brand measurements so only the orb CONTENT changes on load.
+ */
+.launch-screen .launch-brand .brand-title.brand-title-launch {
   font-size: clamp(1.8rem, 8vw, 2.7rem) !important;
+  font-weight: 280 !important;
+  letter-spacing: 0.2em !important;
+  line-height: normal !important;
 }
 
-.launch-brand p,
-.brand p {
-  margin-top: 12px;
+.launch-screen .launch-brand > p {
+  margin: 12px 0 0 !important;
+  color: #c9c5d0 !important;
+  font-size: clamp(1rem, 4vw, 1.2rem) !important;
+  font-weight: 300 !important;
+  letter-spacing: 0.02em !important;
+  line-height: normal !important;
+}
+
+/* Explicitly mirror the same values on the loaded Brand. */
+.main-screen > .brand .brand-title {
+  font-size: clamp(1.8rem, 8vw, 2.7rem);
+  font-weight: 280;
+  letter-spacing: 0.2em;
+  line-height: normal;
+}
+
+.main-screen > .brand > p {
+  margin: 12px 0 0;
+  color: #c9c5d0;
+  font-size: clamp(1rem, 4vw, 1.2rem);
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  line-height: normal;
 }
 
 /* ORB STAGE — one immutable center point for the entire product. */
@@ -60,7 +88,7 @@
   overflow: visible;
 }
 
-/* The splash orb uses the exact same center point and exact same size as idle. */
+/* The splash orb uses the exact same center point and size as idle. */
 .launch-screen > .launch-orb {
   position: absolute;
   top: var(--lifeos-orb-center-y);
@@ -72,14 +100,12 @@
   transform: translate(-50%, -50%);
 }
 
-/* Setup sphere uses the normal orb footprint. Content can change inside it. */
 .setup-orb-shell {
   width: var(--orb-size) !important;
   align-self: center;
   justify-self: center;
 }
 
-/* Today/hold can resize the orb and add the orbit, but its CENTER never moves. */
 .is-today .orb-stage {
   top: var(--lifeos-orb-center-y) !important;
   height: 0 !important;
@@ -105,12 +131,10 @@
   text-align: center;
 }
 
-/* No fake grid/footer element on launch; launch is now coordinate-anchored. */
 .launch-screen::after {
   content: none !important;
 }
 
-/* Overlays never participate in the base composition. */
 .main-screen > .why-backdrop,
 .main-screen > .system-backdrop,
 .main-screen > [class*="backdrop"] {
