@@ -51,32 +51,45 @@
   color: #b993ff !important;
 }
 
-/* Mobile review fix.
- * The review step can contain many rows. The generic setup fitter was scaling
- * the entire review down to fit the sphere, which can make the content
- * effectively invisible on a phone. Keep the review at normal scale and let
- * only the summary list scroll inside the orb.
+/* Mobile review layout.
+ * Keep the review title and decision buttons fixed inside the sphere. Only the
+ * Life Map rows scroll. This prevents Edit week / Looks good / Back from being
+ * pushed below the clipped Orb viewport on smaller Android screens.
  */
-.setup-step-review .setup-fit {
-  transform: none !important;
+.setup-step-review .setup-safe-zone.is-wide {
+  inset: 7% 8% 8% !important;
+  overflow: hidden !important;
 }
 
-.setup-step-review .setup-safe-zone.is-wide {
-  inset: 10% 9% !important;
-  overflow: hidden !important;
+.setup-step-review .setup-fit {
+  height: 100%;
+  display: block;
+  transform: none !important;
 }
 
 .setup-step-review .setup-content-wide {
   width: 100% !important;
+  height: 100% !important;
   max-height: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
+  display: grid !important;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  align-content: stretch !important;
+  gap: 3px;
+}
+
+.setup-step-review .setup-eyebrow {
+  margin-bottom: 3px !important;
+}
+
+.setup-step-review .setup-question,
+.setup-step-review .setup-question-small {
+  margin-bottom: 4px !important;
 }
 
 .setup-step-review .setup-review-list {
   width: 100% !important;
-  max-height: 150px !important;
+  max-height: none !important;
+  min-height: 0;
   overflow-y: auto !important;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -87,10 +100,32 @@
   display: none;
 }
 
-.setup-step-review .setup-question {
-  margin-bottom: 10px !important;
+.setup-step-review .setup-review-list button {
+  min-height: 31px !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  font-size: clamp(0.66rem, 2.8vw, 0.8rem) !important;
+  line-height: 1.18;
+}
+
+.setup-step-review .setup-continue,
+.setup-step-review .setup-back {
+  position: relative;
+  z-index: 12;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .setup-step-review .setup-continue {
-  margin-top: 8px !important;
+  width: min(100%, 190px);
+  min-height: 30px;
+  margin-top: 2px !important;
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+}
+
+.setup-step-review .setup-back {
+  margin-top: 0 !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
 }
