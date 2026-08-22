@@ -19,9 +19,8 @@
   min-height: 100svh;
 }
 
-/* BRAND — identical physical anchor in every state. */
-.main-screen > .brand,
-.launch-screen > .launch-brand {
+/* BRAND — identical physical anchor in every real app state. */
+.main-screen > .brand {
   position: absolute;
   top: var(--lifeos-brand-top);
   left: 0;
@@ -33,29 +32,6 @@
   z-index: 6;
 }
 
-/*
- * IMPORTANT: launch markup historically carried a separate
- * .brand-title-launch treatment. That made the splash logo/tagline visibly
- * larger before the real screen mounted. Pin the launch typography to the
- * exact normal Brand measurements so only the orb CONTENT changes on load.
- */
-.launch-screen .launch-brand .brand-title.brand-title-launch {
-  font-size: clamp(1.8rem, 8vw, 2.7rem) !important;
-  font-weight: 280 !important;
-  letter-spacing: 0.2em !important;
-  line-height: normal !important;
-}
-
-.launch-screen .launch-brand > p {
-  margin: 12px 0 0 !important;
-  color: #c9c5d0 !important;
-  font-size: clamp(1rem, 4vw, 1.2rem) !important;
-  font-weight: 300 !important;
-  letter-spacing: 0.02em !important;
-  line-height: normal !important;
-}
-
-/* Explicitly mirror the same values on the loaded Brand. */
 .main-screen > .brand .brand-title {
   font-size: clamp(1.8rem, 8vw, 2.7rem);
   font-weight: 280;
@@ -72,7 +48,7 @@
   line-height: normal;
 }
 
-/* ORB STAGE — one immutable center point for the entire product. */
+/* ORB STAGE — one immutable center point for the real product. */
 .main-screen > .orb-stage,
 .main-screen > .setup-stage {
   position: absolute;
@@ -86,18 +62,6 @@
   display: grid;
   place-items: center;
   overflow: visible;
-}
-
-/* The splash orb uses the exact same center point and size as idle. */
-.launch-screen > .launch-orb {
-  position: absolute;
-  top: var(--lifeos-orb-center-y);
-  left: 50%;
-  width: var(--orb-size);
-  height: var(--orb-size);
-  aspect-ratio: 1 / 1;
-  margin: 0;
-  transform: translate(-50%, -50%);
 }
 
 .setup-orb-shell {
@@ -131,8 +95,61 @@
   text-align: center;
 }
 
+/*
+ * PREMIUM LOADING STATE
+ * Deliberately does NOT imitate the loaded layout anymore. The old splash
+ * brand/orb are hidden, removing the cheap-looking jump/comparison entirely.
+ */
+.launch-screen > .launch-brand,
+.launch-screen > .launch-orb {
+  display: none !important;
+}
+
+.launch-screen {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 49%, rgba(112, 68, 255, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(5, 5, 11, 0.2), rgba(2, 2, 6, 0.08));
+}
+
+.launch-screen::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(196, 166, 255, 0.14);
+  border-top-color: rgba(199, 164, 255, 0.92);
+  border-right-color: rgba(113, 96, 255, 0.48);
+  transform: translate(-50%, -50%);
+  box-shadow:
+    0 0 18px rgba(145, 92, 255, 0.18),
+    inset 0 0 14px rgba(117, 80, 255, 0.08);
+  background: transparent;
+  z-index: 3;
+  animation: lifeos-premium-spin 1.15s linear infinite;
+}
+
 .launch-screen::after {
-  content: none !important;
+  content: "LOADING…" !important;
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 48px);
+  transform: translateX(-50%);
+  color: rgba(218, 210, 229, 0.7);
+  font-size: 0.66rem;
+  font-weight: 450;
+  letter-spacing: 0.24em;
+  white-space: nowrap;
+  text-shadow: 0 0 18px rgba(157, 103, 255, 0.18);
+  z-index: 3;
+}
+
+@keyframes lifeos-premium-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 .main-screen > .why-backdrop,
