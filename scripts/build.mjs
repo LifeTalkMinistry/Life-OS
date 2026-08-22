@@ -19,10 +19,10 @@ const scriptOrder = [
   'src/setup-activity-end-fix.js',
   'src/setup-icon-modal.js',
   'src/setup-copy-day.js',
-  'src/setup-completion-guard.js',
   'src/setup-days-off.js',
   'src/hold-release-fix.js',
-  'src/hold-drag-editor.js'
+  'src/hold-drag-editor.js',
+  'src/setup-completion-guard.js'
 ];
 
 function stripModuleSyntax(source) {
