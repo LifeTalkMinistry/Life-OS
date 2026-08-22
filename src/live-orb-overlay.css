@@ -1,0 +1,52 @@
+.live-orb-overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 66%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  z-index: 9999 !important;
+  display: grid !important;
+  place-items: center;
+  pointer-events: none;
+  opacity: 1 !important;
+  visibility: visible !important;
+  overflow: hidden;
+}
+
+.live-orb-overlay .orb-content {
+  position: relative !important;
+  z-index: 10000 !important;
+  display: block !important;
+  width: 78% !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  text-align: center;
+  color: #fff !important;
+}
+
+.live-orb-overlay .orb-kicker,
+.live-orb-overlay .orb-title,
+.live-orb-overlay .orb-until,
+.live-orb-overlay .orb-time,
+.live-orb-overlay .orb-divider {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.live-orb-overlay .orb-kicker {
+  color: #c49aff !important;
+}
+
+.live-orb-overlay .orb-title {
+  color: #fff !important;
+}
+
+.live-orb-overlay .orb-until {
+  color: #d4d0dc !important;
+}
+
+.live-orb-overlay .orb-time {
+  color: #b993ff !important;
+}
