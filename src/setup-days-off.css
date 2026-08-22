@@ -5,61 +5,54 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  padding: 18%;
+  padding: 20% 17%;
   background:
     radial-gradient(circle at 50% 42%, rgba(34, 19, 74, 0.97), rgba(8, 6, 22, 0.985) 68%, rgba(3, 3, 10, 0.995));
   text-align: center;
 }
 
 .setup-day-off-confirm-content {
-  width: min(100%, 245px);
+  width: min(100%, 218px);
   display: grid;
   justify-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .setup-day-off-eyebrow {
   margin: 0;
   color: #b990ff;
-  font-size: clamp(0.58rem, 2.4vw, 0.72rem);
+  font-size: clamp(0.56rem, 2.2vw, 0.68rem);
   font-weight: 650;
   letter-spacing: 0.12em;
 }
 
 .setup-day-off-confirm h2 {
-  margin: 0;
+  margin: 0 0 2px;
   color: #f7f4fb;
-  font-size: clamp(1.05rem, 4.8vw, 1.4rem);
-  line-height: 1.22;
+  font-size: clamp(0.98rem, 4.25vw, 1.24rem);
+  line-height: 1.18;
   font-weight: 470;
   letter-spacing: -0.02em;
-}
-
-.setup-day-off-note {
-  margin: -2px 0 4px;
-  color: rgba(211, 203, 221, 0.68);
-  font-size: clamp(0.64rem, 2.65vw, 0.76rem);
-  line-height: 1.45;
-  font-weight: 320;
 }
 
 .setup-day-off-primary,
 .setup-day-off-secondary {
   appearance: none;
-  width: min(100%, 190px);
-  min-height: 38px;
+  width: min(100%, 176px);
   border-radius: 999px;
-  font-size: clamp(0.72rem, 3vw, 0.84rem);
+  font-size: clamp(0.7rem, 2.8vw, 0.8rem);
   cursor: pointer;
 }
 
 .setup-day-off-primary {
+  min-height: 36px;
   border: 1px solid rgba(186, 147, 255, 0.64);
   background: rgba(114, 75, 214, 0.18);
   color: #efe5ff;
 }
 
 .setup-day-off-secondary {
+  min-height: 30px;
   border: 0;
   background: transparent;
   color: rgba(205, 190, 226, 0.76);
@@ -77,10 +70,15 @@
 
 @media (max-width: 360px) {
   .setup-day-off-confirm {
-    padding: 16%;
+    padding: 19% 16%;
   }
 
   .setup-day-off-confirm-content {
-    gap: 10px;
+    width: min(100%, 205px);
+    gap: 8px;
+  }
+
+  .setup-day-off-confirm h2 {
+    font-size: clamp(0.94rem, 4.05vw, 1.12rem);
   }
 }
