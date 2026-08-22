@@ -134,9 +134,30 @@ export function Orb({ activity, mode = 'now', gestureHandlers, onAction }) {
     });
   }
 
-  orb.querySelectorAll('button').forEach((button) => {
+  const buttons = [...orb.querySelectorAll('button')];
+
+  // A mobile double tap can emit a trailing synthetic click after the second
+  // pointerup. Because that pointerup re-renders the orb into the adjustment
+  // menu, the synthetic click can land on "I need more time" immediately and
+  // make it look as if the first adjustment screen never existed. Briefly arm
+  // the newly rendered adjustment menu so the double-tap release cannot select
+  // an option. Normal taps work immediately after this short guard window.
+  if (mode === 'adjust') {
+    buttons.forEach((button) => { button.disabled = true; });
+    window.setTimeout(() => {
+      buttons.forEach((button) => {
+        if (button.isConnected) button.disabled = false;
+      });
+    }, 320);
+  }
+
+  buttons.forEach((button) => {
     button.addEventListener('click', (event) => {
       event.stopPropagation();
+      if (button.disabled) {
+        event.preventDefault();
+        return;
+      }
       onAction?.(button.dataset);
     });
   });
