@@ -68,14 +68,19 @@ function setupDayOffOpenConfirm(originalButton, fixedDays) {
     </div>
   `;
 
+  const closeConfirm = () => {
+    orb.classList.remove('has-day-off-confirm');
+    overlay.remove();
+  };
+
   overlay.querySelector('[data-day-off-confirm]')?.addEventListener('click', () => {
     setupDayOffBypass.add(originalButton);
-    overlay.remove();
+    closeConfirm();
     originalButton.click();
   });
 
   overlay.querySelector('[data-day-off-change]')?.addEventListener('click', () => {
-    overlay.remove();
+    closeConfirm();
 
     if (originalButton.dataset.setupDays === 'weekdays' || originalButton.dataset.setupDays === 'everyday') {
       const chooseDays = originalButton
@@ -88,6 +93,7 @@ function setupDayOffOpenConfirm(originalButton, fixedDays) {
     }
   });
 
+  orb.classList.add('has-day-off-confirm');
   orb.appendChild(overlay);
   overlay.querySelector('[data-day-off-confirm]')?.focus();
 }
