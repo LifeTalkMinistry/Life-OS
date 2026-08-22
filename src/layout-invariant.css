@@ -1,83 +1,89 @@
-/* LIFE OS layout invariant
- * Keep the major visual anchors in the same place across launch, onboarding,
- * idle, Today/hold and adjustment states. State changes may alter content,
- * but they must not move the brand, orb stage or bottom guidance slot.
+/* LIFE OS visual-anchor invariant
+ * The app must feel like one physical control surface. Loading, onboarding,
+ * idle, Today/hold and adjustment states may change CONTENT, never the
+ * physical position of the brand, orb center or footer guidance.
  */
 
 :root {
-  --lifeos-header-slot: 22svh;
-  --lifeos-stage-slot: 62svh;
-  --lifeos-footer-slot: 16svh;
+  /* These anchors match the approved loaded/idle composition. */
+  --lifeos-brand-top: 7.2svh;
+  --lifeos-orb-center-y: 55svh;
+  --lifeos-footer-bottom: 4.6svh;
 }
 
-/* All full-screen app states share one immutable three-zone frame. */
 .main-screen,
 .launch-screen {
-  min-height: 100svh;
+  position: relative;
+  display: block !important;
+  width: min(100%, 560px);
   height: 100svh;
-  grid-template-rows:
-    var(--lifeos-header-slot)
-    var(--lifeos-stage-slot)
-    var(--lifeos-footer-slot);
-  align-items: stretch;
+  min-height: 100svh;
 }
 
-/* Brand always occupies the same top slot. */
+/* BRAND — identical physical anchor in every state. */
 .main-screen > .brand,
 .launch-screen > .launch-brand {
-  align-self: center;
-  justify-self: center;
+  position: absolute;
+  top: var(--lifeos-brand-top);
+  left: 0;
+  right: 0;
   width: 100%;
   margin: 0;
-  padding-top: 0;
+  padding: 0;
+  text-align: center;
+  z-index: 6;
 }
 
-/* The launch logo must be visually identical to the normal app logo. */
+/* Launch must not have its own larger logo treatment. */
 .brand-title-launch {
-  font-size: clamp(1.8rem, 8vw, 2.7rem);
+  font-size: clamp(1.8rem, 8vw, 2.7rem) !important;
 }
 
-/* The real app stage owns the full middle slot. */
+.launch-brand p,
+.brand p {
+  margin-top: 12px;
+}
+
+/* ORB STAGE — one immutable center point for the entire product. */
 .main-screen > .orb-stage,
 .main-screen > .setup-stage {
-  align-self: center;
-  justify-self: center;
+  position: absolute;
+  top: var(--lifeos-orb-center-y);
+  left: 50%;
   width: 100%;
-  min-height: 0;
-  height: 100%;
-  margin: 0;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
+  overflow: visible;
 }
 
-/* Launch orb is itself the grid item. Do NOT stretch it to the full stage
- * height: that was the source of the visible jump between splash and idle.
- * Give it the exact loaded-orb dimensions and center it in the same row. */
+/* The splash orb uses the exact same center point and exact same size as idle. */
 .launch-screen > .launch-orb {
-  align-self: center;
-  justify-self: center;
+  position: absolute;
+  top: var(--lifeos-orb-center-y);
+  left: 50%;
   width: var(--orb-size);
-  height: auto;
+  height: var(--orb-size);
   aspect-ratio: 1 / 1;
   margin: 0;
+  transform: translate(-50%, -50%);
 }
 
-/* Setup can change the content inside the sphere, never the sphere position. */
-.setup-stage {
-  min-height: 0 !important;
-  height: 100%;
-}
-
+/* Setup sphere uses the normal orb footprint. Content can change inside it. */
 .setup-orb-shell {
+  width: var(--orb-size) !important;
   align-self: center;
   justify-self: center;
 }
 
-/* Hold/Today may resize the orb/ring, but their center remains pinned to the
- * exact idle center. */
+/* Today/hold can resize the orb and add the orbit, but its CENTER never moves. */
 .is-today .orb-stage {
+  top: var(--lifeos-orb-center-y) !important;
+  height: 0 !important;
   min-height: 0 !important;
-  height: 100%;
 }
 
 .orb-shell,
@@ -87,25 +93,24 @@
   justify-self: center;
 }
 
-/* Bottom copy keeps a permanent slot, so hiding/showing it cannot push the
- * orb upward or downward. */
+/* FOOTER — fixed anchor. Showing/hiding text cannot reflow anything. */
 .main-screen > .gesture-hint,
 .setup-screen > .setup-bottom-hint {
-  align-self: center;
-  justify-self: center;
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: var(--lifeos-footer-bottom);
   margin: 0;
   min-height: 20px;
+  text-align: center;
 }
 
-/* The launch screen has no bottom instruction, but the slot still exists so
- * the header + orb use the exact same geometry as every other state. */
+/* No fake grid/footer element on launch; launch is now coordinate-anchored. */
 .launch-screen::after {
-  content: "";
-  grid-row: 3;
-  min-height: 20px;
+  content: none !important;
 }
 
-/* Keep overlays from participating in the grid and changing geometry. */
+/* Overlays never participate in the base composition. */
 .main-screen > .why-backdrop,
 .main-screen > .system-backdrop,
 .main-screen > [class*="backdrop"] {
@@ -114,9 +119,9 @@
 
 @media (max-width: 360px) {
   :root {
-    --lifeos-header-slot: 22svh;
-    --lifeos-stage-slot: 62svh;
-    --lifeos-footer-slot: 16svh;
+    --lifeos-brand-top: 7svh;
+    --lifeos-orb-center-y: 55svh;
+    --lifeos-footer-bottom: 4.2svh;
   }
 }
 
