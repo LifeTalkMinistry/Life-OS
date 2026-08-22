@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-os-shell-v34';
+const CACHE_NAME = 'life-os-shell-v35';
 const BASE_URL = new URL('./', self.location.href);
 
 const toUrl = (path) => new URL(path, BASE_URL).href;
@@ -57,9 +57,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  /* JS and CSS must not come from an old cache while HTML points at a new
-   * build. Network-first avoids the mixed-version state that can blank/crash
-   * the app after rapid deploys. */
   if (request.destination === 'script' || request.destination === 'style') {
     event.respondWith(networkFirst(request));
     return;
