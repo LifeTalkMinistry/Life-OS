@@ -10,6 +10,7 @@ export function createOrbGestureController({
   let singleTapTimer = null;
   let holding = false;
   let lastTapAt = 0;
+  let releaseListenersAttached = false;
 
   const clearHoldTimer = () => {
     if (holdTimer) clearTimeout(holdTimer);
@@ -21,6 +22,40 @@ export function createOrbGestureController({
     singleTapTimer = null;
   };
 
+  const detachReleaseListeners = () => {
+    if (!releaseListenersAttached || typeof window === 'undefined') return;
+    window.removeEventListener('pointerup', handleGlobalRelease);
+    window.removeEventListener('pointercancel', handleGlobalRelease);
+    window.removeEventListener('blur', handleGlobalRelease);
+    releaseListenersAttached = false;
+  };
+
+  const finishHold = () => {
+    if (!holding) return false;
+    holding = false;
+    lastTapAt = 0;
+    clearHoldTimer();
+    clearSingleTimer();
+    detachReleaseListeners();
+    onHoldEnd?.();
+    return true;
+  };
+
+  function handleGlobalRelease() {
+    finishHold();
+  }
+
+  const attachReleaseListeners = () => {
+    if (releaseListenersAttached || typeof window === 'undefined') return;
+    releaseListenersAttached = true;
+    // The hold view can re-render and remove the original orb while the
+    // pointer is still down. Listen at window level so release is still
+    // observed and the UI can return to its idle state.
+    window.addEventListener('pointerup', handleGlobalRelease);
+    window.addEventListener('pointercancel', handleGlobalRelease);
+    window.addEventListener('blur', handleGlobalRelease);
+  };
+
   return {
     pointerDown() {
       clearHoldTimer();
@@ -28,18 +63,14 @@ export function createOrbGestureController({
       holdTimer = setTimeout(() => {
         holding = true;
         clearSingleTimer();
+        attachReleaseListeners();
         onHoldStart?.();
       }, holdDelay);
     },
 
     pointerUp() {
       clearHoldTimer();
-      if (holding) {
-        holding = false;
-        lastTapAt = 0;
-        onHoldEnd?.();
-        return;
-      }
+      if (finishHold()) return;
 
       const now = Date.now();
       if (lastTapAt && now - lastTapAt <= doubleTapDelay) {
@@ -60,6 +91,7 @@ export function createOrbGestureController({
     cancel() {
       clearHoldTimer();
       clearSingleTimer();
+      detachReleaseListeners();
       holding = false;
       lastTapAt = 0;
     },
