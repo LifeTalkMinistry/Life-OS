@@ -14,83 +14,41 @@
     <meta name="format-detection" content="telephone=no" />
     <title>LIFE OS — Control your life.</title>
     <style>
-      /* Critical launch CSS lives in HTML so an old cached stylesheet can never
-         resurrect the former logo + giant orb splash. */
       .launch-screen > .launch-brand,
-      .launch-screen > .launch-orb {
-        display: none !important;
-        visibility: hidden !important;
-      }
-      .launch-screen {
-        position: relative !important;
-        display: block !important;
-        min-height: 100svh !important;
-        height: 100svh !important;
-        background: #030307 !important;
-      }
-      .launch-screen::before {
-        content: "" !important;
-        position: absolute !important;
-        left: 50% !important;
-        top: 50% !important;
-        width: 42px !important;
-        height: 42px !important;
-        border-radius: 50% !important;
-        border: 1px solid rgba(196,166,255,.14) !important;
-        border-top-color: rgba(199,164,255,.95) !important;
-        border-right-color: rgba(113,96,255,.48) !important;
-        background: transparent !important;
-        box-shadow: 0 0 20px rgba(145,92,255,.2), inset 0 0 14px rgba(117,80,255,.08) !important;
-        transform: translate(-50%,-50%) rotate(0deg) !important;
-        animation: lifeosCriticalSpin 1.05s linear infinite !important;
-        z-index: 100 !important;
-      }
-      .launch-screen::after {
-        content: "LOADING…" !important;
-        position: absolute !important;
-        left: 50% !important;
-        top: calc(50% + 48px) !important;
-        transform: translateX(-50%) !important;
-        color: rgba(220,212,232,.72) !important;
-        font: 450 .66rem/1.2 Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-        letter-spacing: .24em !important;
-        white-space: nowrap !important;
-        z-index: 100 !important;
-      }
-      @keyframes lifeosCriticalSpin {
-        to { transform: translate(-50%,-50%) rotate(360deg); }
-      }
+      .launch-screen > .launch-orb { display:none!important;visibility:hidden!important; }
+      .launch-screen { position:relative!important;display:block!important;min-height:100svh!important;height:100svh!important;background:#030307!important; }
+      .launch-screen::before { content:""!important;position:absolute!important;left:50%!important;top:50%!important;width:42px!important;height:42px!important;border-radius:50%!important;border:1px solid rgba(196,166,255,.14)!important;border-top-color:rgba(199,164,255,.95)!important;border-right-color:rgba(113,96,255,.48)!important;background:transparent!important;box-shadow:0 0 20px rgba(145,92,255,.2),inset 0 0 14px rgba(117,80,255,.08)!important;transform:translate(-50%,-50%) rotate(0deg)!important;animation:lifeosCriticalSpin 1.05s linear infinite!important;z-index:100!important; }
+      .launch-screen::after { content:"LOADING…"!important;position:absolute!important;left:50%!important;top:calc(50% + 48px)!important;transform:translateX(-50%)!important;color:rgba(220,212,232,.72)!important;font:450 .66rem/1.2 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;letter-spacing:.24em!important;white-space:nowrap!important;z-index:100!important; }
+      @keyframes lifeosCriticalSpin { to { transform:translate(-50%,-50%) rotate(360deg); } }
     </style>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" sizes="180x180" href="./pwa/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="./pwa/icon-192.png" />
-    <link rel="stylesheet" href="./src/styles.css?v=36" />
-    <link rel="stylesheet" href="./src/refinements.css?v=36" />
-    <link rel="stylesheet" href="./src/orb-depth.css?v=36" />
-    <link rel="stylesheet" href="./src/setup-day-orbit.css?v=36" />
-    <link rel="stylesheet" href="./src/setup-day-orbit-simple.css?v=36" />
-    <link rel="stylesheet" href="./src/setup-day-navigation.css?v=36" />
-    <link rel="stylesheet" href="./src/setup-activity-end-back.css?v=36" />
-    <link rel="stylesheet" href="./src/setup-icon-modal.css?v=36" />
-    <link rel="stylesheet" href="./src/system-controls.css?v=36" />
-    <link rel="stylesheet" href="./src/layout-invariant.css?v=36" />
+    <link rel="stylesheet" href="./src/styles.css?v=37" />
+    <link rel="stylesheet" href="./src/refinements.css?v=37" />
+    <link rel="stylesheet" href="./src/orb-depth.css?v=37" />
+    <link rel="stylesheet" href="./src/setup-day-orbit.css?v=37" />
+    <link rel="stylesheet" href="./src/setup-day-orbit-simple.css?v=37" />
+    <link rel="stylesheet" href="./src/setup-day-navigation.css?v=37" />
+    <link rel="stylesheet" href="./src/setup-activity-end-back.css?v=37" />
+    <link rel="stylesheet" href="./src/setup-icon-modal.css?v=37" />
+    <link rel="stylesheet" href="./src/system-controls.css?v=37" />
+    <link rel="stylesheet" href="./src/layout-invariant.css?v=37" />
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js', {
-            scope: './',
-            updateViaCache: 'none'
-          }).catch(() => {});
+          navigator.serviceWorker.register('./sw.js', { scope:'./', updateViaCache:'none' }).catch(() => {});
         });
       }
     </script>
   </head>
   <body>
     <main id="app" aria-live="polite"></main>
-    <script type="module" src="./src/app.js?v=36"></script>
-    <script type="module" src="./src/setup-day-orbit.js?v=36"></script>
-    <script type="module" src="./src/setup-day-summary.js?v=36"></script>
-    <script type="module" src="./src/setup-activity-end-fix.js?v=36"></script>
-    <script type="module" src="./src/setup-icon-modal.js?v=36"></script>
+    <script type="module" src="./src/app.js?v=37"></script>
+    <script type="module" src="./src/setup-day-orbit.js?v=37"></script>
+    <script type="module" src="./src/setup-day-summary.js?v=37"></script>
+    <script type="module" src="./src/setup-activity-end-fix.js?v=37"></script>
+    <script type="module" src="./src/setup-icon-modal.js?v=37"></script>
+    <script type="module" src="./src/entry-intro.js?v=37"></script>
   </body>
 </html>
