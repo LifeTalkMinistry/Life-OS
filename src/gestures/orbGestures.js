@@ -11,6 +11,7 @@ export function createOrbGestureController({
   let holding = false;
   let lastTapAt = 0;
   let releaseListenersAttached = false;
+  let activeDragTarget = null;
 
   const clearHoldTimer = () => {
     if (holdTimer) clearTimeout(holdTimer);
@@ -22,11 +23,32 @@ export function createOrbGestureController({
     singleTapTimer = null;
   };
 
+  const clearDragTarget = () => {
+    activeDragTarget?.classList.remove('is-drag-target');
+    activeDragTarget = null;
+  };
+
+  const dragTargetAt = (event) => {
+    if (!holding || typeof document === 'undefined' || !event) return null;
+    const element = document.elementFromPoint(event.clientX, event.clientY);
+    return element?.closest?.('.today-system-button') ?? null;
+  };
+
+  const handleGlobalMove = (event) => {
+    if (!holding) return;
+    const target = dragTargetAt(event);
+    if (target === activeDragTarget) return;
+    clearDragTarget();
+    activeDragTarget = target;
+    activeDragTarget?.classList.add('is-drag-target');
+  };
+
   const detachReleaseListeners = () => {
     if (!releaseListenersAttached || typeof window === 'undefined') return;
+    window.removeEventListener('pointermove', handleGlobalMove);
     window.removeEventListener('pointerup', handleGlobalRelease);
-    window.removeEventListener('pointercancel', handleGlobalRelease);
-    window.removeEventListener('blur', handleGlobalRelease);
+    window.removeEventListener('pointercancel', handleGlobalCancel);
+    window.removeEventListener('blur', handleGlobalCancel);
     releaseListenersAttached = false;
   };
 
@@ -36,40 +58,53 @@ export function createOrbGestureController({
     todayOrb?.click();
   };
 
-  const finishHold = () => {
+  const finishHold = (event, allowSelection = true) => {
     if (!holding) return false;
+
+    const selected = allowSelection ? (dragTargetAt(event) || activeDragTarget) : null;
+
     holding = false;
     lastTapAt = 0;
     clearHoldTimer();
     clearSingleTimer();
     detachReleaseListeners();
+    clearDragTarget();
     onHoldEnd?.();
 
-    // onHoldStart renders the Today view, replacing the element that received
-    // pointerdown. If the app-level hold-end callback has not already restored
-    // idle mode, close that rendered hold view through its normal orb action.
+    // If the finger was released over a Today system control, activate that
+    // control before restoring the hold view. Opening Settings/Info re-renders
+    // the app out of Today mode, so the idle restoration below becomes a no-op.
+    if (selected?.isConnected) {
+      selected.click();
+    }
+
     returnRenderedHoldViewToIdle();
     return true;
   };
 
-  function handleGlobalRelease() {
-    finishHold();
+  function handleGlobalRelease(event) {
+    finishHold(event, true);
+  }
+
+  function handleGlobalCancel(event) {
+    finishHold(event, false);
   }
 
   const attachReleaseListeners = () => {
     if (releaseListenersAttached || typeof window === 'undefined') return;
     releaseListenersAttached = true;
-    // The hold view can re-render and remove the original orb while the
-    // pointer is still down. Listen at window level so release is still
-    // observed and the UI can return to its idle state.
+    // The hold view replaces the original orb while the pointer is still down,
+    // so movement and release must be tracked globally.
+    window.addEventListener('pointermove', handleGlobalMove, { passive: true });
     window.addEventListener('pointerup', handleGlobalRelease);
-    window.addEventListener('pointercancel', handleGlobalRelease);
-    window.addEventListener('blur', handleGlobalRelease);
+    window.addEventListener('pointercancel', handleGlobalCancel);
+    window.addEventListener('blur', handleGlobalCancel);
   };
 
   return {
     pointerDown() {
       clearHoldTimer();
+      clearDragTarget();
       holding = false;
       holdTimer = setTimeout(() => {
         holding = true;
@@ -81,7 +116,7 @@ export function createOrbGestureController({
 
     pointerUp() {
       clearHoldTimer();
-      if (finishHold()) return;
+      if (finishHold(null, false)) return;
 
       const now = Date.now();
       if (lastTapAt && now - lastTapAt <= doubleTapDelay) {
@@ -103,6 +138,7 @@ export function createOrbGestureController({
       clearHoldTimer();
       clearSingleTimer();
       detachReleaseListeners();
+      clearDragTarget();
       holding = false;
       lastTapAt = 0;
     },
