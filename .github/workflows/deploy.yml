@@ -40,6 +40,9 @@ jobs:
       - name: Production browser lifecycle test
         run: npm run test:browser
 
+      - name: PWA persistence reload test
+        run: node scripts/pwa-persistence-browser.mjs
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
