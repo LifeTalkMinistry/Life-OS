@@ -2,8 +2,8 @@
 .setup-copy-day-button {
   appearance: none;
   min-width: 126px;
-  margin: -4px auto 14px;
-  padding: 7px 12px 8px;
+  margin: -4px auto 8px;
+  padding: 6px 12px 7px;
   border: 1px solid rgba(194, 157, 255, 0.26);
   border-radius: 999px;
   background: rgba(16, 9, 36, 0.4);
@@ -22,6 +22,14 @@
   background: rgba(42, 23, 76, 0.5);
   color: #f3eaff;
   outline: none;
+}
+
+/* Tuesday-Sunday receive the copy shortcut after the Orb's initial safe-zone
+ * fit. Pull only that fitted block back to Monday's visual anchor so adding the
+ * shortcut never makes the whole builder appear lower. */
+.setup-step-activities .setup-fit.has-copy-day-shortcut {
+  transform: translateY(calc(-4% - clamp(14px, 4.6vw, 18px))) scale(var(--setup-fit-scale, 1));
+  transform-origin: center center;
 }
 
 /* A day does not have to be completely mapped. Anything after the last saved
@@ -58,9 +66,13 @@
 @media (max-width: 360px) {
   .setup-copy-day-button {
     min-width: 116px;
-    margin-bottom: 11px;
-    padding: 6px 10px 7px;
+    margin-bottom: 6px;
+    padding: 5px 10px 6px;
     font-size: 0.6rem;
+  }
+
+  .setup-step-activities .setup-fit.has-copy-day-shortcut {
+    transform: translateY(calc(-5% - 13px)) scale(var(--setup-fit-scale, 1));
   }
 
   .setup-finish-day-button {
