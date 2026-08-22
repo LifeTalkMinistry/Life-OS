@@ -14,6 +14,7 @@ const scriptOrder = [
   'src/components/Orb.js',
   'src/components/SystemPanel.js',
   'src/app.js',
+  'src/runtime-recovery.js',
   'src/setup-day-orbit.js',
   'src/setup-day-summary.js',
   'src/setup-activity-end-fix.js',
@@ -63,13 +64,18 @@ const html = `<!doctype html>
     <link rel="icon" type="image/png" sizes="192x192" href="./pwa/icon-192.png" />
     <style>${css}</style>
     <script>
+      // Temporary cache reset while the Android PWA persistence regression is
+      // being repaired. Keep the app network-fresh and remove any previously
+      // installed LIFE OS service worker/cache before the runtime initializes.
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js', {
-            scope: './',
-            updateViaCache: 'none'
-          }).catch(() => {});
-        });
+        navigator.serviceWorker.getRegistrations()
+          .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+          .catch(() => {});
+      }
+      if ('caches' in window) {
+        caches.keys()
+          .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+          .catch(() => {});
       }
     </script>
   </head>
