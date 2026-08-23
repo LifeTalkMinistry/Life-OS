@@ -1,1 +1,0 @@
-Force GitHub Pages redeploy from known-working commit 23a2e4f5f8c4e370a71e77e0078679abaafa2d8e.
