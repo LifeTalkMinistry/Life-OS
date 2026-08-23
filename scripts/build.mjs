@@ -16,6 +16,7 @@ const scriptOrder = [
   'src/app.js',
   'src/runtime-recovery.js',
   'src/entry-intro.js',
+  'src/activity-tracker.js',
   'src/setup-day-orbit.js',
   'src/setup-day-summary.js',
   'src/setup-activity-end-fix.js',
