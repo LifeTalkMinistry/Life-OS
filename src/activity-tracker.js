@@ -33,13 +33,22 @@
   function trackerOrbMarkup() {
     if (trackerView === 'running' && tracker.active) return `<div class="orb-content life-tracker-content life-tracker-running"><p class="orb-kicker">RUNNING NOW</p><h1 class="orb-title">${escape(tracker.active.name)}</h1><span class="orb-divider" aria-hidden="true"><i></i></span><p class="life-tracker-elapsed" data-tracker-elapsed>${elapsedLabel(tracker.active.startedAt)}</p><p class="life-tracker-caption">ACTUAL TIME</p><button type="button" class="life-tracker-stop" data-tracker-action="stop">STOP</button></div>`;
     if (trackerView === 'save' && lastCompleted) return `<div class="orb-content life-tracker-content life-tracker-save"><p class="orb-kicker">ACTIVITY LOGGED</p><h1 class="orb-title">${escape(lastCompleted.name)}</h1><p class="life-tracker-duration">${elapsedLabel(lastCompleted.startedAt,lastCompleted.endedAt)}</p><p class="life-tracker-save-copy">Save this as a normal activity?</p><button type="button" class="life-tracker-primary" data-tracker-action="save-normal">SAVE ACTIVITY</button><button type="button" class="life-tracker-secondary" data-tracker-action="skip-save">Not now</button></div>`;
-    if (trackerView === 'entry') return `<div class="orb-content life-tracker-entry-clean"></div>`;
+    if (trackerView === 'entry') return `<div class="orb-content life-tracker-entry-clean"><form class="life-activity-composer" data-tracker-form><input data-tracker-input maxlength="48" autocomplete="off" placeholder="Type your activity now" aria-label="Type your activity now"><button type="submit" aria-label="Start activity">↑</button></form></div>`;
     return `<div class="orb-content life-tracker-idle"><button type="button" class="life-tracker-start" data-tracker-action="entry">START ACTIVITY</button></div>`;
   }
 
   function TrackerOrb() {
     const shell = document.createElement('div'); shell.className='orb-shell life-tracker-shell';
     const orb = document.createElement('div'); orb.className='orb life-tracker-orb'; orb.innerHTML=trackerOrbMarkup();
+
+    const input = orb.querySelector('[data-tracker-input]');
+    if (input) {
+      input.value = trackerDraft;
+      input.addEventListener('input', () => { trackerDraft = input.value; });
+      orb.querySelector('[data-tracker-form]')?.addEventListener('submit', e => { e.preventDefault(); if (trackerDraft.trim()) startActivity(trackerDraft); });
+      setTimeout(() => input.focus(), 0);
+    }
+
     orb.querySelectorAll('[data-tracker-action]').forEach(button => button.addEventListener('click', event => {
       event.stopPropagation(); const action=button.dataset.trackerAction;
       if(action==='entry'){trackerDraft='';trackerView='entry';render();}
@@ -48,16 +57,6 @@
       else if(action==='skip-save'){lastCompleted=null;trackerView='idle';render();}
     }));
     shell.append(OrbArtwork(),orb); return shell;
-  }
-
-  function ActivityComposer(){
-    const form=document.createElement('form'); form.className='life-activity-composer';
-    form.innerHTML=`<input data-tracker-input maxlength="48" autocomplete="off" placeholder="Type your activity now" aria-label="Type your activity now"><button type="submit" aria-label="Start activity">↑</button>`;
-    const input=form.querySelector('input');
-    input.value=trackerDraft;
-    input.addEventListener('input',()=>{trackerDraft=input.value;});
-    form.addEventListener('submit',e=>{e.preventDefault(); if(trackerDraft.trim()) startActivity(trackerDraft);});
-    setTimeout(()=>input.focus(),0); return form;
   }
 
   function startActivity(name){const clean=String(name||'').trim().slice(0,48);if(!clean)return;tracker.active={id:`tracked-${Date.now()}`,name:clean,startedAt:Date.now()};trackerDraft='';trackerView='running';safeWrite(tracker);render();}
@@ -69,8 +68,7 @@
     clearInterval(elapsedTimer); if(systemView)return priorMainScreen();
     const view=document.createElement('section');view.className='screen main-screen life-tracker-screen';view.appendChild(Brand());
     const stage=document.createElement('div');stage.className='orb-stage';stage.appendChild(TrackerOrb());view.appendChild(stage);
-    if(trackerView==='entry') view.appendChild(ActivityComposer());
-    else {const hint=document.createElement('p');hint.className='gesture-hint is-visible life-tracker-hint';hint.textContent=trackerView==='running'?'Stop when you finish. LIFE OS records the actual time.':'TAP FOR WHY · HOLD FOR TODAY · DOUBLE TAP TO ADJUST';view.appendChild(hint);}
+    if(trackerView!=='entry') {const hint=document.createElement('p');hint.className='gesture-hint is-visible life-tracker-hint';hint.textContent=trackerView==='running'?'Stop when you finish. LIFE OS records the actual time.':'TAP FOR WHY · HOLD FOR TODAY · DOUBLE TAP TO ADJUST';view.appendChild(hint);}
     if(trackerView==='running'&&tracker.active)elapsedTimer=setInterval(()=>{const node=document.querySelector('[data-tracker-elapsed]');if(node&&tracker.active)node.textContent=elapsedLabel(tracker.active.startedAt);},1000);
     return view;
   };
@@ -82,9 +80,9 @@
     .life-tracker-primary,.life-tracker-start{padding:.78rem 1.45rem;border-radius:999px;border:1px solid rgba(202,178,255,.38);background:rgba(112,74,255,.12)}
     .life-tracker-secondary{opacity:.62;padding:.4rem}.life-tracker-stop{margin-top:.15rem;padding:.76rem 1.35rem;border-radius:999px;border:1px solid rgba(255,191,220,.42);background:rgba(255,70,150,.08)}
     .life-tracker-elapsed{margin:.05rem 0 0;color:#fff;font-size:1.55rem;font-weight:520;font-variant-numeric:tabular-nums;letter-spacing:.05em}.life-tracker-caption{margin:-.4rem 0 .1rem;color:rgba(225,215,238,.58);font-size:.58rem;letter-spacing:.22em}.life-tracker-duration{margin:0;color:#fff;font-size:1.3rem}.life-tracker-save-copy{margin:.05rem 0 .2rem;color:rgba(237,231,246,.72);font-size:.88rem}.life-tracker-hint{max-width:min(86vw,430px);text-align:center}
-    .life-activity-composer{position:absolute;left:50%;bottom:max(30px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:20;width:min(88vw,440px);display:flex;align-items:center;gap:8px;padding:7px 8px 7px 18px;border:1px solid rgba(202,178,255,.3);border-radius:999px;background:rgba(13,11,24,.88);backdrop-filter:blur(18px);box-shadow:0 8px 32px rgba(0,0,0,.3)}
-    .life-activity-composer input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:#fff;font:500 1rem/1.2 Inter,ui-sans-serif,sans-serif}.life-activity-composer input::placeholder{color:rgba(225,218,236,.5)}
-    .life-activity-composer button{width:38px;height:38px;flex:0 0 38px;border:1px solid rgba(210,190,255,.38);border-radius:50%;background:rgba(125,82,255,.22);color:#fff;font-size:1.2rem;cursor:pointer}
+    .life-activity-composer{width:min(82%,300px);display:flex;align-items:center;gap:8px;padding:7px 8px 7px 16px;border:1px solid rgba(202,178,255,.3);border-radius:999px;background:rgba(13,11,24,.52);box-shadow:inset 0 0 22px rgba(108,75,255,.08)}
+    .life-activity-composer input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:#fff;font:500 .95rem/1.2 Inter,ui-sans-serif,sans-serif;text-align:left}.life-activity-composer input::placeholder{color:rgba(225,218,236,.5)}
+    .life-activity-composer button{width:36px;height:36px;flex:0 0 36px;border:1px solid rgba(210,190,255,.38);border-radius:50%;background:rgba(125,82,255,.18);color:#fff;font-size:1.05rem;cursor:pointer}
   `;document.head.appendChild(style);
   window.__LIFE_OS_TRACKER__={getState:()=>JSON.parse(JSON.stringify(tracker)),clear:()=>{tracker={active:null,logs:[],saved:[]};trackerView='idle';lastCompleted=null;safeWrite(tracker);render();}};
   render();
