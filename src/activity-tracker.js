@@ -87,11 +87,11 @@
     }
 
     return `
-      <div class="orb-content life-tracker-content life-tracker-idle">
+      <div class="orb-content orb-now-content life-tracker-idle">
         <p class="orb-kicker">RUNNING NOW</p>
         <h1 class="orb-title">OPEN TIME</h1>
         <span class="orb-divider" aria-hidden="true"><i></i></span>
-        <p class="orb-subtitle">No activity scheduled</p>
+        <p class="orb-until">No activity scheduled</p>
         <button type="button" class="life-tracker-start" data-tracker-action="entry">START ACTIVITY</button>
       </div>`;
   }
@@ -183,8 +183,6 @@
   MainScreen = function ActivityTrackerMainScreen() {
     clearInterval(elapsedTimer);
 
-    // System panels from the previous prototype still need a safe escape hatch
-    // while the tracker becomes the authoritative V1 home experience.
     if (systemView) return priorMainScreen();
 
     const view = document.createElement('section');
@@ -218,6 +216,8 @@
   const style = document.createElement('style');
   style.textContent = `
     .life-tracker-content{width:min(78%,320px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.72rem}
+    .life-tracker-idle{width:76%;text-align:center}
+    .life-tracker-idle .life-tracker-start{display:inline-flex;align-items:center;justify-content:center;margin-top:clamp(16px,4vw,22px)}
     .life-tracker-question{margin:0;color:#fff;font-size:clamp(1.45rem,5.8vw,2rem);line-height:1.08;font-weight:650;letter-spacing:-.02em}
     .life-tracker-input{width:100%;box-sizing:border-box;border:1px solid rgba(196,171,255,.35);border-radius:999px;background:rgba(8,7,20,.55);color:#fff;text-align:center;padding:.82rem 1rem;font:500 1rem/1.2 Inter,ui-sans-serif,sans-serif;outline:none;box-shadow:inset 0 0 22px rgba(108,75,255,.08)}
     .life-tracker-input:focus{border-color:rgba(220,199,255,.72);box-shadow:0 0 18px rgba(151,95,255,.14),inset 0 0 22px rgba(108,75,255,.1)}
@@ -245,4 +245,8 @@
       render();
     }
   };
+
+  // app.js may have already painted the legacy home before this module takes over.
+  // Repaint immediately so there is no first-screen tap required anymore.
+  render();
 })();
