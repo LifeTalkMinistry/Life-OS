@@ -24,14 +24,10 @@
 
     openSaved.addEventListener('click', (event) => {
       event.stopPropagation();
-      const openingSaved = !savedBlock.classList.contains('is-open');
-
-      savedBlock.classList.toggle('is-open', openingSaved);
-      savedBlock.classList.toggle('is-collapsed', !openingSaved);
-      composer.classList.toggle('is-hidden-for-saved', openingSaved);
-
-      openSaved.setAttribute('aria-expanded', openingSaved ? 'true' : 'false');
-      openSaved.textContent = openingSaved ? 'TYPE ACTIVITY' : 'SAVED ACTIVITY';
+      savedBlock.classList.add('is-open');
+      savedBlock.classList.remove('is-collapsed');
+      composer.classList.add('is-hidden-for-saved');
+      openSaved.remove();
     });
 
     return view;
@@ -57,7 +53,7 @@
     .life-entry-saved.is-open{
       width:72%;
       max-width:280px;
-      max-height:190px;
+      max-height:230px;
       overflow-y:auto;
       margin-top:.1rem;
       scrollbar-width:none;
