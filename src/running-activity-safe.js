@@ -1,4 +1,4 @@
-/* LIFE OS — stable running activity layout: activity name outside the orb, timer inside. */
+/* LIFE OS — stable running activity layout: activity name outside the orb, timer and stop inside. */
 (() => {
   const priorMainScreen = MainScreen;
 
@@ -13,8 +13,10 @@
     const running = view.querySelector?.('.life-tracker-running');
     if (!stage || !running) return view;
 
-    const title = running.querySelector('.orb-title');
-    if (title) title.remove();
+    running.querySelector('.orb-title')?.remove();
+    running.querySelector('.orb-kicker')?.remove();
+    running.querySelector('.orb-divider')?.remove();
+    running.querySelector('.life-tracker-caption')?.remove();
 
     const label = document.createElement('div');
     label.className = 'life-running-activity-label';
@@ -28,7 +30,19 @@
   const style = document.createElement('style');
   style.textContent = `
     .life-tracker-screen .orb-stage{position:relative}
-    .life-tracker-running{gap:.78rem!important}
+    .life-tracker-running{
+      gap:1.15rem!important;
+      justify-content:center!important;
+    }
+    .life-tracker-running .life-tracker-elapsed{
+      margin:0!important;
+      font-size:clamp(2.4rem,11vw,3.35rem)!important;
+      font-weight:560!important;
+      letter-spacing:.035em!important;
+    }
+    .life-tracker-running .life-tracker-stop{
+      margin-top:.2rem!important;
+    }
     .life-running-activity-label{
       position:absolute;
       left:50%;
