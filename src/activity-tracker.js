@@ -4,7 +4,6 @@
   const MAX_LOGS = 500;
   const COMMANDS = [
     { id: 'entry', label: 'START ACTIVITY' },
-    { id: 'saved', label: 'SAVED ACTIVITIES' },
     { id: 'history', label: 'ACTIVITY HISTORY' },
     { id: 'insights', label: 'INSIGHTS' },
     { id: 'settings', label: 'SETTINGS' }
@@ -64,9 +63,14 @@
     }).join('');
   }
 
-  function savedActivitiesMarkup() {
-    if (!tracker.saved.length) return `<p class="life-history-empty">No saved activities yet.<br>Finish an activity and save it for quick access.</p>`;
-    return `<div class="life-saved-list">${tracker.saved.slice(0, 6).map((name) => `<button type="button" class="life-saved-choice" data-saved-activity="${escape(name)}">${escape(name)}</button>`).join('')}</div>`;
+  function savedActivitiesMarkup(limit = 6) {
+    if (!tracker.saved.length) return '';
+    return `<div class="life-saved-list">${tracker.saved.slice(0, limit).map((name) => `<button type="button" class="life-saved-choice" data-saved-activity="${escape(name)}">${escape(name)}</button>`).join('')}</div>`;
+  }
+
+  function entrySavedMarkup() {
+    if (!tracker.saved.length) return '';
+    return `<div class="life-entry-saved"><span class="life-entry-or">OR CHOOSE SAVED</span>${savedActivitiesMarkup(4)}</div>`;
   }
 
   function insightsMarkup() {
@@ -95,8 +99,7 @@
   function trackerOrbMarkup() {
     if (trackerView === 'running' && tracker.active) return `<div class="orb-content life-tracker-content life-tracker-running"><p class="orb-kicker">RUNNING NOW</p><h1 class="orb-title">${escape(tracker.active.name)}</h1><span class="orb-divider" aria-hidden="true"><i></i></span><p class="life-tracker-elapsed" data-tracker-elapsed>${elapsedLabel(tracker.active.startedAt)}</p><p class="life-tracker-caption">ACTUAL TIME</p><button type="button" class="life-tracker-stop" data-tracker-action="stop">STOP</button></div>`;
     if (trackerView === 'save' && lastCompleted) return `<div class="orb-content life-tracker-content life-tracker-save"><p class="orb-kicker">ACTIVITY LOGGED</p><h1 class="orb-title">${escape(lastCompleted.name)}</h1><p class="life-tracker-duration">${elapsedLabel(lastCompleted.startedAt,lastCompleted.endedAt)}</p><p class="life-tracker-save-copy">Save this as a normal activity?</p><button type="button" class="life-tracker-primary" data-tracker-action="save-normal">SAVE ACTIVITY</button><button type="button" class="life-tracker-secondary" data-tracker-action="skip-save">Not now</button></div>`;
-    if (trackerView === 'entry') return `<div class="orb-content life-tracker-entry-clean"><form class="life-activity-composer" data-tracker-form><input data-tracker-input maxlength="48" autocomplete="off" placeholder="Type your activity now" aria-label="Type your activity now"><button type="submit" aria-label="Start activity">↑</button></form><button type="button" class="life-view-back" data-tracker-action="back">BACK</button></div>`;
-    if (trackerView === 'saved') return `<div class="orb-content life-tracker-content life-tracker-saved"><p class="orb-kicker">SAVED ACTIVITIES</p>${savedActivitiesMarkup()}<button type="button" class="life-view-back" data-tracker-action="back">BACK</button></div>`;
+    if (trackerView === 'entry') return `<div class="orb-content life-tracker-entry-clean"><form class="life-activity-composer" data-tracker-form><input data-tracker-input maxlength="48" autocomplete="off" placeholder="Type your activity now" aria-label="Type your activity now"><button type="submit" aria-label="Start activity">↑</button></form>${entrySavedMarkup()}<button type="button" class="life-view-back" data-tracker-action="back">BACK</button></div>`;
     if (trackerView === 'history') {
       const recent = recentLogs(7);
       const totalMs = recent.reduce((sum, log) => sum + Math.max(0, Number(log.durationMs || 0)), 0);
@@ -132,7 +135,6 @@
       input.value = trackerDraft;
       input.addEventListener('input', () => { trackerDraft = input.value; });
       orb.querySelector('[data-tracker-form]')?.addEventListener('submit', e => { e.preventDefault(); if (trackerDraft.trim()) startActivity(trackerDraft); });
-      setTimeout(() => input.focus(), 0);
     }
 
     orb.querySelectorAll('[data-tracker-action]').forEach(button => button.addEventListener('click', event => {
@@ -195,7 +197,7 @@
 
   const style=document.createElement('style');style.textContent=`
     .life-tracker-content{width:min(80%,320px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:.65rem}
-    .life-tracker-entry-clean{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem}
+    .life-tracker-entry-clean{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.78rem}
     .life-tracker-primary,.life-tracker-secondary,.life-tracker-stop,.life-view-back{font:600 .82rem/1 Inter,ui-sans-serif,sans-serif;letter-spacing:.08em;color:#fff;background:none;border:0;cursor:pointer}
     .life-tracker-primary{padding:.78rem 1.45rem;border-radius:999px;border:1px solid rgba(202,178,255,.38);background:rgba(112,74,255,.12)}
     .life-tracker-secondary,.life-view-back{opacity:.58;padding:.4rem}.life-view-back{font-size:.6rem;letter-spacing:.16em}.life-tracker-stop{margin-top:.15rem;padding:.76rem 1.35rem;border-radius:999px;border:1px solid rgba(255,191,220,.42);background:rgba(255,70,150,.08)}
@@ -203,6 +205,8 @@
     .life-activity-composer{box-sizing:border-box;width:72%;max-width:280px;display:flex;align-items:center;gap:8px;padding:7px 8px 7px 16px;border:1px solid rgba(202,178,255,.3);border-radius:999px;background:rgba(13,11,24,.52);box-shadow:inset 0 0 22px rgba(108,75,255,.08);overflow:hidden}
     .life-activity-composer input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:#fff;font:500 .95rem/1.2 Inter,ui-sans-serif,sans-serif;text-align:left}.life-activity-composer input::placeholder{color:rgba(225,218,236,.5)}
     .life-activity-composer button{width:36px;height:36px;flex:0 0 36px;border:1px solid rgba(210,190,255,.38);border-radius:50%;background:rgba(125,82,255,.18);color:#fff;font-size:1.05rem;cursor:pointer}
+    .life-entry-saved{width:72%;max-width:280px;display:flex;flex-direction:column;align-items:center;gap:.38rem}.life-entry-or{font:520 .48rem/1 Inter,ui-sans-serif,sans-serif;letter-spacing:.2em;color:rgba(226,216,239,.42)}
+    .life-entry-saved .life-saved-list{max-height:112px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}.life-entry-saved .life-saved-list::-webkit-scrollbar{display:none}.life-entry-saved .life-saved-choice{padding:.42rem .45rem;font-size:.68rem}
     .life-command-wheel{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.12rem;touch-action:none;user-select:none}
     .life-command-option{border:0;background:none;color:#fff;font-family:Inter,ui-sans-serif,sans-serif;letter-spacing:.11em;cursor:pointer;transition:opacity .18s ease,transform .18s ease,font-size .18s ease}
     .life-command-option.is-current{min-width:72%;padding:.8rem 1.05rem;border:1px solid rgba(202,178,255,.38);border-radius:999px;background:rgba(112,74,255,.12);font-size:.86rem;font-weight:650;opacity:1;box-shadow:inset 0 0 18px rgba(121,79,255,.08)}
