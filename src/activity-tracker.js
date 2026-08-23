@@ -86,17 +86,13 @@
         </div>`;
     }
 
-    const saved = tracker.saved.length
-      ? `<div class="life-tracker-saved">${tracker.saved.slice(0, 4).map((name) => `<button type="button" data-tracker-saved="${escape(name)}">${escape(name)}</button>`).join('')}</div>`
-      : '';
-
     return `
       <div class="orb-content life-tracker-content life-tracker-idle">
-        <p class="orb-kicker">LIFE OS</p>
-        <h1 class="life-tracker-question">WHAT ARE YOU<br>DOING RIGHT NOW?</h1>
+        <p class="orb-kicker">RUNNING NOW</p>
+        <h1 class="orb-title">OPEN TIME</h1>
         <span class="orb-divider" aria-hidden="true"><i></i></span>
+        <p class="orb-subtitle">No activity scheduled</p>
         <button type="button" class="life-tracker-start" data-tracker-action="entry">START ACTIVITY</button>
-        ${saved}
       </div>`;
   }
 
@@ -141,13 +137,6 @@
           trackerView = 'idle';
           render();
         }
-      });
-    });
-
-    orb.querySelectorAll('[data-tracker-saved]').forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        startActivity(button.dataset.trackerSaved || button.textContent || 'Activity');
       });
     });
 
@@ -211,7 +200,9 @@
     hint.className = 'gesture-hint is-visible life-tracker-hint';
     hint.textContent = trackerView === 'running'
       ? 'Stop when you finish. LIFE OS records the actual time.'
-      : 'Tell LIFE OS what you are doing. It handles the rest.';
+      : trackerView === 'entry'
+        ? 'Tell LIFE OS what you are doing.'
+        : 'TAP FOR WHY · HOLD FOR TODAY · DOUBLE TAP TO ADJUST';
     view.appendChild(hint);
 
     if (trackerView === 'running' && tracker.active) {
@@ -231,7 +222,7 @@
     .life-tracker-input{width:100%;box-sizing:border-box;border:1px solid rgba(196,171,255,.35);border-radius:999px;background:rgba(8,7,20,.55);color:#fff;text-align:center;padding:.82rem 1rem;font:500 1rem/1.2 Inter,ui-sans-serif,sans-serif;outline:none;box-shadow:inset 0 0 22px rgba(108,75,255,.08)}
     .life-tracker-input:focus{border-color:rgba(220,199,255,.72);box-shadow:0 0 18px rgba(151,95,255,.14),inset 0 0 22px rgba(108,75,255,.1)}
     .life-tracker-input::placeholder{color:rgba(229,223,239,.46)}
-    .life-tracker-primary,.life-tracker-secondary,.life-tracker-start,.life-tracker-stop,.life-tracker-saved button{font:600 .82rem/1 Inter,ui-sans-serif,sans-serif;letter-spacing:.08em;color:#fff;background:none;border:0;cursor:pointer}
+    .life-tracker-primary,.life-tracker-secondary,.life-tracker-start,.life-tracker-stop{font:600 .82rem/1 Inter,ui-sans-serif,sans-serif;letter-spacing:.08em;color:#fff;background:none;border:0;cursor:pointer}
     .life-tracker-primary,.life-tracker-start{padding:.72rem 1.25rem;border-radius:999px;border:1px solid rgba(202,178,255,.38);background:rgba(112,74,255,.12)}
     .life-tracker-primary:disabled{opacity:.35}
     .life-tracker-secondary{opacity:.62;padding:.4rem}
@@ -240,8 +231,6 @@
     .life-tracker-caption{margin:-.4rem 0 .1rem;color:rgba(225,215,238,.58);font-size:.58rem;letter-spacing:.22em}
     .life-tracker-duration{margin:0;color:#fff;font-size:1.3rem;font-variant-numeric:tabular-nums}
     .life-tracker-save-copy{margin:.05rem 0 .2rem;color:rgba(237,231,246,.72);font-size:.88rem;line-height:1.35}
-    .life-tracker-saved{display:flex;flex-wrap:wrap;justify-content:center;gap:.38rem;max-width:100%;margin-top:.1rem}
-    .life-tracker-saved button{padding:.48rem .7rem;border:1px solid rgba(197,177,236,.22);border-radius:999px;color:rgba(246,242,252,.78);font-size:.65rem;letter-spacing:.03em}
     .life-tracker-hint{max-width:min(86vw,430px);text-align:center}
   `;
   document.head.appendChild(style);
