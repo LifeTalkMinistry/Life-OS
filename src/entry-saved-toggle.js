@@ -1,4 +1,4 @@
-/* LIFE OS — Start Activity shows two choices: type now or open saved activities. */
+/* LIFE OS — Start Activity shows either typing mode or saved activity mode, never both. */
 (() => {
   const priorMainScreen = MainScreen;
 
@@ -8,7 +8,8 @@
     if (!entry) return view;
 
     const savedBlock = entry.querySelector('.life-entry-saved');
-    if (!savedBlock) return view;
+    const composer = entry.querySelector('.life-activity-composer');
+    if (!savedBlock || !composer) return view;
 
     savedBlock.classList.add('is-collapsed');
 
@@ -23,10 +24,14 @@
 
     openSaved.addEventListener('click', (event) => {
       event.stopPropagation();
-      const expanded = savedBlock.classList.toggle('is-open');
-      savedBlock.classList.toggle('is-collapsed', !expanded);
-      openSaved.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-      openSaved.textContent = expanded ? 'HIDE SAVED' : 'SAVED ACTIVITY';
+      const openingSaved = !savedBlock.classList.contains('is-open');
+
+      savedBlock.classList.toggle('is-open', openingSaved);
+      savedBlock.classList.toggle('is-collapsed', !openingSaved);
+      composer.classList.toggle('is-hidden-for-saved', openingSaved);
+
+      openSaved.setAttribute('aria-expanded', openingSaved ? 'true' : 'false');
+      openSaved.textContent = openingSaved ? 'TYPE ACTIVITY' : 'SAVED ACTIVITY';
     });
 
     return view;
@@ -36,6 +41,7 @@
   style.textContent = `
     .life-entry-saved.is-collapsed{display:none!important}
     .life-entry-saved.is-open{display:flex!important}
+    .life-activity-composer.is-hidden-for-saved{display:none!important}
     .life-entry-saved-toggle{
       width:72%;
       max-width:280px;
@@ -51,7 +57,7 @@
     .life-entry-saved.is-open{
       width:72%;
       max-width:280px;
-      max-height:150px;
+      max-height:190px;
       overflow-y:auto;
       margin-top:.1rem;
       scrollbar-width:none;
