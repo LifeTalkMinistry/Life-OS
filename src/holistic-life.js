@@ -1,0 +1,173 @@
+/* LIFE OS Holistic Life insight view. */
+(() => {
+  const TRACKER_KEY = 'life-os-v1-live-activity-tracker';
+  const CATEGORIES = [
+    { id: 'physical', label: 'Physical Health', keywords: ['sleep','nap','workout','exercise','gym','run','walk','jog','food','eat','meal','breakfast','lunch','dinner','doctor','medical','health','shower','bath'] },
+    { id: 'spiritual', label: 'Spiritual', keywords: ['devotion','church','pray','prayer','bible','worship','ministry','service','faith','choir'] },
+    { id: 'mental', label: 'Mental & Emotional', keywords: ['journal','therapy','meditate','meditation','reflect','reflection','mental','emotional','counsel'] },
+    { id: 'relationships', label: 'Relationships', keywords: ['family','friend','friends','partner','wife','husband','girlfriend','boyfriend','date','social','parents','mother','father','brother','sister'] },
+    { id: 'work', label: 'Work & Career', keywords: ['work','shift','office','job','career','meeting','client','call center','training','commute to work'] },
+    { id: 'financial', label: 'Financial', keywords: ['budget','money','finance','financial','bill','bills','expense','expenses','saving','savings','bank','income','debt','clara'] },
+    { id: 'growth', label: 'Growth & Learning', keywords: ['study','learn','learning','read','reading','course','class','practice','lesson','research','tutorial'] },
+    { id: 'purpose', label: 'Personal Purpose', keywords: ['project','purpose','mission','book','write','writing','content','create','creative','business','startup','build app','life os'] },
+    { id: 'rest', label: 'Rest & Recreation', keywords: ['rest','relax','movie','movies','watch','game','gaming','music','hobby','recreation','leisure','break','hangout','youtube','netflix'] }
+  ];
+
+  const escapeHtml = (value) => String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+
+  function readTracker() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(TRACKER_KEY) || '{}');
+      return { logs: Array.isArray(parsed.logs) ? parsed.logs : [] };
+    } catch {
+      return { logs: [] };
+    }
+  }
+
+  function classify(log) {
+    if (CATEGORIES.some((category) => category.id === log?.category)) return log.category;
+    const name = String(log?.name || '').toLowerCase();
+    let best = null;
+    let bestScore = 0;
+    CATEGORIES.forEach((category) => {
+      const score = category.keywords.reduce((sum, keyword) => sum + (name.includes(keyword) ? keyword.length : 0), 0);
+      if (score > bestScore) {
+        best = category.id;
+        bestScore = score;
+      }
+    });
+    return best || 'purpose';
+  }
+
+  function compactDuration(ms) {
+    const minutes = Math.max(0, Math.round(Number(ms || 0) / 60000));
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest ? `${hours}h ${rest}m` : `${hours}h`;
+  }
+
+  function recentLogs(days = 7) {
+    const since = Date.now() - days * 86400000;
+    return readTracker().logs
+      .filter((log) => Number(log?.endedAt || 0) >= since)
+      .map((log) => ({ ...log, holisticCategory: classify(log) }))
+      .sort((a, b) => Number(b.endedAt || 0) - Number(a.endedAt || 0));
+  }
+
+  function categoryData() {
+    const logs = recentLogs(7);
+    const totals = Object.fromEntries(CATEGORIES.map((category) => [category.id, 0]));
+    logs.forEach((log) => { totals[log.holisticCategory] += Math.max(0, Number(log.durationMs || 0)); });
+    const totalMs = Object.values(totals).reduce((sum, value) => sum + value, 0);
+    const rows = CATEGORIES.map((category) => ({
+      ...category,
+      totalMs: totals[category.id],
+      percentage: totalMs > 0 ? (totals[category.id] / totalMs) * 100 : 0
+    })).sort((a, b) => b.percentage - a.percentage || a.label.localeCompare(b.label));
+    return { logs, rows, totalMs };
+  }
+
+  function backButton(label = 'Insights') {
+    return `<button type="button" class="holistic-back" data-holistic-back aria-label="Back to ${escapeHtml(label)}">←</button>`;
+  }
+
+  function renderHolisticHome() {
+    const app = document.querySelector('#app');
+    if (!app) return;
+    const { rows, totalMs } = categoryData();
+    app.innerHTML = `
+      <section class="holistic-page">
+        <header class="holistic-header">
+          ${backButton('LIFE OS')}
+          <div><span>INSIGHTS</span><h1>Holistic Life</h1></div>
+          <i aria-hidden="true"></i>
+        </header>
+        <main class="holistic-content">
+          <p class="holistic-copy">Your tracked life, divided across the areas that are consuming it.</p>
+          <div class="holistic-total"><span>LAST 7 DAYS</span><strong>100%</strong><small>${totalMs ? compactDuration(totalMs) + ' tracked' : 'No tracked time yet'}</small></div>
+          <div class="holistic-list">
+            ${rows.map((row, index) => `
+              <button type="button" class="holistic-row" data-holistic-category="${row.id}">
+                <span class="holistic-rank">${String(index + 1).padStart(2,'0')}</span>
+                <span class="holistic-name">${escapeHtml(row.label)}<small>${compactDuration(row.totalMs)}</small></span>
+                <strong>${row.percentage.toFixed(row.percentage >= 10 ? 0 : 1)}%</strong>
+              </button>`).join('')}
+          </div>
+        </main>
+      </section>`;
+    wireHome();
+  }
+
+  function renderCategory(categoryId) {
+    const category = CATEGORIES.find((item) => item.id === categoryId);
+    if (!category) return renderHolisticHome();
+    const { logs, rows } = categoryData();
+    const row = rows.find((item) => item.id === categoryId);
+    const matches = logs.filter((log) => log.holisticCategory === categoryId);
+    const app = document.querySelector('#app');
+    app.innerHTML = `
+      <section class="holistic-page">
+        <header class="holistic-header">
+          ${backButton('Holistic Life')}
+          <div><span>HOLISTIC LIFE</span><h1>${escapeHtml(category.label)}</h1></div>
+          <i aria-hidden="true"></i>
+        </header>
+        <main class="holistic-content">
+          <div class="holistic-category-hero"><strong>${row.percentage.toFixed(row.percentage >= 10 ? 0 : 1)}%</strong><span>OF TRACKED LIFE · LAST 7 DAYS</span><small>${compactDuration(row.totalMs)}</small></div>
+          <div class="holistic-history">
+            ${matches.length ? matches.map((log) => {
+              const ended = new Date(Number(log.endedAt || Date.now()));
+              const started = new Date(Number(log.startedAt || log.endedAt || Date.now()));
+              const day = ended.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+              const time = `${started.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} – ${ended.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+              return `<article class="holistic-history-row"><div><strong>${escapeHtml(log.name)}</strong><small>${escapeHtml(day)} · ${escapeHtml(time)}</small></div><b>${compactDuration(log.durationMs)}</b></article>`;
+            }).join('') : `<p class="holistic-empty">No activities in this category yet.</p>`}
+          </div>
+        </main>
+      </section>`;
+    app.querySelector('[data-holistic-back]')?.addEventListener('click', renderHolisticHome);
+  }
+
+  function leaveHolistic() {
+    if (typeof render === 'function') render();
+  }
+
+  function wireHome() {
+    const app = document.querySelector('#app');
+    app.querySelector('[data-holistic-back]')?.addEventListener('click', leaveHolistic);
+    app.querySelectorAll('[data-holistic-category]').forEach((button) => {
+      button.addEventListener('click', () => renderCategory(button.dataset.holisticCategory));
+    });
+  }
+
+  document.addEventListener('click', (event) => {
+    const insights = event.target.closest?.('[data-command-select="insights"]');
+    if (!insights) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    renderHolisticHome();
+  }, true);
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .holistic-page{min-height:100svh;background:#030307;color:#fff;font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:auto}
+    .holistic-header{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:44px 1fr 44px;align-items:center;padding:max(18px,env(safe-area-inset-top)) 20px 14px;background:linear-gradient(180deg,rgba(3,3,7,.98),rgba(3,3,7,.9),rgba(3,3,7,0));backdrop-filter:blur(12px)}
+    .holistic-header div{text-align:center}.holistic-header span{display:block;color:rgba(206,185,255,.62);font-size:.57rem;letter-spacing:.24em}.holistic-header h1{margin:5px 0 0;font-size:1.14rem;font-weight:580;letter-spacing:.02em}
+    .holistic-back{width:40px;height:40px;border:1px solid rgba(210,190,255,.16);border-radius:50%;background:rgba(255,255,255,.025);color:#fff;font-size:1.25rem;cursor:pointer}
+    .holistic-content{width:min(100% - 36px,620px);margin:0 auto;padding:18px 0 calc(40px + env(safe-area-inset-bottom))}
+    .holistic-copy{margin:6px 4px 22px;color:rgba(226,219,237,.58);font-size:.82rem;line-height:1.55;text-align:center}
+    .holistic-total,.holistic-category-hero{display:flex;flex-direction:column;align-items:center;margin:0 0 24px;padding:22px;border:1px solid rgba(203,177,255,.13);border-radius:24px;background:radial-gradient(circle at 50% 0,rgba(111,65,255,.12),rgba(255,255,255,.018) 62%)}
+    .holistic-total span,.holistic-category-hero span{font-size:.56rem;letter-spacing:.2em;color:rgba(211,194,241,.58)}.holistic-total strong,.holistic-category-hero strong{margin:7px 0 3px;font-size:2rem;font-weight:560}.holistic-total small,.holistic-category-hero small{color:rgba(235,227,245,.58);font-size:.7rem}
+    .holistic-list{display:flex;flex-direction:column;border-top:1px solid rgba(225,210,255,.1)}
+    .holistic-row{display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:10px;width:100%;padding:16px 4px;border:0;border-bottom:1px solid rgba(225,210,255,.1);background:transparent;color:#fff;text-align:left;cursor:pointer}
+    .holistic-rank{font-size:.59rem;letter-spacing:.12em;color:rgba(204,190,225,.34)}.holistic-name{font-size:.9rem;font-weight:540}.holistic-name small{display:block;margin-top:4px;color:rgba(222,213,235,.42);font-size:.62rem;font-weight:450}.holistic-row>strong{font-size:1rem;font-weight:570;font-variant-numeric:tabular-nums}
+    .holistic-history{display:flex;flex-direction:column;border-top:1px solid rgba(225,210,255,.1)}.holistic-history-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 4px;border-bottom:1px solid rgba(225,210,255,.1)}.holistic-history-row div{min-width:0}.holistic-history-row strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem;font-weight:550}.holistic-history-row small{display:block;margin-top:5px;color:rgba(222,213,235,.46);font-size:.61rem}.holistic-history-row b{flex:0 0 auto;font-size:.75rem;font-weight:540;color:rgba(238,230,248,.72)}.holistic-empty{text-align:center;color:rgba(225,216,237,.48);font-size:.8rem;padding:32px 0}
+  `;
+  document.head.appendChild(style);
+})();
