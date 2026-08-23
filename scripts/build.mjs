@@ -18,6 +18,7 @@ const scriptOrder = [
   'src/entry-intro.js',
   'src/activity-tracker.js',
   'src/activity-history-page.js',
+  'src/holistic-life.js',
   'src/setup-day-orbit.js',
   'src/setup-day-summary.js',
   'src/setup-activity-end-fix.js',
