@@ -20,6 +20,7 @@ const scriptOrder = [
   'src/entry-saved-toggle.js',
   'src/activity-history-page.js',
   'src/holistic-life.js',
+  'src/holistic-info.js',
   'src/running-activity-safe.js',
   'src/save-activity-clean.js',
   'src/setup-day-orbit.js',
