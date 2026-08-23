@@ -44,7 +44,8 @@ const css = [
   readFileSync('src/setup-icon-modal.css', 'utf8'),
   readFileSync('src/setup-copy-day.css', 'utf8'),
   readFileSync('src/system-controls.css', 'utf8'),
-  readFileSync('src/live-orb-overlay.css', 'utf8')
+  readFileSync('src/live-orb-overlay.css', 'utf8'),
+  readFileSync('src/activity-entry-fix.css', 'utf8')
 ].join('\n\n');
 const js = scriptOrder
   .map((file) => `// ${file}\n${stripModuleSyntax(readFileSync(file, 'utf8'))}`)
