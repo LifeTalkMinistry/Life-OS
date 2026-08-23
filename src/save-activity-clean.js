@@ -1,5 +1,13 @@
 /* LIFE OS — keep post-activity save decision minimal inside the orb. */
 (() => {
+  const priorMainScreen = MainScreen;
+  MainScreen = function SaveActivityQuestionMainScreen() {
+    const view = priorMainScreen();
+    const saveButton = view?.querySelector?.('.life-tracker-save .life-tracker-primary');
+    if (saveButton) saveButton.textContent = 'SAVE ACTIVITY?';
+    return view;
+  };
+
   const style = document.createElement('style');
   style.textContent = `
     .life-tracker-save .orb-kicker,
