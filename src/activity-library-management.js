@@ -1,6 +1,7 @@
 /* LIFE OS — activity history editing + scalable Saved Activities library. */
 (() => {
   const TRACKER_KEY = 'life-os-v1-live-activity-tracker';
+  const DELETED_SAVED_KEY = 'life-os-v1-deleted-saved-activities';
   const nativeSetItem = Storage.prototype.setItem;
   let pageOpen = false;
   let libraryDirty = false;
@@ -8,6 +9,30 @@
   const esc = (value) => String(value ?? '')
     .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+  const savedKey = (value) => String(value ?? '').trim().toLowerCase();
+
+  function readDeletedSaved() {
+    try {
+      const raw = localStorage.getItem(DELETED_SAVED_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(parsed) ? parsed.map(savedKey).filter(Boolean) : []);
+    } catch { return new Set(); }
+  }
+
+  function writeDeletedSaved(set) {
+    nativeSetItem.call(localStorage, DELETED_SAVED_KEY, JSON.stringify([...set]));
+  }
+
+  function uniqueSaved(items) {
+    const deleted = readDeletedSaved();
+    const seen = new Set();
+    return (Array.isArray(items) ? items : []).filter(Boolean).filter((item) => {
+      const key = savedKey(item);
+      if (!key || deleted.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
 
   function readState() {
     try {
@@ -16,17 +41,18 @@
       return {
         active: parsed?.active || null,
         logs: Array.isArray(parsed?.logs) ? parsed.logs.filter(Boolean) : [],
-        saved: Array.isArray(parsed?.saved) ? parsed.saved.filter(Boolean) : []
+        saved: uniqueSaved(parsed?.saved)
       };
     } catch { return { active:null, logs:[], saved:[] }; }
   }
 
   function writeState(state) {
+    state.saved = uniqueSaved(state.saved);
     nativeSetItem.call(localStorage, TRACKER_KEY, JSON.stringify(state));
   }
 
-  /* The original tracker intentionally showed only a small saved set. Preserve
-     the complete library whenever that tracker writes its compact state. */
+  /* Preserve the complete Saved Activities library when the compact tracker
+     writes state, while honoring explicit deletions and case-insensitive dedupe. */
   Storage.prototype.setItem = function(key, value) {
     if (this === localStorage && key === TRACKER_KEY) {
       try {
@@ -34,7 +60,7 @@
         const existingRaw = localStorage.getItem(TRACKER_KEY);
         const existing = existingRaw ? JSON.parse(existingRaw) : {};
         if (Array.isArray(incoming?.saved) && Array.isArray(existing?.saved)) {
-          incoming.saved = [...new Set([...incoming.saved, ...existing.saved].filter(Boolean))];
+          incoming.saved = uniqueSaved([...incoming.saved, ...existing.saved]);
           value = JSON.stringify(incoming);
         }
       } catch {}
@@ -74,9 +100,12 @@
     const needle = query.trim().toLowerCase();
     const filtered = needle ? saved.filter(name => String(name).toLowerCase().includes(needle)) : saved;
     return filtered.length ? filtered.map((name, index) => `
-      <button type="button" class="life-library-row" data-saved-row="${index}" data-saved-name="${esc(name)}">
-        <span><strong>${esc(name)}</strong><small>SAVED ACTIVITY</small></span><i>›</i>
-      </button>`).join('') : `<div class="life-library-empty"><strong>${saved.length ? 'No matches.' : 'No saved activities yet.'}</strong><p>${saved.length ? 'Try another search.' : 'Save an activity after you finish it and it will appear here.'}</p></div>`;
+      <div class="life-library-row" data-saved-row="${index}">
+        <button type="button" class="life-library-start" data-saved-start="${esc(name)}" aria-label="Start ${esc(name)}">
+          <span><strong>${esc(name)}</strong><small>TAP TO START</small></span><i>›</i>
+        </button>
+        <button type="button" class="life-library-manage" data-saved-manage="${esc(name)}" aria-label="Edit ${esc(name)}">•••</button>
+      </div>`).join('') : `<div class="life-library-empty"><strong>${saved.length ? 'No matches.' : 'No saved activities yet.'}</strong><p>${saved.length ? 'Try another search.' : 'Save an activity after you finish it and it will appear here.'}</p></div>`;
   }
 
   function openSavedLibrary() {
@@ -107,6 +136,21 @@
     });
   }
 
+  function startSavedActivity(name) {
+    const clean = String(name || '').trim().slice(0,48);
+    if (!clean) return;
+    const state = readState();
+    if (state.active) {
+      pageOpen = false;
+      location.reload();
+      return;
+    }
+    state.active = { id:`tracked-${Date.now()}`, name:clean, startedAt:Date.now() };
+    writeState(state);
+    pageOpen = false;
+    location.reload();
+  }
+
   function openSavedEditor(name) {
     const overlay = document.createElement('div');
     overlay.className = 'life-manage-overlay';
@@ -128,15 +172,21 @@
     overlay.querySelector('[data-saved-save]')?.addEventListener('click', () => {
       const next = overlay.querySelector('[data-saved-edit-name]')?.value.trim().slice(0,48);
       if (!next) return;
+      const deleted = readDeletedSaved();
+      deleted.delete(savedKey(next));
+      writeDeletedSaved(deleted);
       const state = readState();
-      state.saved = [...new Set(state.saved.map(item => item === name ? next : item))];
+      state.saved = uniqueSaved(state.saved.map(item => savedKey(item) === savedKey(name) ? next : item));
       writeState(state); libraryDirty = true; close(); openSavedLibrary(); libraryDirty = true;
     });
     overlay.querySelector('[data-saved-delete]')?.addEventListener('click', () => {
       const button = overlay.querySelector('[data-saved-delete]');
       if (button.dataset.confirm !== 'yes') { button.dataset.confirm='yes'; button.textContent='TAP AGAIN TO DELETE'; return; }
+      const deleted = readDeletedSaved();
+      deleted.add(savedKey(name));
+      writeDeletedSaved(deleted);
       const state = readState();
-      state.saved = state.saved.filter(item => item !== name);
+      state.saved = state.saved.filter(item => savedKey(item) !== savedKey(name));
       writeState(state); libraryDirty = true; close(); openSavedLibrary(); libraryDirty = true;
     });
   }
@@ -193,8 +243,11 @@
     const open = event.target.closest('[data-open-saved-library]');
     if (open) { event.preventDefault(); event.stopImmediatePropagation(); openSavedLibrary(); return; }
 
-    const savedRow = event.target.closest('.life-library-row');
-    if (savedRow) { event.preventDefault(); openSavedEditor(savedRow.dataset.savedName); return; }
+    const manage = event.target.closest('[data-saved-manage]');
+    if (manage) { event.preventDefault(); event.stopImmediatePropagation(); openSavedEditor(manage.dataset.savedManage); return; }
+
+    const start = event.target.closest('[data-saved-start]');
+    if (start) { event.preventDefault(); event.stopImmediatePropagation(); startSavedActivity(start.dataset.savedStart); return; }
 
     const historyRow = event.target.closest('.life-history-page-row');
     if (historyRow) {
@@ -215,7 +268,7 @@
     .life-library-page{min-height:100svh;background:#030307;color:#fff;font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:calc(env(safe-area-inset-top) + 26px) 22px calc(env(safe-area-inset-bottom) + 34px);box-sizing:border-box;overflow-y:auto}
     .life-library-header{max-width:680px;margin:0 auto 28px;display:flex;align-items:center;gap:14px}.life-library-header p{margin:0 0 5px;color:rgba(202,185,229,.48);font-size:.58rem;letter-spacing:.25em}.life-library-header h1{margin:0;font-size:1.5rem;font-weight:520;letter-spacing:-.02em}.life-library-back{width:38px;height:38px;display:grid;place-items:center;border:1px solid rgba(210,193,241,.14);border-radius:50%;background:rgba(255,255,255,.025);color:rgba(255,255,255,.88);font:300 1.85rem/1 sans-serif;cursor:pointer;padding:0 0 3px}
     .life-library-body{max-width:680px;margin:0 auto}.life-library-search{display:flex;align-items:center;gap:10px;padding:0 14px;height:46px;border:1px solid rgba(199,176,245,.13);border-radius:15px;background:rgba(255,255,255,.025)}.life-library-search span{color:rgba(214,200,233,.48);font-size:1.1rem}.life-library-search input{width:100%;border:0;outline:0;background:none;color:#fff;font-size:.86rem}.life-library-search input::placeholder{color:rgba(216,204,232,.38)}.life-library-count{margin:22px 2px 9px;color:rgba(216,204,232,.42);font-size:.56rem;letter-spacing:.17em}.life-library-list{border-top:1px solid rgba(214,199,240,.1)}
-    .life-library-row{width:100%;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 2px;border:0;border-bottom:1px solid rgba(214,199,240,.1);background:none;color:#fff;text-align:left;cursor:pointer}.life-library-row span{min-width:0;display:flex;flex-direction:column;gap:5px}.life-library-row strong{font-size:.96rem;font-weight:520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.life-library-row small{color:rgba(216,205,229,.42);font-size:.55rem;letter-spacing:.12em}.life-library-row i{font:300 1.45rem/1 sans-serif;color:rgba(220,208,238,.35);font-style:normal}.life-library-empty{padding:58px 10px;text-align:center;color:rgba(230,220,242,.56)}.life-library-empty strong{display:block;margin-bottom:8px;color:rgba(255,255,255,.84);font-size:.98rem;font-weight:520}.life-library-empty p{margin:0;font-size:.76rem;line-height:1.5}
+    .life-library-row{width:100%;display:flex;align-items:stretch;border-bottom:1px solid rgba(214,199,240,.1);background:none;color:#fff}.life-library-start{min-width:0;flex:1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 2px;border:0;background:none;color:#fff;text-align:left;cursor:pointer}.life-library-start span{min-width:0;display:flex;flex-direction:column;gap:5px}.life-library-start strong{font-size:.96rem;font-weight:520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.life-library-start small{color:rgba(216,205,229,.42);font-size:.55rem;letter-spacing:.12em}.life-library-start i{font:300 1.45rem/1 sans-serif;color:rgba(220,208,238,.35);font-style:normal}.life-library-start:active{opacity:.72}.life-library-manage{width:48px;flex:0 0 48px;border:0;background:none;color:rgba(220,208,238,.46);font:700 .78rem/1 Inter,ui-sans-serif,sans-serif;letter-spacing:.08em;cursor:pointer}.life-library-manage:active{color:#fff}.life-library-empty{padding:58px 10px;text-align:center;color:rgba(230,220,242,.56)}.life-library-empty strong{display:block;margin-bottom:8px;color:rgba(255,255,255,.84);font-size:.98rem;font-weight:520}.life-library-empty p{margin:0;font-size:.76rem;line-height:1.5}
     .life-manage-overlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.62);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);padding:18px}.life-manage-sheet{width:min(100%,560px);padding:10px 20px calc(18px + env(safe-area-inset-bottom));border:1px solid rgba(203,180,245,.15);border-radius:26px;background:linear-gradient(180deg,rgba(18,14,28,.98),rgba(7,6,12,.99));box-shadow:0 -18px 60px rgba(47,24,89,.28)}.life-manage-grip{width:34px;height:3px;margin:2px auto 20px;border-radius:999px;background:rgba(255,255,255,.18)}.life-manage-eyebrow{margin:0 0 18px;color:rgba(206,190,230,.48);font-size:.58rem;letter-spacing:.2em}.life-manage-sheet label{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;color:rgba(225,215,239,.55);font-size:.62rem;letter-spacing:.08em}.life-manage-sheet input{width:100%;height:44px;padding:0 12px;border:1px solid rgba(205,184,240,.15);border-radius:12px;outline:0;background:rgba(255,255,255,.035);color:#fff;font-size:.86rem}.life-manage-time-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.life-manage-duration{display:block;margin:-2px 0 18px;color:rgba(220,209,235,.42);font-size:.62rem}.life-manage-actions{display:flex;flex-direction:column;gap:8px}.life-manage-actions button{min-height:44px;border-radius:12px;font:620 .7rem/1 Inter,ui-sans-serif,sans-serif;letter-spacing:.08em;cursor:pointer}.life-manage-save{border:1px solid rgba(199,170,255,.34);background:rgba(119,73,232,.15);color:#fff}.life-manage-delete{border:1px solid rgba(255,123,163,.18);background:rgba(255,65,123,.055);color:rgba(255,155,184,.82)}.life-manage-cancel{border:0;background:none;color:rgba(226,216,239,.5)}
     @media(max-width:420px){.life-manage-time-grid{grid-template-columns:1fr}.life-library-page{padding-left:20px;padding-right:20px}}
   `;
