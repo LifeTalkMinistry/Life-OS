@@ -107,4 +107,12 @@
     }
   `;
   document.head.appendChild(style);
+
+  // Some users enter the tracker immediately through the deferred-setup path,
+  // which renders before this MainScreen wrapper is installed. Re-render once
+  // after the full bundle finishes so the persistent status is present without
+  // requiring the user to tap or swipe first.
+  queueMicrotask(() => {
+    if (screen === 'now' && !systemView) render();
+  });
 })();
