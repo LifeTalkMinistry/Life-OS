@@ -56,14 +56,14 @@
   MainScreen=function MainScreenWithHolisticStatus(){
     const view=priorMainScreen();
     if(!view?.classList?.contains('life-tracker-screen')) return view;
-    const brand=view.querySelector('.brand, .brand-block, header');
     const stage=view.querySelector('.orb-stage');
     if(!stage) return view;
 
     const health=sevenDayHealth();
+    const displayScore=String(health.score).padStart(2,'0');
     const status=document.createElement('div');
     status.className='main-holistic-status';
-    status.innerHTML=`<span>7 DAY HOLISTIC HEALTH</span><strong>${health.score}%</strong><b>${health.label}</b>`;
+    status.innerHTML=`<strong>${displayScore}%</strong><b>${health.label}</b>`;
     view.insertBefore(status,stage);
     return view;
   };
@@ -79,18 +79,14 @@
       z-index:4;
       width:min(88vw,460px);
       display:flex;
-      align-items:baseline;
+      flex-direction:column;
+      align-items:center;
       justify-content:center;
-      gap:.45rem;
+      gap:.28rem;
       color:rgba(244,239,251,.78);
       text-align:center;
       pointer-events:none;
       white-space:nowrap;
-    }
-    .main-holistic-status span{
-      font:520 .52rem/1 Inter,ui-sans-serif,sans-serif;
-      letter-spacing:.18em;
-      color:rgba(211,198,234,.46);
     }
     .main-holistic-status strong{
       font:620 .92rem/1 Inter,ui-sans-serif,sans-serif;
@@ -102,8 +98,7 @@
       color:rgba(228,218,241,.58);
     }
     @media(max-width:420px){
-      .main-holistic-status{top:clamp(175px,26svh,225px);gap:.35rem}
-      .main-holistic-status span{font-size:.48rem;letter-spacing:.14em}
+      .main-holistic-status{top:clamp(175px,26svh,225px);gap:.24rem}
       .main-holistic-status strong{font-size:.86rem}
       .main-holistic-status b{font-size:.58rem}
     }
