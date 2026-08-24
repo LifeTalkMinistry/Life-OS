@@ -19,6 +19,7 @@ const scriptOrder = [
   'src/activity-tracker.js',
   'src/entry-saved-toggle.js',
   'src/activity-history-page.js',
+  'src/activity-library-management.js',
   'src/holistic-life.js',
   'src/holistic-info.js',
   'src/running-activity-safe.js',
