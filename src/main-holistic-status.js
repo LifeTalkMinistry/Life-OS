@@ -71,6 +71,7 @@
   const style=document.createElement('style');
   style.textContent=`
     .life-tracker-screen{position:relative}
+    .life-tracker-hint{display:none!important}
     .main-holistic-status{
       position:absolute;
       left:50%;
