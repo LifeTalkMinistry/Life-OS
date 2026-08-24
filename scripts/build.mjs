@@ -22,6 +22,7 @@ const scriptOrder = [
   'src/holistic-life.js',
   'src/holistic-info.js',
   'src/running-activity-safe.js',
+  'src/main-holistic-status.js',
   'src/save-activity-clean.js',
   'src/setup-day-orbit.js',
   'src/setup-day-summary.js',
