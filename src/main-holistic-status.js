@@ -74,11 +74,14 @@
     .life-tracker-hint{display:none!important}
     .main-holistic-status{
       position:absolute;
-      left:50%;
+      left:0;
+      right:0;
       bottom:clamp(88px,12svh,116px);
-      transform:translateX(-50%);
       z-index:4;
-      width:min(88vw,460px);
+      width:100%;
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
       display:flex;
       flex-direction:column;
       align-items:center;
@@ -88,6 +91,14 @@
       text-align:center;
       pointer-events:none;
       white-space:nowrap;
+    }
+    .main-holistic-status strong,
+    .main-holistic-status b{
+      display:block;
+      width:100%;
+      margin:0;
+      padding:0;
+      text-align:center;
     }
     .main-holistic-status strong{
       font:620 1.28rem/1 Inter,ui-sans-serif,sans-serif;
