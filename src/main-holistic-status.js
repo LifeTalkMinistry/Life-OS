@@ -74,7 +74,7 @@
     .main-holistic-status{
       position:absolute;
       left:50%;
-      top:clamp(180px,27svh,255px);
+      top:clamp(128px,16.5svh,146px);
       transform:translateX(-50%);
       z-index:4;
       width:min(88vw,460px);
@@ -98,7 +98,7 @@
       color:rgba(228,218,241,.58);
     }
     @media(max-width:420px){
-      .main-holistic-status{top:clamp(175px,26svh,225px);gap:.24rem}
+      .main-holistic-status{top:clamp(126px,16.5svh,142px);gap:.24rem}
       .main-holistic-status strong{font-size:.86rem}
       .main-holistic-status b{font-size:.58rem}
     }
