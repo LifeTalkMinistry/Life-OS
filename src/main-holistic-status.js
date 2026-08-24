@@ -65,6 +65,21 @@
     status.className='main-holistic-status';
     status.innerHTML=`<strong>${displayScore}%</strong><b>${health.label}</b>`;
     view.insertBefore(status,stage);
+
+    // Anchor the score to the orb's ACTUAL rendered center instead of the
+    // viewport/content-box center. This removes the small optical offset caused
+    // by the screen's responsive padding/layout rules on narrow phones.
+    const alignToOrb=()=>{
+      const orb=view.querySelector('.orb-shell, .orb');
+      if(!orb?.getBoundingClientRect) return;
+      const viewRect=view.getBoundingClientRect();
+      const orbRect=orb.getBoundingClientRect();
+      const center=(orbRect.left + orbRect.width/2) - viewRect.left;
+      status.style.left=`${center}px`;
+    };
+    requestAnimationFrame(alignToOrb);
+    setTimeout(alignToOrb,350);
+
     return view;
   };
 
@@ -74,11 +89,11 @@
     .life-tracker-hint{display:none!important}
     .main-holistic-status{
       position:absolute;
-      left:0;
-      right:0;
+      left:50%;
       bottom:clamp(88px,12svh,116px);
+      transform:translateX(-50%);
       z-index:4;
-      width:100%;
+      width:min(88vw,460px);
       box-sizing:border-box;
       margin:0;
       padding:0;
