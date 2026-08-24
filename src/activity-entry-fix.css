@@ -27,6 +27,11 @@
   flex: 0 0 36px;
 }
 
+/* Saved activities are already obvious from the list itself; keep the orb cleaner. */
+.life-entry-or {
+  display: none !important;
+}
+
 .life-tracker-entry-clean .life-view-back {
   margin-top: .35rem;
 }
