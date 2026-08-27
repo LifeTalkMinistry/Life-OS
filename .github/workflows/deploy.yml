@@ -48,44 +48,6 @@ jobs:
     needs: build
 
     steps:
-      - name: Clear stuck PAUSE Pages deployment
-        env:
-          GH_TOKEN: ${{ github.token }}
-          STALE_PAGES_DEPLOYMENT: 5eaf6f27f94696b08563d9d43991b2f089d6d01e
-        run: |
-          cleared=false
-
-          for attempt in $(seq 1 24); do
-            status=$(gh api \
-              "repos/${GITHUB_REPOSITORY}/pages/deployments/${STALE_PAGES_DEPLOYMENT}" \
-              --jq '.status' 2>/dev/null || echo "not-found")
-
-            echo "Stale Pages deployment status: ${status}"
-
-            if [ "${status}" != "updating_pages" ]; then
-              cleared=true
-              break
-            fi
-
-            gh api --method POST \
-              "repos/${GITHUB_REPOSITORY}/pages/deployments/${STALE_PAGES_DEPLOYMENT}/cancel" \
-              >/dev/null 2>&1 || true
-
-            sleep 10
-          done
-
-          if [ "${cleared}" != "true" ]; then
-            final_status=$(gh api \
-              "repos/${GITHUB_REPOSITORY}/pages/deployments/${STALE_PAGES_DEPLOYMENT}" \
-              --jq '.status' 2>/dev/null || echo "not-found")
-
-            echo "Final stale Pages deployment status: ${final_status}"
-            test "${final_status}" != "updating_pages"
-          fi
-
-          echo "Pages cancellation registered; waiting for deployment lock to settle."
-          sleep 60
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
