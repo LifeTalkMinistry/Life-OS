@@ -1,5 +1,5 @@
 import { OrbArtwork } from './OrbArtwork.js';
-import { formatCountdown, remainingMs } from '../restState.js';
+import { elapsedMs, formatCountdown, formatElapsed, remainingMs } from '../restState.js';
 
 function ensurePauseSymbolStyles() {
   if (document.querySelector('#pause-symbol-style')) return;
@@ -99,12 +99,17 @@ function menuContent() {
 
 function restingContent(state) {
   const session = state.active;
+  const isPlanned = Boolean(session?.endAt);
+  const timer = isPlanned
+    ? formatCountdown(remainingMs(state))
+    : formatElapsed(elapsedMs(state));
+
   return `
     <div class="orb-content orb-now-content pause-resting-content">
       <p class="orb-kicker">RESTING</p>
       <h1 class="orb-title pause-rest-label">${escapeHtml(session?.label || 'Rest')}</h1>
       <span class="orb-divider" aria-hidden="true"><i></i></span>
-      <p class="orb-time pause-countdown" data-pause-countdown>${formatCountdown(remainingMs(state))}</p>
+      <p class="orb-time pause-countdown" data-pause-timer>${timer}</p>
       <button type="button" class="pause-end-rest" data-pause-action="end-rest">END REST</button>
     </div>
   `;
@@ -132,10 +137,10 @@ export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
   orb.setAttribute('role', 'button');
   orb.setAttribute('tabindex', '0');
   orb.setAttribute('aria-label', mode === 'resting'
-    ? `Resting: ${state.active?.label || 'Rest'}. Hold for menu.`
+    ? `Resting: ${state.active?.label || 'Rest'}. End rest when you are ready.`
     : mode === 'menu'
       ? 'PAUSE menu. Tap to close.'
-      : 'Pause now. Tap to begin a rest.');
+      : 'Pause now. Tap to begin resting immediately.');
 
   if (mode === 'resting') orb.innerHTML = restingContent(state);
   else if (mode === 'completed') orb.innerHTML = completedContent();
