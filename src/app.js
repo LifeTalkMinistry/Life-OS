@@ -7,8 +7,12 @@ import { createOrbGestureController } from './gestures/orbGestures.js';
 import {
   addCustomRest,
   completeExpiredRest,
+  elapsedMs,
   finishRest,
+  formatCountdown,
+  formatElapsed,
   loadPauseState,
+  remainingMs,
   removeCustomRest,
   startRest
 } from './restState.js';
@@ -204,6 +208,18 @@ function render() {
   else app.replaceChildren(MainScreen());
 }
 
+function updateLiveTimer() {
+  if (!pauseState.active || completionVisible || menuOpen) return;
+  const timer = app.querySelector('[data-pause-timer]');
+  if (!timer) return;
+
+  const nextValue = pauseState.active.endAt
+    ? formatCountdown(remainingMs(pauseState))
+    : formatElapsed(elapsedMs(pauseState));
+
+  if (timer.textContent !== nextValue) timer.textContent = nextValue;
+}
+
 function onKeydown(event) {
   if (event.key !== 'Escape') return;
   if (panelView) return closePanel();
@@ -236,8 +252,9 @@ launchTimer = setTimeout(() => {
 
 tickTimer = setInterval(() => {
   if (screen !== 'main' || !pauseState.active || completionVisible) return;
-  if (!checkExpired()) render();
-}, 1000);
+  if (checkExpired()) return;
+  updateLiveTimer();
+}, 250);
 
 window.__PAUSE__ = {
   getState: () => ({ pauseState, screen, menuOpen, panelView, completionVisible }),
