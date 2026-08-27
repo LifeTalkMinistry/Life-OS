@@ -1,7 +1,7 @@
 /* LIFE OS visual-anchor invariant
- * The app must feel like one physical control surface. Loading, onboarding,
- * idle, Today/hold and adjustment states may change CONTENT, never the
- * physical position of the brand, orb center or footer guidance.
+ * Legacy/non-PAUSE screens keep their original physical control surface here.
+ * PAUSE owns its anchors exclusively in pause.css so the old grid model cannot
+ * participate in PAUSE positioning.
  */
 
 :root {
@@ -19,8 +19,8 @@
   min-height: 100svh;
 }
 
-/* BRAND — identical physical anchor in every real app state. */
-.main-screen > .brand {
+/* BRAND — legacy/non-PAUSE physical anchor only. */
+.main-screen:not(.pause-main-screen) > .brand {
   position: absolute;
   top: var(--lifeos-brand-top);
   left: 0;
@@ -48,8 +48,8 @@
   line-height: normal;
 }
 
-/* ORB STAGE — one immutable center point for the real product. */
-.main-screen > .orb-stage,
+/* ORB STAGE — legacy/non-PAUSE anchor model only. */
+.main-screen:not(.pause-main-screen) > .orb-stage,
 .main-screen > .setup-stage {
   position: absolute;
   top: var(--lifeos-orb-center-y);
@@ -70,21 +70,21 @@
   justify-self: center;
 }
 
-.is-today .orb-stage {
+.main-screen:not(.pause-main-screen).is-today .orb-stage {
   top: var(--lifeos-orb-center-y) !important;
   height: 0 !important;
   min-height: 0 !important;
 }
 
-.orb-shell,
-.today-ring {
+.main-screen:not(.pause-main-screen) .orb-shell,
+.main-screen:not(.pause-main-screen) .today-ring {
   grid-area: 1 / 1;
   align-self: center;
   justify-self: center;
 }
 
-/* FOOTER — fixed anchor. Showing/hiding text cannot reflow anything. */
-.main-screen > .gesture-hint,
+/* FOOTER — legacy/non-PAUSE fixed anchor only. */
+.main-screen:not(.pause-main-screen) > .gesture-hint,
 .setup-screen > .setup-bottom-hint {
   position: absolute;
   left: 18px;
