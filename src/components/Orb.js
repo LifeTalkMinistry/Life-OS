@@ -1,6 +1,70 @@
 import { OrbArtwork } from './OrbArtwork.js';
 import { formatCountdown, remainingMs } from '../restState.js';
 
+function ensurePauseSymbolStyles() {
+  if (document.querySelector('#pause-symbol-style')) return;
+  const style = document.createElement('style');
+  style.id = 'pause-symbol-style';
+  style.textContent = `
+    .pause-idle-content {
+      display: grid;
+      place-items: center;
+      align-content: center;
+      gap: 16px;
+    }
+
+    .pause-symbol {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(14px, 4vw, 22px);
+      width: min(54%, 132px);
+      height: clamp(70px, 22vw, 102px);
+      filter: drop-shadow(0 0 14px rgba(212, 187, 255, .16));
+    }
+
+    .pause-symbol span {
+      display: block;
+      width: clamp(12px, 4vw, 18px);
+      height: 78%;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(231,218,255,.88));
+      box-shadow:
+        0 0 9px rgba(255,255,255,.18),
+        0 0 20px rgba(174,119,255,.28);
+    }
+
+    .pause-symbol-caption {
+      margin: 0;
+      color: rgba(240, 233, 248, .8);
+      font-size: clamp(.72rem, 3vw, .9rem);
+      font-weight: 430;
+      letter-spacing: .035em;
+      text-shadow: 0 0 14px rgba(159, 103, 255, .2);
+    }
+
+    .orb-mode-idle .orb:hover .pause-symbol span,
+    .orb-mode-idle .orb:focus-visible .pause-symbol span {
+      background: #fff;
+      box-shadow:
+        0 0 10px rgba(255,255,255,.28),
+        0 0 28px rgba(174,119,255,.42);
+    }
+
+    @media (max-width: 360px), (max-height: 640px) {
+      .pause-idle-content { gap: 12px; }
+      .pause-symbol {
+        height: clamp(62px, 20vw, 88px);
+        gap: clamp(12px, 3.6vw, 18px);
+      }
+      .pause-symbol span {
+        width: clamp(10px, 3.7vw, 16px);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -57,6 +121,8 @@ function completedContent() {
 }
 
 export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
+  ensurePauseSymbolStyles();
+
   const shell = document.createElement('div');
   shell.className = `orb-shell orb-mode-${mode}`;
   shell.dataset.testid = 'orb';
