@@ -4,6 +4,7 @@
  * physical anchors in idle, resting and menu states.
  */
 .pause-main-screen {
+  --pause-center-x: 50%;
   position: relative !important;
   display: block !important;
   width: min(100%, 560px);
@@ -11,15 +12,24 @@
   min-height: 100svh !important;
 }
 
+/* Every home element is locked to the exact same horizontal center axis. */
 .pause-main-screen > .brand {
   position: absolute !important;
   top: 7.2svh !important;
-  left: 0 !important;
-  right: 0 !important;
+  left: var(--pause-center-x) !important;
+  right: auto !important;
   width: 100% !important;
   margin: 0 !important;
   padding: 0 !important;
+  transform: translateX(-50%) !important;
+  text-align: center !important;
   z-index: 6;
+}
+
+.pause-main-screen > .brand .brand-title,
+.pause-main-screen > .brand p {
+  width: 100%;
+  text-align: center;
 }
 
 /*
@@ -31,7 +41,7 @@
 .pause-main-screen.is-today > .orb-stage {
   position: absolute !important;
   top: 55svh !important;
-  left: 50% !important;
+  left: var(--pause-center-x) !important;
   width: 0 !important;
   height: 0 !important;
   min-height: 0 !important;
@@ -50,14 +60,29 @@
   transform: translate(-50%, -50%) !important;
 }
 
+.pause-main-screen > .orb-stage > .pause-menu-carousel {
+  left: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  transform: translateX(-50%) !important;
+}
+
+.pause-main-screen .orb-content {
+  width: 100%;
+  text-align: center;
+  justify-items: center;
+}
+
 .pause-main-screen > .gesture-hint {
   position: absolute !important;
-  left: 18px !important;
-  right: 18px !important;
+  left: var(--pause-center-x) !important;
+  right: auto !important;
   bottom: 4.6svh !important;
+  width: calc(100% - 36px) !important;
   margin: 0 !important;
   min-height: 20px;
-  text-align: center;
+  transform: translateX(-50%) !important;
+  text-align: center !important;
 }
 
 @media (max-width: 360px) {
