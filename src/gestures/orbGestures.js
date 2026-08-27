@@ -31,7 +31,7 @@ export function createOrbGestureController({
   const dragTargetAt = (event) => {
     if (!holding || typeof document === 'undefined' || !event) return null;
     const element = document.elementFromPoint(event.clientX, event.clientY);
-    return element?.closest?.('.today-system-button') ?? null;
+    return element?.closest?.('.pause-menu-node, .today-system-button') ?? null;
   };
 
   const handleGlobalMove = (event) => {
@@ -52,12 +52,6 @@ export function createOrbGestureController({
     releaseListenersAttached = false;
   };
 
-  const returnRenderedHoldViewToIdle = () => {
-    if (typeof document === 'undefined') return;
-    const todayOrb = document.querySelector('.main-screen.is-today .orb');
-    todayOrb?.click();
-  };
-
   const finishHold = (event, allowSelection = true) => {
     if (!holding) return false;
 
@@ -71,14 +65,11 @@ export function createOrbGestureController({
     clearDragTarget();
     onHoldEnd?.();
 
-    // If the finger was released over a Today system control, activate that
-    // control before restoring the hold view. Opening Settings/Info re-renders
-    // the app out of Today mode, so the idle restoration below becomes a no-op.
-    if (selected?.isConnected) {
-      selected.click();
-    }
+    // PAUSE keeps the main menu open after the user releases the hold.
+    // If they dragged onto a menu item, activate that item immediately.
+    // Otherwise the menu remains visible so it can be tapped normally.
+    if (selected?.isConnected) selected.click();
 
-    returnRenderedHoldViewToIdle();
     return true;
   };
 
