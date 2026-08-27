@@ -8,13 +8,20 @@ function ensureInsightLinkStyles() {
       left: 0;
       top: calc(min(41vw, 195px) + 18px);
       width: min(76vw, 310px);
+      margin: 0;
       transform: translateX(-50%);
       z-index: 5;
+      display: grid;
+      justify-items: center;
+      text-align: center;
     }
 
     .pause-home-insights-button {
       appearance: none;
+      display: block;
       width: 100%;
+      max-width: 310px;
+      margin: 0 auto;
       padding: 12px 14px 11px;
       border: 0;
       border-top: 1px solid rgba(157, 118, 223, .14);
@@ -23,6 +30,12 @@ function ensureInsightLinkStyles() {
       color: #ece7f2;
       text-align: center;
       cursor: pointer;
+    }
+
+    .pause-home-insights-button strong,
+    .pause-home-insights-button span {
+      width: 100%;
+      text-align: center;
     }
 
     .pause-home-insights-button strong {
