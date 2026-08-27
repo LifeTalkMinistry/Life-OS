@@ -165,16 +165,39 @@ function uniqueRestDays(entries) {
   return new Set(entries.map((entry) => localDayKey(entry.startAt || entry.endedAt))).size;
 }
 
-export function restInsights(state, now = Date.now()) {
-  const dayMs = 24 * 60 * 60 * 1000;
-  const currentSince = now - 7 * dayMs;
-  const previousSince = now - 14 * dayMs;
-  const history = Array.isArray(state.history) ? state.history : [];
+function validHistoryEntries(state) {
+  return (Array.isArray(state.history) ? state.history : []).filter((entry) => {
+    const stamp = Number(entry.startAt || entry.endedAt);
+    const duration = Number(entry.durationMs);
+    return Number.isFinite(stamp) && Number.isFinite(duration) && duration >= 0;
+  });
+}
 
-  const recent = history.filter((entry) => Number(entry.startAt || entry.endedAt) >= currentSince);
+export function restInsights(state, now = Date.now()) {
+  const history = validHistoryEntries(state);
+
+  // Analytics are based on seven LOCAL CALENDAR DAYS, including today.
+  // This keeps the headline metric and every visible day row on the exact same window.
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const currentStart = new Date(todayStart);
+  currentStart.setDate(todayStart.getDate() - 6);
+
+  const previousStart = new Date(currentStart);
+  previousStart.setDate(currentStart.getDate() - 7);
+
+  const currentStartMs = currentStart.getTime();
+  const previousStartMs = previousStart.getTime();
+
+  const recent = history.filter((entry) => {
+    const stamp = Number(entry.startAt || entry.endedAt);
+    return stamp >= currentStartMs && stamp <= now;
+  });
+
   const previous = history.filter((entry) => {
     const stamp = Number(entry.startAt || entry.endedAt);
-    return stamp >= previousSince && stamp < currentSince;
+    return stamp >= previousStartMs && stamp < currentStartMs;
   });
 
   const totalMs = recent.reduce((sum, entry) => sum + Number(entry.durationMs || 0), 0);
@@ -190,18 +213,23 @@ export function restInsights(state, now = Date.now()) {
   });
   const mostCommonTime = [...byTime.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
 
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
+  // Show the most relevant day first: Today → Yesterday → five earlier days.
   const daily = [];
-  for (let offset = 6; offset >= 0; offset -= 1) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - offset);
+  for (let offset = 0; offset <= 6; offset += 1) {
+    const date = new Date(todayStart);
+    date.setDate(todayStart.getDate() - offset);
     const key = localDayKey(date.getTime());
     const dayEntries = recent.filter((entry) => localDayKey(entry.startAt || entry.endedAt) === key);
     const dayTotalMs = dayEntries.reduce((sum, entry) => sum + Number(entry.durationMs || 0), 0);
+
     daily.push({
       key,
-      label: date.toLocaleDateString([], { weekday: 'short' }),
+      label: offset === 0
+        ? 'Today'
+        : offset === 1
+          ? 'Yesterday'
+          : date.toLocaleDateString([], { weekday: 'short' }),
+      dateLabel: date.toLocaleDateString([], { month: 'short', day: 'numeric' }),
       totalMs: dayTotalMs,
       sessions: dayEntries.length
     });
