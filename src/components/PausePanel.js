@@ -122,6 +122,13 @@ function ensureInsightStyles() {
       margin: 0 0 12px;
     }
 
+    .pause-insight-section-copy {
+      margin: -6px 0 13px;
+      color: #7f7788;
+      font-size: .66rem;
+      line-height: 1.45;
+    }
+
     .pause-rhythm-days {
       display: grid;
       gap: 11px;
@@ -157,14 +164,16 @@ function ensureInsightStyles() {
       letter-spacing: .02em;
     }
 
-    .pause-rhythm-track {
+    .pause-rhythm-track,
+    .pause-weekday-track {
       height: 5px;
       overflow: hidden;
       border-radius: 999px;
       background: rgba(151, 119, 201, .1);
     }
 
-    .pause-rhythm-fill {
+    .pause-rhythm-fill,
+    .pause-weekday-fill {
       display: block;
       height: 100%;
       min-width: 0;
@@ -176,6 +185,100 @@ function ensureInsightStyles() {
     .pause-rhythm-duration {
       text-align: right;
       color: #c1b7cb;
+      white-space: nowrap;
+    }
+
+    .pause-weekday-learning {
+      padding: 17px 16px;
+      border: 1px solid rgba(164, 121, 226, .15);
+      border-radius: 15px;
+      background: rgba(20, 12, 40, .34);
+    }
+
+    .pause-weekday-learning strong {
+      display: block;
+      margin-bottom: 7px;
+      color: #dcd3e7;
+      font-size: .8rem;
+      font-weight: 540;
+      letter-spacing: .04em;
+    }
+
+    .pause-weekday-learning p {
+      margin: 0;
+      color: #8f8798;
+      font-size: .72rem;
+      line-height: 1.55;
+    }
+
+    .pause-weekday-progress {
+      display: flex;
+      gap: 14px;
+      margin-top: 12px;
+      color: #a496b3;
+      font-size: .66rem;
+    }
+
+    .pause-weekday-summary {
+      display: grid;
+      gap: 5px;
+      margin-bottom: 14px;
+      padding: 15px 16px;
+      border: 1px solid rgba(174, 126, 255, .18);
+      border-radius: 15px;
+      background: linear-gradient(180deg, rgba(75, 38, 123, .12), rgba(20, 12, 39, .22));
+    }
+
+    .pause-weekday-summary small {
+      color: #81768d;
+      font-size: .58rem;
+      font-weight: 650;
+      letter-spacing: .12em;
+    }
+
+    .pause-weekday-summary strong {
+      color: #efe8f6;
+      font-size: 1.08rem;
+      font-weight: 480;
+    }
+
+    .pause-weekday-summary span {
+      color: #9b90a7;
+      font-size: .69rem;
+    }
+
+    .pause-weekday-rank-list {
+      display: grid;
+      gap: 11px;
+    }
+
+    .pause-weekday-rank-row {
+      display: grid;
+      grid-template-columns: 24px 72px 1fr 68px;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .pause-weekday-rank {
+      color: #746b7d;
+      font-size: .63rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pause-weekday-name {
+      overflow: hidden;
+      color: #c7bfce;
+      font-size: .69rem;
+      font-weight: 510;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pause-weekday-average {
+      color: #baafc5;
+      font-size: .66rem;
+      text-align: right;
       white-space: nowrap;
     }
 
@@ -251,6 +354,7 @@ function ensureInsightStyles() {
     @media (max-width: 390px) {
       .pause-detailed-grid { grid-template-columns: 1fr 1fr; }
       .pause-rhythm-day { grid-template-columns: 62px 1fr 58px; gap: 8px; }
+      .pause-weekday-rank-row { grid-template-columns: 20px 64px 1fr 62px; gap: 7px; }
     }
   `;
   document.head.appendChild(style);
@@ -272,6 +376,45 @@ function changeCopy(value, noun) {
   if (value > 0) return `+${value} ${noun} vs last week`;
   if (value < 0) return `${Math.abs(value)} fewer ${noun} vs last week`;
   return `Same ${noun} as last week`;
+}
+
+function weekdayPatternMarkup(pattern) {
+  if (!pattern.ready) {
+    const calendarProgress = Math.min(pattern.daysObserved, 14);
+    const restDayProgress = Math.min(pattern.restDaysObserved, 4);
+    return `
+      <div class="pause-weekday-learning">
+        <strong>LEARNING YOUR REST PATTERN</strong>
+        <p>PAUSE won't rank your weekdays from only a few rests. Keep using the ORB and it will learn which days you consistently make the most room to stop.</p>
+        <div class="pause-weekday-progress">
+          <span>${calendarProgress} / 14 days observed</span>
+          <span>${restDayProgress} / 4 rest days</span>
+        </div>
+      </div>
+    `;
+  }
+
+  const maxAverage = Math.max(1, ...pattern.ranked.map((day) => day.averageMs));
+  const rows = pattern.ranked.map((day) => {
+    const width = day.averageMs > 0 ? Math.max(5, Math.round((day.averageMs / maxAverage) * 100)) : 0;
+    return `
+      <div class="pause-weekday-rank-row">
+        <span class="pause-weekday-rank">#${day.rank}</span>
+        <span class="pause-weekday-name">${escapeHtml(day.label)}</span>
+        <div class="pause-weekday-track" aria-hidden="true"><span class="pause-weekday-fill" style="width:${width}%"></span></div>
+        <span class="pause-weekday-average">${escapeHtml(formatInsightDuration(day.averageMs))}</span>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="pause-weekday-summary">
+      <small>YOUR STRONGEST REST DAY</small>
+      <strong>${escapeHtml(pattern.strongest.label)}</strong>
+      <span>${escapeHtml(formatInsightDuration(pattern.strongest.averageMs))} average rest per ${escapeHtml(pattern.strongest.label)}</span>
+    </div>
+    <div class="pause-weekday-rank-list">${rows}</div>
+  `;
 }
 
 function insightsContent(state) {
@@ -322,7 +465,14 @@ function insightsContent(state) {
 
     <section class="pause-insight-section">
       <p class="pause-insight-section-title">YOUR 7-DAY RHYTHM</p>
+      <p class="pause-insight-section-copy">Recent timeline · Today stays first so you can see what happened day by day.</p>
       <div class="pause-rhythm-days">${dailyRows}</div>
+    </section>
+
+    <section class="pause-insight-section">
+      <p class="pause-insight-section-title">YOUR REST PATTERN · BY WEEKDAY</p>
+      <p class="pause-insight-section-copy">Learned from up to the last 4 weeks. Once enough history exists, weekdays rank from your highest average rest to your lowest.</p>
+      ${weekdayPatternMarkup(insights.weekdayPattern)}
     </section>
 
     <section class="pause-insight-section">
