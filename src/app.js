@@ -1,6 +1,7 @@
 import { Brand } from './components/Brand.js';
 import { Orb } from './components/Orb.js';
 import { OrbArtwork } from './components/OrbArtwork.js';
+import { PauseScore } from './components/PauseScore.js';
 import { TodayRing } from './components/TodayRing.js';
 import { PausePanel } from './components/PausePanel.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
@@ -15,6 +16,7 @@ import {
   startRest
 } from './restState.js';
 
+const SCORE_PREFERENCE_KEY = 'pause-score-preference-v1';
 const app = document.querySelector('#app');
 let pauseState = loadPauseState();
 let screen = 'launch';
@@ -25,6 +27,30 @@ let launchTimer = null;
 let completionTimer = null;
 let tickTimer = null;
 let gestureController = null;
+
+function loadScorePreference() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SCORE_PREFERENCE_KEY) || '{}');
+    const timeframe = ['daily', 'weekly', 'monthly', 'custom'].includes(parsed.timeframe)
+      ? parsed.timeframe
+      : 'weekly';
+    const customRange = parsed.customRange && parsed.customRange.start && parsed.customRange.end
+      ? parsed.customRange
+      : null;
+    return { timeframe, customRange };
+  } catch {
+    return { timeframe: 'weekly', customRange: null };
+  }
+}
+
+let scorePreference = loadScorePreference();
+
+function saveScorePreference(next) {
+  scorePreference = next;
+  try {
+    localStorage.setItem(SCORE_PREFERENCE_KEY, JSON.stringify(next));
+  } catch {}
+}
 
 function checkExpired() {
   const result = completeExpiredRest(pauseState);
@@ -53,6 +79,14 @@ function openInsights() {
 
 function closePanel() {
   panelView = null;
+  render();
+}
+
+function handleScoreChange({ timeframe, customRange }) {
+  saveScorePreference({
+    timeframe: ['daily', 'weekly', 'monthly', 'custom'].includes(timeframe) ? timeframe : 'weekly',
+    customRange: customRange || scorePreference.customRange || null
+  });
   render();
 }
 
@@ -126,13 +160,23 @@ function LaunchScreen() {
 function MainScreen() {
   checkExpired();
 
-  // PAUSE now has two primary jobs: tap the ORB to stop, or open Rest Insights
-  // to understand the pattern of those intentional pauses.
-  const showInsightsLink = menuOpen || (!pauseState.active && !completionVisible && !panelView);
+  // Home stays intentionally minimal: PAUSE Score above the ORB, the ORB as
+  // the rest action itself, and Rest Insights below it.
+  const showHomeControls = !pauseState.active && !completionVisible && !panelView;
+  const showInsightsLink = menuOpen || showHomeControls;
 
   const view = document.createElement('section');
   view.className = `screen main-screen pause-main-screen${showInsightsLink ? ' has-pause-menu' : ''}${pauseState.active ? ' is-resting' : ''}`;
   view.appendChild(Brand());
+
+  if (showHomeControls) {
+    view.appendChild(PauseScore({
+      state: pauseState,
+      timeframe: scorePreference.timeframe,
+      customRange: scorePreference.customRange,
+      onChange: handleScoreChange
+    }));
+  }
 
   const stage = document.createElement('div');
   stage.className = 'orb-stage';
@@ -229,7 +273,7 @@ tickTimer = setInterval(() => {
 }, 250);
 
 window.__PAUSE__ = {
-  getState: () => ({ pauseState, screen, menuOpen, panelView, completionVisible }),
+  getState: () => ({ pauseState, screen, menuOpen, panelView, completionVisible, scorePreference }),
   openInsights,
   takeRest: () => beginImmediateRest()
 };
