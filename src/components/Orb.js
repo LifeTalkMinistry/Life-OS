@@ -25,9 +25,9 @@ function menuContent() {
   return `
     <div class="orb-content orb-now-content pause-menu-content">
       <p class="orb-kicker">PAUSE</p>
-      <h1 class="orb-title">CHOOSE<br>YOUR REST</h1>
+      <h1 class="orb-title">PAUSE<br>MENU</h1>
       <span class="orb-divider" aria-hidden="true"><i></i></span>
-      <p class="orb-until">Tap the orb to close</p>
+      <p class="orb-until">Choose an action</p>
     </div>
   `;
 }
