@@ -48,18 +48,6 @@ jobs:
     needs: build
 
     steps:
-      - name: Refresh GitHub Pages workflow source
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "Refreshing GitHub Pages build type before deployment."
-          gh api --method PUT \
-            "repos/${GITHUB_REPOSITORY}/pages" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2026-03-10" \
-            -f build_type=workflow || true
-          sleep 5
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
