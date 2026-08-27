@@ -122,7 +122,7 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-  width: clamp(86px, 25vw, 112px);
+  width: clamp(76px, 23vw, 102px);
   padding: 0;
 }
 
@@ -138,6 +138,13 @@
   outline: 1px solid rgba(203, 176, 255, .8);
   outline-offset: 6px;
   border-radius: 12px;
+}
+
+.pause-menu-node.is-drag-target .pause-menu-icon,
+.pause-menu-node:hover .pause-menu-icon,
+.pause-menu-node:focus-visible .pause-menu-icon {
+  color: #f2e8ff;
+  box-shadow: 0 0 20px rgba(157, 103, 255, .5);
 }
 
 .pause-menu-icon {
