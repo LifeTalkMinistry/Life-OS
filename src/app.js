@@ -137,12 +137,12 @@ function LaunchScreen() {
 function MainScreen() {
   checkExpired();
 
-  // The four governing PAUSE actions are the actual idle-state main menu.
-  // They stay visible around the ORB instead of being hidden behind a hold.
+  // The four governing PAUSE actions live in a simple vertical swipe carousel
+  // below the ORB. The ORB stays full-size and remains the primary rest shortcut.
   const showMainMenu = menuOpen || (!pauseState.active && !completionVisible && !panelView);
 
   const view = document.createElement('section');
-  view.className = `screen main-screen pause-main-screen${showMainMenu ? ' is-today' : ''}${pauseState.active ? ' is-resting' : ''}`;
+  view.className = `screen main-screen pause-main-screen${showMainMenu ? ' has-pause-menu' : ''}${pauseState.active ? ' is-resting' : ''}`;
   view.appendChild(Brand());
 
   const stage = document.createElement('div');
@@ -170,10 +170,10 @@ function MainScreen() {
   const hint = document.createElement('p');
   hint.className = 'gesture-hint is-visible pause-hint';
   hint.textContent = menuOpen
-    ? 'Choose a PAUSE action · Tap orb to return'
+    ? 'Swipe menu · Tap orb to return'
     : pauseState.active
       ? 'This time is yours · Hold for menu'
-      : 'Tap orb to rest · Choose an option around it';
+      : 'Swipe menu · Tap orb to rest';
   view.appendChild(hint);
 
   if (panelView) {
