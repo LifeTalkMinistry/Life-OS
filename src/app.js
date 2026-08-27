@@ -54,8 +54,17 @@ function closePanel() {
   render();
 }
 
+function beginImmediateRest() {
+  if (pauseState.active) return;
+  pauseState = startRest(pauseState, 'Rest');
+  panelView = null;
+  menuOpen = false;
+  completionVisible = false;
+  render();
+}
+
 function handleMenuSelect(item) {
-  if (item === 'take-rest') return openPanel('take-rest');
+  if (item === 'take-rest') return beginImmediateRest();
   if (item === 'history') return openPanel('history');
   if (item === 'insights') return openPanel('insights');
   if (item === 'my-rests') return openPanel('my-rests');
@@ -67,7 +76,7 @@ function handleOrbAction(action) {
     return render();
   }
   if (action === 'end-rest' && pauseState.active) {
-    pauseState = finishRest(pauseState, 'ended-early');
+    pauseState = finishRest(pauseState, 'ended');
     return showCompletion();
   }
 }
@@ -95,10 +104,10 @@ function getGestureHandlers() {
   gestureController?.destroy();
   gestureController = createOrbGestureController({
     onSingleTap: () => {
-      if (!pauseState.active) openPanel('take-rest');
+      if (!pauseState.active) beginImmediateRest();
     },
     onDoubleTap: () => {
-      if (!pauseState.active) openPanel('take-rest');
+      if (!pauseState.active) beginImmediateRest();
     },
     onHoldStart: () => {
       if (!pauseState.active) return;
@@ -113,7 +122,7 @@ function getGestureHandlers() {
     pointerUp: () => gestureController.pointerUp(),
     cancel: () => gestureController.cancel(),
     keyboardTap: () => {
-      if (!pauseState.active) openPanel('take-rest');
+      if (!pauseState.active) beginImmediateRest();
     }
   };
 }
@@ -137,8 +146,8 @@ function LaunchScreen() {
 function MainScreen() {
   checkExpired();
 
-  // Keep the ORB visually dedicated to the rest action. Secondary navigation
-  // stays in a quiet vertical swipe carousel below it.
+  // The ORB is the rest action itself. One tap starts a live, open-ended rest
+  // timer immediately; secondary navigation stays below the ORB.
   const showMainMenu = menuOpen || (!pauseState.active && !completionVisible && !panelView);
 
   const view = document.createElement('section');
@@ -172,8 +181,8 @@ function MainScreen() {
   hint.textContent = menuOpen
     ? 'Swipe menu · Tap orb to return'
     : pauseState.active
-      ? 'This time is yours · Hold for menu'
-      : 'Swipe menu · Tap orb to rest';
+      ? 'Resting now · End when you’re ready'
+      : 'Tap orb to pause now';
   view.appendChild(hint);
 
   if (panelView) {
@@ -233,5 +242,5 @@ tickTimer = setInterval(() => {
 window.__PAUSE__ = {
   getState: () => ({ pauseState, screen, menuOpen, panelView, completionVisible }),
   openMenu: () => { menuOpen = true; render(); },
-  takeRest: () => openPanel('take-rest')
+  takeRest: () => beginImmediateRest()
 };
