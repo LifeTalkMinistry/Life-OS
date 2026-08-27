@@ -13,10 +13,11 @@ function escapeHtml(value) {
 function idleContent() {
   return `
     <div class="orb-content orb-now-content pause-idle-content">
-      <p class="orb-kicker">PAUSE</p>
-      <h1 class="orb-title">READY TO<br>REST?</h1>
-      <span class="orb-divider" aria-hidden="true"><i></i></span>
-      <p class="orb-until">Tap to take a rest</p>
+      <div class="pause-symbol" aria-hidden="true">
+        <span></span>
+        <span></span>
+      </div>
+      <p class="pause-symbol-caption">Tap to pause</p>
     </div>
   `;
 }
@@ -68,7 +69,7 @@ export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
     ? `Resting: ${state.active?.label || 'Rest'}. Hold for menu.`
     : mode === 'menu'
       ? 'PAUSE menu. Tap to close.'
-      : 'PAUSE. Tap to take a rest or hold for the main menu.');
+      : 'Pause now. Tap to begin a rest.');
 
   if (mode === 'resting') orb.innerHTML = restingContent(state);
   else if (mode === 'completed') orb.innerHTML = completedContent();
