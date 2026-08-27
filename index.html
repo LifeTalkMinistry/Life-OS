@@ -5,77 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#030307" />
     <meta name="color-scheme" content="dark" />
-    <meta name="description" content="LIFE OS — Control your life." />
-    <meta name="application-name" content="LIFE OS" />
+    <meta name="description" content="PAUSE — Know When to Stop." />
+    <meta name="application-name" content="PAUSE" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="LIFE OS" />
+    <meta name="apple-mobile-web-app-title" content="PAUSE" />
     <meta name="format-detection" content="telephone=no" />
-    <title>LIFE OS — Control your life.</title>
-    <style>
-      .launch-screen > .launch-brand,.launch-screen > .launch-orb{display:none!important;visibility:hidden!important}
-      .launch-screen{position:relative!important;display:block!important;min-height:100svh!important;height:100svh!important;background:#030307!important}
-      .launch-screen::before{content:""!important;position:absolute!important;left:50%!important;top:50%!important;width:42px!important;height:42px!important;border-radius:50%!important;border:1px solid rgba(196,166,255,.14)!important;border-top-color:rgba(199,164,255,.95)!important;border-right-color:rgba(113,96,255,.48)!important;background:transparent!important;box-shadow:0 0 20px rgba(145,92,255,.2),inset 0 0 14px rgba(117,80,255,.08)!important;transform:translate(-50%,-50%) rotate(0deg)!important;animation:lifeosCriticalSpin 1.05s linear infinite!important;z-index:100!important}
-      .launch-screen::after{content:"LOADING…"!important;position:absolute!important;left:50%!important;top:calc(50% + 48px)!important;transform:translateX(-50%)!important;color:rgba(220,212,232,.72)!important;font:450 .66rem/1.2 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;letter-spacing:.24em!important;white-space:nowrap!important;z-index:100!important}
-      @keyframes lifeosCriticalSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
-    </style>
+    <title>PAUSE — Know When to Stop.</title>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" sizes="180x180" href="./pwa/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="./pwa/icon-192.png" />
-    <link rel="stylesheet" href="./src/styles.css?v=38" />
-    <link rel="stylesheet" href="./src/refinements.css?v=38" />
-    <link rel="stylesheet" href="./src/orb-depth.css?v=38" />
-    <link rel="stylesheet" href="./src/setup-day-orbit.css?v=38" />
-    <link rel="stylesheet" href="./src/setup-day-orbit-simple.css?v=38" />
-    <link rel="stylesheet" href="./src/setup-day-navigation.css?v=38" />
-    <link rel="stylesheet" href="./src/setup-activity-end-back.css?v=38" />
-    <link rel="stylesheet" href="./src/setup-icon-modal.css?v=38" />
-    <link rel="stylesheet" href="./src/system-controls.css?v=38" />
-    <link rel="stylesheet" href="./src/layout-invariant.css?v=38" />
+    <link rel="stylesheet" href="./src/styles.css?v=40" />
+    <link rel="stylesheet" href="./src/refinements.css?v=40" />
+    <link rel="stylesheet" href="./src/orb-depth.css?v=40" />
+    <link rel="stylesheet" href="./src/system-controls.css?v=40" />
+    <link rel="stylesheet" href="./src/layout-invariant.css?v=40" />
+    <link rel="stylesheet" href="./src/pause.css?v=40" />
     <script>
-      if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'}).catch(()=>{})})}
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' }).catch(() => {});
+        });
+      }
     </script>
   </head>
   <body>
     <main id="app" aria-live="polite"></main>
-    <script>
-      (()=>{
-        const marker='life-os-inline-entry-v2';
-        function markup(step){
-          if(step===0)return '<div class="orb-content setup-content setup-welcome-content" data-lifeos-entry-intro><p class="setup-eyebrow">LIFE OS</p><h1 class="setup-hero">READY TO<br>TAKE CONTROL?</h1><div class="setup-options setup-options-compact"><button type="button" data-intro-next>TAKE CONTROL</button></div></div>';
-          if(step===1)return '<div class="orb-content setup-content setup-welcome-content" data-lifeos-entry-intro><p class="setup-eyebrow">YOUR TIME IS ALREADY GOING SOMEWHERE</p><h1 class="setup-question">Being busy does not always mean your life is moving where you want.</h1><p class="setup-help">LIFE OS helps you see where your time is actually going.</p><div class="setup-options setup-options-compact"><button type="button" data-intro-next>CONTINUE</button></div></div>';
-          if(step===2)return '<div class="orb-content setup-content setup-welcome-content" data-lifeos-entry-intro><p class="setup-eyebrow">WE BUILD THE PICTURE</p><h1 class="setup-question">You live your life. LIFE OS organizes the time.</h1><p class="setup-help">Your activities become daily, weekly and monthly insight so you can see whether the important parts of life are staying balanced.</p><div class="setup-options setup-options-compact"><button type="button" data-intro-next>CONTINUE</button></div></div>';
-          if(step===3)return '<div class="orb-content setup-content setup-welcome-content" data-lifeos-entry-intro><p class="setup-eyebrow">YOUR ONLY JOB</p><h1 class="setup-question">Tell LIFE OS what you are doing.</h1><p class="setup-help">Start when you begin. Stop when you finish. LIFE OS handles the organization, patterns and Holistic Life picture for you.</p><div class="setup-options setup-options-compact"><button type="button" data-intro-next>CONTINUE</button></div></div>';
-          return '<div class="orb-content setup-content setup-welcome-content" data-lifeos-entry-intro><p class="setup-eyebrow">LIFE OS</p><h1 class="setup-hero">START WITH<br>RIGHT NOW.</h1><p class="setup-help">What are you doing?</p><div class="setup-options setup-options-compact"><button type="button" data-intro-start>START TRACKING</button></div></div>';
-        }
-        function install(){
-          const orb=document.querySelector('.setup-screen .setup-orb');
-          if(!orb||orb.dataset.entryIntroInstalled===marker)return;
-          const welcome=orb.querySelector('.setup-welcome-content');
-          if(!welcome)return;
-          const later=orb.querySelector('[data-entry-action="later"]');
-          const setup=orb.querySelector('[data-entry-action="setup-now"]');
-          const fallback=orb.onclick;
-          orb.dataset.entryIntroInstalled=marker;
-          let step=0;
-          const finish=()=>{if(later){later.click();return}if(setup){setup.click();return}if(typeof fallback==='function')fallback.call(orb,new Event('click'))};
-          const paint=()=>{
-            orb.innerHTML=markup(step);orb.removeAttribute('role');orb.removeAttribute('tabindex');orb.removeAttribute('aria-label');
-            orb.querySelector('[data-intro-next]')?.addEventListener('click',e=>{e.stopPropagation();step+=1;paint()});
-            orb.querySelector('[data-intro-start]')?.addEventListener('click',e=>{e.stopPropagation();finish()});
-          };
-          paint();
-        }
-        new MutationObserver(install).observe(document.documentElement,{childList:true,subtree:true});
-        document.addEventListener('DOMContentLoaded',install);
-        install();
-      })();
-    </script>
-    <script type="module" src="./src/app.js?v=38"></script>
-    <script type="module" src="./src/setup-day-orbit.js?v=38"></script>
-    <script type="module" src="./src/setup-day-summary.js?v=38"></script>
-    <script type="module" src="./src/setup-activity-end-fix.js?v=38"></script>
-    <script type="module" src="./src/setup-icon-modal.js?v=38"></script>
+    <script type="module" src="./src/app.js?v=40"></script>
   </body>
 </html>

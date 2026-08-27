@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-os-shell-v39';
+const CACHE_NAME = 'pause-shell-v40';
 const BASE_URL = new URL('./', self.location.href);
 
 const toUrl = (path) => new URL(path, BASE_URL).href;
@@ -37,16 +37,12 @@ async function freshFetch(request) {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
-
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-
-  // Never serve the application document, scripts or styles from an old shell.
   if (request.mode === 'navigate' || request.destination === 'document' || request.destination === 'script' || request.destination === 'style') {
     event.respondWith(freshFetch(request));
     return;
   }
-
   event.respondWith(
     caches.match(request).then((cached) => cached || fetch(request).then((response) => {
       if (!response || response.status !== 200 || response.type !== 'basic') return response;

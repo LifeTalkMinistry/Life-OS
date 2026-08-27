@@ -1,7 +1,7 @@
 {
-  "name": "LIFE OS — Control your life.",
-  "short_name": "LIFE OS",
-  "description": "LIFE OS — Control your life.",
+  "name": "PAUSE — Know When to Stop.",
+  "short_name": "PAUSE",
+  "description": "Intentional rest, on your terms.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

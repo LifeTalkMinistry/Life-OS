@@ -1,11 +1,11 @@
 export function Brand() {
   const wrapper = document.createElement('header');
-  wrapper.className = 'brand';
+  wrapper.className = 'brand pause-brand';
   wrapper.innerHTML = `
-    <div class="brand-title" aria-label="LIFE OS">
-      <span>L I F E</span><span class="brand-os">O S</span>
+    <div class="brand-title pause-brand-title" aria-label="PAUSE">
+      <span>P A U S E</span>
     </div>
-    <p>Control your life.</p>
+    <p>Know When to Stop.</p>
   `;
   return wrapper;
 }

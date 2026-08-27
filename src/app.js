@@ -1,539 +1,131 @@
 import { Brand } from './components/Brand.js';
-import { LifeSetupOrb } from './components/LifeSetupOrb.js';
 import { Orb } from './components/Orb.js';
 import { OrbArtwork } from './components/OrbArtwork.js';
-import { SystemPanel } from './components/SystemPanel.js';
 import { TodayRing } from './components/TodayRing.js';
-import { WhyPanel } from './components/WhyPanel.js';
+import { PausePanel } from './components/PausePanel.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
 import {
-  LIFE_PROFILE_STORAGE_KEY,
-  createEmptyLifeProfile,
-  findTimeConflict,
-  isLifeProfileComplete,
-  normalizeLifeProfile
-} from './state/lifeProfile.js';
-import {
-  addUrgentMatter,
-  completeCurrent,
-  createInitialLifeState,
-  createLifeStateFromProfile,
-  currentActivity,
-  deferCurrent,
-  extendCurrent
-} from './state/lifeState.js';
+  addCustomRest,
+  completeExpiredRest,
+  finishRest,
+  loadPauseState,
+  removeCustomRest,
+  startRest
+} from './restState.js';
 
 const app = document.querySelector('#app');
-const ACTIVITY_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-const ANCHOR_PRE_FIXED = 'anchor-pre-fixed';
-const ANCHOR_PRE_SLEEP = 'anchor-pre-sleep';
-const ANCHOR_HOME = 'anchor-home-arrival';
-const ANCHOR_IDS = new Set([ANCHOR_PRE_FIXED, ANCHOR_PRE_SLEEP, ANCHOR_HOME]);
-
-function loadLifeProfile() {
-  try {
-    const raw = localStorage.getItem(LIFE_PROFILE_STORAGE_KEY);
-    return raw ? normalizeLifeProfile(JSON.parse(raw)) : createEmptyLifeProfile();
-  } catch {
-    return createEmptyLifeProfile();
-  }
-}
-
-function saveLifeProfile(profile) {
-  try {
-    localStorage.setItem(LIFE_PROFILE_STORAGE_KEY, JSON.stringify(profile));
-  } catch {}
-}
-
-function createActivityDraft(start = '') {
-  return {
-    name: '',
-    icon: 'general',
-    start,
-    end: ''
-  };
-}
-
-function isAnchorActivity(activity) {
-  return ANCHOR_IDS.has(activity?.id);
-}
-
-function anchorActivity(profile, id) {
-  return profile.activities.find((activity) => activity.id === id) ?? null;
-}
-
-function fixedSubject(kind) {
-  if (kind === 'school') return 'school';
-  if (kind === 'both') return 'work / school';
-  return 'work';
-}
-
-function upsertAnchorActivity(id, name, days, start, end, icon = 'routine') {
-  const anchor = {
-    id,
-    name,
-    icon,
-    days: [...days],
-    start,
-    end
-  };
-  lifeProfile = {
-    ...lifeProfile,
-    activities: [...lifeProfile.activities.filter((activity) => activity.id !== id), anchor]
-  };
-}
-
-function activityCursorForDay(day) {
-  const home = anchorActivity(lifeProfile, ANCHOR_HOME);
-  const fixedDay = lifeProfile.hasFixedSchedule && lifeProfile.fixedDays.includes(day);
-  let cursor = fixedDay && home?.end ? home.end : lifeProfile.sleepEnd;
-
-  const custom = lifeProfile.activities
-    .filter((activity) => !isAnchorActivity(activity) && activity.days.includes(day))
-    .sort((a, b) => a.start.localeCompare(b.start));
-
-  let changed = true;
-  while (changed) {
-    changed = false;
-    const next = custom.find((activity) => activity.start === cursor);
-    if (next) {
-      cursor = next.end;
-      changed = true;
-    }
-  }
-  return cursor;
-}
-
-let lifeProfile = loadLifeProfile();
-let hasCompletedSetup = isLifeProfileComplete(lifeProfile);
-let lifeState = hasCompletedSetup ? createLifeStateFromProfile(lifeProfile) : createInitialLifeState();
+let pauseState = loadPauseState();
 let screen = 'launch';
-let orbMode = 'now';
-let whyOpen = false;
-let systemView = null;
-let hintVisible = true;
-let setupStep = 'welcome';
-let setupHistory = [];
-let setupActivityDay = 1;
-let setupActivityCursor = '';
-let setupActivityDraft = createActivityDraft();
-let completionTimer = null;
+let menuOpen = false;
+let panelView = null;
+let completionVisible = false;
 let launchTimer = null;
-let setupTimer = null;
+let completionTimer = null;
+let tickTimer = null;
 let gestureController = null;
 
-function hideHint() {
-  hintVisible = false;
+function checkExpired() {
+  const result = completeExpiredRest(pauseState);
+  pauseState = result.state;
+  if (result.completed) showCompletion();
+  return result.completed;
 }
 
-function setMode(mode) {
-  orbMode = mode;
-  render();
-}
-
-function openWhy() {
-  hideHint();
-  systemView = null;
-  whyOpen = true;
-  render();
-}
-
-function closeWhy() {
-  whyOpen = false;
-  render();
-}
-
-function openSystemView(view) {
-  hideHint();
-  whyOpen = false;
-  orbMode = 'now';
-  systemView = view;
-  render();
-}
-
-function closeSystemView() {
-  systemView = null;
-  render();
-}
-
-function navigateSystemView(view) {
-  systemView = view;
-  render();
-}
-
-function saveActivityTimes(changes) {
-  lifeProfile = normalizeLifeProfile({
-    ...lifeProfile,
-    ...changes,
-    setupComplete: true
-  });
-  saveLifeProfile(lifeProfile);
-  hasCompletedSetup = isLifeProfileComplete(lifeProfile);
-  lifeState = createLifeStateFromProfile(lifeProfile);
-  systemView = 'settings';
-  orbMode = 'now';
-  render();
-}
-
-function goSetup(step) {
-  setupHistory.push(setupStep);
-  setupStep = step;
-  render();
-}
-
-function goSetupBack() {
-  const previous = setupHistory.pop();
-  if (!previous) return;
-  setupStep = previous;
-  render();
-}
-
-function resetActivityDraft(start = '') {
-  setupActivityDraft = createActivityDraft(start);
-}
-
-function setActivityDay(day) {
-  setupActivityDay = day;
-  setupActivityCursor = activityCursorForDay(day);
-  resetActivityDraft(setupActivityCursor);
-}
-
-function startActivityBuilder() {
-  setActivityDay(1);
-  goSetup('activities');
-}
-
-function nextActivityDay() {
-  const index = ACTIVITY_DAY_ORDER.indexOf(setupActivityDay);
-  if (index < 0 || index === ACTIVITY_DAY_ORDER.length - 1) return null;
-  return ACTIVITY_DAY_ORDER[index + 1];
-}
-
-function previousActivityDay() {
-  const index = ACTIVITY_DAY_ORDER.indexOf(setupActivityDay);
-  if (index <= 0) return null;
-  return ACTIVITY_DAY_ORDER[index - 1];
-}
-
-function finishLifeSetup() {
-  lifeProfile = normalizeLifeProfile({ ...lifeProfile, setupComplete: true });
-  saveLifeProfile(lifeProfile);
-  hasCompletedSetup = true;
-  lifeState = createLifeStateFromProfile(lifeProfile);
-  screen = 'now';
-  setupStep = 'welcome';
-  setupHistory = [];
-  setupActivityDay = 1;
-  setupActivityCursor = '';
-  setupActivityDraft = createActivityDraft();
-  orbMode = 'now';
-  whyOpen = false;
-  systemView = null;
-  hintVisible = true;
-  render();
-}
-
-function resetLifeSetup() {
+function showCompletion() {
+  completionVisible = true;
+  menuOpen = false;
+  panelView = null;
   clearTimeout(completionTimer);
-  clearTimeout(launchTimer);
-  clearTimeout(setupTimer);
-  try { localStorage.removeItem(LIFE_PROFILE_STORAGE_KEY); } catch {}
-  lifeProfile = createEmptyLifeProfile();
-  hasCompletedSetup = false;
-  lifeState = createInitialLifeState();
-  screen = 'setup';
-  setupStep = 'welcome';
-  setupHistory = [];
-  setupActivityDay = 1;
-  setupActivityCursor = '';
-  setupActivityDraft = createActivityDraft();
-  orbMode = 'now';
-  whyOpen = false;
-  systemView = null;
-  hintVisible = true;
+  completionTimer = setTimeout(() => {
+    completionVisible = false;
+    render();
+  }, 1800);
   render();
 }
 
-function handleSetupField(field, value) {
-  if (field.startsWith('draft.')) {
-    const draftField = field.slice('draft.'.length);
-    if (!['name', 'start', 'end'].includes(draftField)) return;
-    setupActivityDraft = { ...setupActivityDraft, [draftField]: value };
-    return;
-  }
-
-  if (!(field in lifeProfile)) return;
-  lifeProfile = { ...lifeProfile, [field]: value };
+function openPanel(view) {
+  menuOpen = false;
+  panelView = view;
+  render();
 }
 
-function handleSetupAction(dataset) {
-  if (dataset.setupAction === 'begin') return goSetup('fixed');
-  if (dataset.setupAction === 'back') return goSetupBack();
+function closePanel() {
+  panelView = null;
+  render();
+}
 
-  if (dataset.setupFixed) {
-    const hasFixedSchedule = dataset.setupFixed === 'yes';
-    lifeProfile = {
-      ...lifeProfile,
-      hasFixedSchedule,
-      fixedGuidanceMode: 'outside'
-    };
-    return goSetup(hasFixedSchedule ? 'fixed-kind' : 'sleep');
-  }
+function handleMenuSelect(item) {
+  if (item === 'take-rest') return openPanel('take-rest');
+  if (item === 'history') return openPanel('history');
+  if (item === 'insights') return openPanel('insights');
+  if (item === 'my-rests') return openPanel('my-rests');
+}
 
-  if (dataset.setupKind) {
-    lifeProfile = { ...lifeProfile, fixedKind: dataset.setupKind };
-    return goSetup('fixed-days');
-  }
-
-  if (dataset.setupDays) {
-    if (dataset.setupDays === 'weekdays') {
-      lifeProfile = { ...lifeProfile, fixedDays: [1, 2, 3, 4, 5] };
-      return goSetup('fixed-time');
-    }
-    if (dataset.setupDays === 'everyday') {
-      lifeProfile = { ...lifeProfile, fixedDays: [0, 1, 2, 3, 4, 5, 6] };
-      return goSetup('fixed-time');
-    }
-    return goSetup('custom-days');
-  }
-
-  if (dataset.setupDay !== undefined) {
-    const day = Number(dataset.setupDay);
-    const nextDays = lifeProfile.fixedDays.includes(day)
-      ? lifeProfile.fixedDays.filter((item) => item !== day)
-      : [...lifeProfile.fixedDays, day];
-    lifeProfile = { ...lifeProfile, fixedDays: nextDays };
+function handleOrbAction(action) {
+  if (action === 'close-menu') {
+    menuOpen = false;
     return render();
   }
-
-  if (dataset.setupAction === 'days-continue') {
-    if (!lifeProfile.fixedDays.length) return;
-    return goSetup('fixed-time');
-  }
-
-  if (dataset.setupAction === 'fixed-time-continue') {
-    if (!lifeProfile.fixedStart || !lifeProfile.fixedEnd) return;
-    return goSetup('sleep');
-  }
-
-  if (dataset.setupAction === 'sleep-continue') {
-    if (!lifeProfile.sleepStart || !lifeProfile.sleepEnd) return;
-    return lifeProfile.hasFixedSchedule ? goSetup('fixed-scope') : startActivityBuilder();
-  }
-
-  if (dataset.setupScope) {
-    lifeProfile = {
-      ...lifeProfile,
-      fixedGuidanceMode: dataset.setupScope === 'breakdown' ? 'breakdown' : 'outside'
-    };
-    resetActivityDraft();
-    return goSetup('pre-fixed');
-  }
-
-  if (dataset.setupAction === 'pre-fixed-continue') {
-    const start = setupActivityDraft.start;
-    if (!start || start === lifeProfile.fixedStart) return;
-    const subject = fixedSubject(lifeProfile.fixedKind);
-    upsertAnchorActivity(
-      ANCHOR_PRE_FIXED,
-      `Prepare for ${subject}`,
-      lifeProfile.fixedDays,
-      start,
-      lifeProfile.fixedStart,
-      'routine'
-    );
-    resetActivityDraft();
-    return goSetup('pre-sleep');
-  }
-
-  if (dataset.setupAction === 'pre-sleep-continue') {
-    const start = setupActivityDraft.start;
-    if (!start || start === lifeProfile.sleepStart) return;
-    upsertAnchorActivity(
-      ANCHOR_PRE_SLEEP,
-      'Prepare for sleep',
-      ALL_DAYS,
-      start,
-      lifeProfile.sleepStart,
-      'routine'
-    );
-    resetActivityDraft();
-    return goSetup('home-arrival');
-  }
-
-  if (dataset.setupAction === 'home-arrival-continue') {
-    const end = setupActivityDraft.start;
-    if (!end || end === lifeProfile.fixedEnd) return;
-    upsertAnchorActivity(
-      ANCHOR_HOME,
-      'Travel home',
-      lifeProfile.fixedDays,
-      lifeProfile.fixedEnd,
-      end,
-      'routine'
-    );
-    return startActivityBuilder();
-  }
-
-  if (dataset.setupActivityIcon) {
-    setupActivityDraft = { ...setupActivityDraft, icon: dataset.setupActivityIcon };
-    return render();
-  }
-
-  if (dataset.setupAction === 'activity-name-continue') {
-    const name = setupActivityDraft.name.trim();
-    if (!name || !setupActivityDraft.start) return;
-    return goSetup('activity-end');
-  }
-
-  if (dataset.setupAction === 'activity-add') {
-    const name = setupActivityDraft.name.trim();
-    const { icon, start, end } = setupActivityDraft;
-    if (!name || !start || !end || start === end) return;
-
-    const conflict = findTimeConflict(lifeProfile, setupActivityDay, start, end);
-    if (conflict) return;
-
-    const activity = {
-      id: `activity-${Date.now()}-${lifeProfile.activities.length + 1}`,
-      name: name.slice(0, 48),
-      icon: icon || 'general',
-      days: [setupActivityDay],
-      start,
-      end
-    };
-    lifeProfile = { ...lifeProfile, activities: [...lifeProfile.activities, activity] };
-    setupActivityCursor = end;
-    if (setupHistory[setupHistory.length - 1] === 'activities') setupHistory.pop();
-    setupStep = 'activities';
-    resetActivityDraft(setupActivityCursor);
-    return render();
-  }
-
-  if (dataset.setupRemoveActivity) {
-    if (ANCHOR_IDS.has(dataset.setupRemoveActivity)) return;
-    lifeProfile = {
-      ...lifeProfile,
-      activities: lifeProfile.activities.filter((activity) => activity.id !== dataset.setupRemoveActivity)
-    };
-    setupActivityCursor = activityCursorForDay(setupActivityDay);
-    resetActivityDraft(setupActivityCursor);
-    return render();
-  }
-
-  if (dataset.setupAction === 'activity-day-next') {
-    const nextDay = nextActivityDay();
-    if (nextDay !== null) {
-      setActivityDay(nextDay);
-      return render();
-    }
-    return goSetup('review');
-  }
-
-  if (dataset.setupAction === 'activity-day-back') {
-    const previousDay = previousActivityDay();
-    if (previousDay !== null) {
-      setActivityDay(previousDay);
-      return render();
-    }
-    resetActivityDraft();
-    return goSetupBack();
-  }
-
-  if (dataset.setupAction === 'review-edit') {
-    setupHistory.push(setupStep);
-    setupStep = 'activities';
-    setActivityDay(1);
-    return render();
-  }
-
-  if (dataset.setupAction === 'review-confirm') {
-    setupHistory.push(setupStep);
-    setupStep = 'ready';
-    render();
-    clearTimeout(setupTimer);
-    setupTimer = setTimeout(finishLifeSetup, 900);
+  if (action === 'end-rest' && pauseState.active) {
+    pauseState = finishRest(pauseState, 'ended-early');
+    return showCompletion();
   }
 }
 
-function handleAdjustment(dataset) {
-  hideHint();
-
-  if (dataset.action === 'done') {
-    orbMode = 'completed';
-    render();
-    clearTimeout(completionTimer);
-    completionTimer = setTimeout(() => {
-      lifeState = completeCurrent(lifeState);
-      orbMode = 'now';
-      render();
-    }, 900);
-    return;
-  }
-
-  if (dataset.action === 'more') return setMode('more-time');
-  if (dataset.action === 'cant') return setMode('cant-now');
-  if (dataset.action === 'urgent') return setMode('urgent-time');
-
-  if (dataset.minutes) {
-    lifeState = extendCurrent(lifeState, Number(dataset.minutes));
-    orbMode = 'now';
-    return render();
-  }
-
-  if (dataset.defer) {
-    lifeState = deferCurrent(lifeState, dataset.defer);
-    orbMode = 'now';
-    return render();
-  }
-
-  if (dataset.urgent) {
-    const minutes = dataset.urgent === 'unknown' ? null : Number(dataset.urgent);
-    lifeState = addUrgentMatter(lifeState, minutes);
-    orbMode = 'now';
-    return render();
-  }
+function handleStartRest({ label, minutes, saveCustom }) {
+  if (saveCustom) pauseState = addCustomRest(pauseState, label);
+  pauseState = startRest(pauseState, label, minutes);
+  panelView = null;
+  menuOpen = false;
+  completionVisible = false;
+  render();
 }
 
-function getGestureController() {
+function handleAddRest(label) {
+  pauseState = addCustomRest(pauseState, label);
+  render();
+}
+
+function handleRemoveRest(label) {
+  pauseState = removeCustomRest(pauseState, label);
+  render();
+}
+
+function getGestureHandlers() {
   gestureController?.destroy();
   gestureController = createOrbGestureController({
-    onSingleTap: openWhy,
+    onSingleTap: () => {
+      if (!pauseState.active) openPanel('take-rest');
+    },
     onDoubleTap: () => {
-      hideHint();
-      whyOpen = false;
-      systemView = null;
-      orbMode = 'adjust';
-      render();
+      if (!pauseState.active) openPanel('take-rest');
     },
     onHoldStart: () => {
-      hideHint();
-      whyOpen = false;
-      systemView = null;
-      orbMode = 'today';
+      menuOpen = true;
+      panelView = null;
       render();
     },
     onHoldEnd: () => {}
   });
-
   return {
     pointerDown: () => gestureController.pointerDown(),
     pointerUp: () => gestureController.pointerUp(),
     cancel: () => gestureController.cancel(),
-    keyboardTap: openWhy
+    keyboardTap: () => {
+      if (!pauseState.active) openPanel('take-rest');
+    }
   };
 }
 
 function LaunchScreen() {
   const view = document.createElement('section');
-  view.className = 'screen launch-screen';
+  view.className = 'screen launch-screen pause-launch-screen';
   view.innerHTML = `
     <div class="launch-brand">
-      <div class="brand-title brand-title-launch" aria-label="LIFE OS">
-        <span>L I F E</span><span class="brand-os">O S</span>
+      <div class="brand-title brand-title-launch pause-brand-title" aria-label="PAUSE">
+        <span>P A U S E</span>
       </div>
-      <p>Control your life.</p>
+      <p>Know When to Stop.</p>
     </div>
     <div class="launch-orb" aria-hidden="true"><div class="orb"></div></div>
   `;
@@ -541,89 +133,44 @@ function LaunchScreen() {
   return view;
 }
 
-function SetupScreen() {
-  const view = document.createElement('section');
-  view.className = 'screen main-screen setup-screen';
-  view.appendChild(Brand());
-
-  const stage = document.createElement('div');
-  stage.className = 'orb-stage setup-stage';
-  stage.appendChild(LifeSetupOrb({
-    step: setupStep,
-    profile: lifeProfile,
-    activityDraft: setupActivityDraft,
-    activityDay: setupActivityDay,
-    onAction: handleSetupAction,
-    onField: handleSetupField
-  }));
-  view.appendChild(stage);
-
-  const hint = document.createElement('p');
-  hint.className = 'gesture-hint setup-bottom-hint';
-  hint.textContent = setupStep === 'welcome' ? 'Your life. Your reality. Your direction.' : '';
-  view.appendChild(hint);
-  return view;
-}
-
 function MainScreen() {
-  const activity = currentActivity(lifeState);
+  checkExpired();
   const view = document.createElement('section');
-  view.className = `screen main-screen${orbMode === 'today' ? ' is-today' : ''}`;
+  view.className = `screen main-screen pause-main-screen${menuOpen ? ' is-today' : ''}${pauseState.active ? ' is-resting' : ''}`;
   view.appendChild(Brand());
 
   const stage = document.createElement('div');
   stage.className = 'orb-stage';
 
-  if (orbMode === 'today') {
-    stage.appendChild(TodayRing(lifeState.activities, activity.id, openSystemView));
-  }
+  if (menuOpen) stage.appendChild(TodayRing(handleMenuSelect));
 
-  const orbShell = Orb({
-    activity,
-    mode: orbMode,
-    gestureHandlers: orbMode === 'now' ? getGestureController() : null,
-    onAction: handleAdjustment
+  const mode = completionVisible ? 'completed' : menuOpen ? 'menu' : pauseState.active ? 'resting' : 'idle';
+  const orb = Orb({
+    state: pauseState,
+    mode,
+    gestureHandlers: !menuOpen && !completionVisible ? getGestureHandlers() : null,
+    onAction: handleOrbAction
   });
-
-  if (orbMode === 'today') {
-    const orb = orbShell.querySelector('.orb');
-    orb?.setAttribute('tabindex', '0');
-    orb?.setAttribute('aria-label', 'Current activity. Tap to close today view.');
-    orb?.addEventListener('click', () => {
-      orbMode = 'now';
-      render();
-    });
-    orb?.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        orbMode = 'now';
-        render();
-      }
-    });
-  }
-
-  stage.appendChild(orbShell);
+  stage.appendChild(orb);
   view.appendChild(stage);
 
   const hint = document.createElement('p');
-  hint.className = `gesture-hint${hintVisible && orbMode === 'now' ? ' is-visible' : ''}`;
-  hint.textContent = orbMode === 'today'
-    ? 'Settings + Info above 12:00 · Tap orb to return'
-    : 'Tap for why · Hold for today · Double tap to adjust';
+  hint.className = 'gesture-hint is-visible pause-hint';
+  hint.textContent = menuOpen
+    ? 'Choose a PAUSE action · Tap orb to return'
+    : pauseState.active
+      ? 'This time is yours · Hold for menu'
+      : 'Tap to rest · Hold for menu';
   view.appendChild(hint);
 
-  if (whyOpen) {
-    view.appendChild(WhyPanel(activity, closeWhy));
-  }
-
-  if (systemView) {
-    view.appendChild(SystemPanel({
-      view: systemView,
-      profile: lifeProfile,
-      onClose: closeSystemView,
-      onNavigate: navigateSystemView,
-      onSaveTimes: saveActivityTimes,
-      onReset: resetLifeSetup
+  if (panelView) {
+    view.appendChild(PausePanel({
+      view: panelView,
+      state: pauseState,
+      onClose: closePanel,
+      onStart: handleStartRest,
+      onAddRest: handleAddRest,
+      onRemoveRest: handleRemoveRest
     }));
   }
 
@@ -631,58 +178,47 @@ function MainScreen() {
 }
 
 function render() {
-  if (screen === 'launch') return app.replaceChildren(LaunchScreen());
-  if (screen === 'setup') return app.replaceChildren(SetupScreen());
-  return app.replaceChildren(MainScreen());
+  if (screen === 'launch') app.replaceChildren(LaunchScreen());
+  else app.replaceChildren(MainScreen());
 }
 
 function onKeydown(event) {
-  if (event.key === 'Escape') {
-    if (systemView) return closeSystemView();
-    if (screen === 'setup' && setupStep === 'activities') {
-      return handleSetupAction({ setupAction: 'activity-day-back' });
-    }
-    if (screen === 'setup' && setupHistory.length) return goSetupBack();
-    if (whyOpen) return closeWhy();
-    if (orbMode !== 'now') {
-      orbMode = 'now';
-      render();
-    }
+  if (event.key !== 'Escape') return;
+  if (panelView) return closePanel();
+  if (menuOpen) {
+    menuOpen = false;
+    render();
   }
 }
 
 document.addEventListener('keydown', onKeydown);
-render();
-
-launchTimer = setTimeout(() => {
-  screen = hasCompletedSetup ? 'now' : 'setup';
-  render();
-}, 1800);
-
-window.__LIFE_OS__ = {
-  getState: () => ({
-    screen,
-    orbMode,
-    whyOpen,
-    systemView,
-    lifeState,
-    lifeProfile,
-    setupStep,
-    setupActivityDay,
-    setupActivityCursor,
-    setupActivityDraft
-  }),
-  reset: () => {
-    clearTimeout(completionTimer);
-    clearTimeout(launchTimer);
-    clearTimeout(setupTimer);
-    lifeState = createInitialLifeState();
-    screen = 'now';
-    orbMode = 'now';
-    whyOpen = false;
-    systemView = null;
-    hintVisible = true;
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && screen === 'main') {
+    checkExpired();
     render();
-  },
-  resetOnboarding: resetLifeSetup
+  }
+});
+window.addEventListener('focus', () => {
+  if (screen === 'main') {
+    checkExpired();
+    render();
+  }
+});
+
+render();
+launchTimer = setTimeout(() => {
+  screen = 'main';
+  checkExpired();
+  render();
+}, 1100);
+
+tickTimer = setInterval(() => {
+  if (screen !== 'main' || !pauseState.active || completionVisible) return;
+  if (!checkExpired()) render();
+}, 1000);
+
+window.__PAUSE__ = {
+  getState: () => ({ pauseState, screen, menuOpen, panelView, completionVisible }),
+  openMenu: () => { menuOpen = true; render(); },
+  takeRest: () => openPanel('take-rest')
 };

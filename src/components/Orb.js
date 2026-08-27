@@ -1,5 +1,5 @@
 import { OrbArtwork } from './OrbArtwork.js';
-import { formatClock } from '../state/lifeState.js';
+import { formatCountdown, remainingMs } from '../restState.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -10,75 +10,37 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-function nowContent(activity) {
-  const lines = activity.title.split('\n').map(escapeHtml).join('<br>');
-  const timing = activity.kind === 'open'
-    ? '<p class="orb-until">No activity scheduled</p>'
-    : `
-      <p class="orb-until">Until</p>
-      <p class="orb-time">${formatClock(activity.end)}</p>
-    `;
-
+function idleContent() {
   return `
-    <div class="orb-content orb-now-content">
-      <p class="orb-kicker">RUNNING NOW</p>
-      <h1 class="orb-title">${lines}</h1>
+    <div class="orb-content orb-now-content pause-idle-content">
+      <p class="orb-kicker">PAUSE</p>
+      <h1 class="orb-title">READY TO<br>REST?</h1>
       <span class="orb-divider" aria-hidden="true"><i></i></span>
-      ${timing}
+      <p class="orb-until">Tap to take a rest</p>
     </div>
   `;
 }
 
-function adjustContent() {
+function menuContent() {
   return `
-    <div class="orb-content orb-choice-content">
-      <p class="orb-prompt-title">WHAT CHANGED?</p>
-      <div class="orb-options">
-        <button type="button" data-action="done">I'm done</button>
-        <button type="button" data-action="more">I need more time</button>
-        <button type="button" data-action="cant">I can't do this now</button>
-        <button type="button" data-action="urgent">Something urgent came up</button>
-      </div>
+    <div class="orb-content orb-now-content pause-menu-content">
+      <p class="orb-kicker">PAUSE</p>
+      <h1 class="orb-title">CHOOSE<br>YOUR REST</h1>
+      <span class="orb-divider" aria-hidden="true"><i></i></span>
+      <p class="orb-until">Tap the orb to close</p>
     </div>
   `;
 }
 
-function moreTimeContent() {
+function restingContent(state) {
+  const session = state.active;
   return `
-    <div class="orb-content orb-choice-content">
-      <p class="orb-prompt-title">HOW MUCH MORE TIME?</p>
-      <div class="orb-options orb-options-compact">
-        <button type="button" data-minutes="15">+15 min</button>
-        <button type="button" data-minutes="30">+30 min</button>
-        <button type="button" data-minutes="60">+60 min</button>
-      </div>
-    </div>
-  `;
-}
-
-function cantNowContent() {
-  return `
-    <div class="orb-content orb-choice-content">
-      <p class="orb-prompt-title">WHAT SHOULD LIFE OS DO?</p>
-      <div class="orb-options orb-options-compact">
-        <button type="button" data-defer="later">Move later today</button>
-        <button type="button" data-defer="another-day">Move to another day</button>
-        <button type="button" data-defer="skip">Skip today</button>
-      </div>
-    </div>
-  `;
-}
-
-function urgentContent() {
-  return `
-    <div class="orb-content orb-choice-content">
-      <p class="orb-prompt-title">HOW MUCH TIME DO YOU NEED?</p>
-      <div class="orb-options orb-options-compact">
-        <button type="button" data-urgent="15">15 min</button>
-        <button type="button" data-urgent="30">30 min</button>
-        <button type="button" data-urgent="60">1 hour</button>
-        <button type="button" data-urgent="unknown">Not sure</button>
-      </div>
+    <div class="orb-content orb-now-content pause-resting-content">
+      <p class="orb-kicker">RESTING</p>
+      <h1 class="orb-title pause-rest-label">${escapeHtml(session?.label || 'Rest')}</h1>
+      <span class="orb-divider" aria-hidden="true"><i></i></span>
+      <p class="orb-time pause-countdown" data-pause-countdown>${formatCountdown(remainingMs(state))}</p>
+      <button type="button" class="pause-end-rest" data-pause-action="end-rest">END REST</button>
     </div>
   `;
 }
@@ -87,13 +49,13 @@ function completedContent() {
   return `
     <div class="orb-content orb-completed-content">
       <div class="complete-check" aria-hidden="true">✓</div>
-      <p class="orb-prompt-title">COMPLETED</p>
-      <p class="complete-copy">Finding what matters next…</p>
+      <p class="orb-prompt-title">REST COMPLETE</p>
+      <p class="complete-copy">Return when you're ready.</p>
     </div>
   `;
 }
 
-export function Orb({ activity, mode = 'now', gestureHandlers, onAction }) {
+export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
   const shell = document.createElement('div');
   shell.className = `orb-shell orb-mode-${mode}`;
   shell.dataset.testid = 'orb';
@@ -101,26 +63,28 @@ export function Orb({ activity, mode = 'now', gestureHandlers, onAction }) {
   const orb = document.createElement('div');
   orb.className = 'orb';
   orb.setAttribute('role', 'button');
-  orb.setAttribute('tabindex', mode === 'now' ? '0' : '-1');
-  orb.setAttribute('aria-label', mode === 'now'
-    ? 'Current activity. Tap for why, hold for today, double tap to adjust.'
-    : 'LIFE OS adjustment controls');
+  orb.setAttribute('tabindex', '0');
+  orb.setAttribute('aria-label', mode === 'resting'
+    ? `Resting: ${state.active?.label || 'Rest'}. Hold for menu.`
+    : mode === 'menu'
+      ? 'PAUSE menu. Tap to close.'
+      : 'PAUSE. Tap to take a rest or hold for the main menu.');
 
-  if (mode === 'now' || mode === 'today') orb.innerHTML = nowContent(activity);
-  if (mode === 'adjust') orb.innerHTML = adjustContent();
-  if (mode === 'more-time') orb.innerHTML = moreTimeContent();
-  if (mode === 'cant-now') orb.innerHTML = cantNowContent();
-  if (mode === 'urgent-time') orb.innerHTML = urgentContent();
-  if (mode === 'completed') orb.innerHTML = completedContent();
+  if (mode === 'resting') orb.innerHTML = restingContent(state);
+  else if (mode === 'completed') orb.innerHTML = completedContent();
+  else if (mode === 'menu') orb.innerHTML = menuContent();
+  else orb.innerHTML = idleContent();
 
-  if (mode === 'now' && gestureHandlers) {
+  if ((mode === 'idle' || mode === 'resting') && gestureHandlers) {
     orb.addEventListener('pointerdown', (event) => {
       if (event.button !== undefined && event.button !== 0) return;
+      if (event.target.closest('button')) return;
       event.preventDefault();
       try { orb.setPointerCapture?.(event.pointerId); } catch {}
       gestureHandlers.pointerDown();
     });
     orb.addEventListener('pointerup', (event) => {
+      if (event.target.closest('button')) return;
       event.preventDefault();
       gestureHandlers.pointerUp();
     });
@@ -134,32 +98,13 @@ export function Orb({ activity, mode = 'now', gestureHandlers, onAction }) {
     });
   }
 
-  const buttons = [...orb.querySelectorAll('button')];
-
-  // A mobile double tap can emit a trailing synthetic click after the second
-  // pointerup. Because that pointerup re-renders the orb into the adjustment
-  // menu, the synthetic click can land on "I need more time" immediately and
-  // make it look as if the first adjustment screen never existed. Briefly arm
-  // the newly rendered adjustment menu so the double-tap release cannot select
-  // an option. Normal taps work immediately after this short guard window.
-  if (mode === 'adjust') {
-    buttons.forEach((button) => { button.disabled = true; });
-    window.setTimeout(() => {
-      buttons.forEach((button) => {
-        if (button.isConnected) button.disabled = false;
-      });
-    }, 320);
+  if (mode === 'menu') {
+    orb.addEventListener('click', () => onAction?.('close-menu'));
   }
 
-  buttons.forEach((button) => {
-    button.addEventListener('click', (event) => {
-      event.stopPropagation();
-      if (button.disabled) {
-        event.preventDefault();
-        return;
-      }
-      onAction?.(button.dataset);
-    });
+  orb.querySelector('[data-pause-action="end-rest"]')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    onAction?.('end-rest');
   });
 
   shell.append(OrbArtwork(), orb);
