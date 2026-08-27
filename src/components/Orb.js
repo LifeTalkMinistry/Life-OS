@@ -21,19 +21,6 @@ function ensurePauseSymbolStyles() {
       width: min(54%, 132px);
       height: clamp(70px, 22vw, 102px);
       filter: drop-shadow(0 0 14px rgba(212, 187, 255, .16));
-      animation: pause-symbol-blink 2.2s ease-in-out infinite;
-      will-change: opacity, filter;
-    }
-
-    @keyframes pause-symbol-blink {
-      0%, 100% {
-        opacity: 1;
-        filter: drop-shadow(0 0 14px rgba(212, 187, 255, .18));
-      }
-      50% {
-        opacity: .38;
-        filter: drop-shadow(0 0 5px rgba(212, 187, 255, .06));
-      }
     }
 
     .pause-symbol span {
@@ -45,6 +32,24 @@ function ensurePauseSymbolStyles() {
       box-shadow:
         0 0 9px rgba(255,255,255,.18),
         0 0 20px rgba(174,119,255,.28);
+      transform-origin: 50% 50%;
+      animation: pause-eye-blink 4.2s cubic-bezier(.4, 0, .2, 1) infinite;
+      will-change: transform;
+    }
+
+    @keyframes pause-eye-blink {
+      0%, 44%, 53%, 100% {
+        transform: scaleY(1) scaleX(1);
+      }
+      47% {
+        transform: scaleY(.42) scaleX(1.04);
+      }
+      49.2%, 50.8% {
+        transform: scaleY(.07) scaleX(1.12);
+      }
+      52% {
+        transform: scaleY(.5) scaleX(1.03);
+      }
     }
 
     .pause-symbol-caption {
@@ -65,7 +70,7 @@ function ensurePauseSymbolStyles() {
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .pause-symbol {
+      .pause-symbol span {
         animation: none;
       }
     }
