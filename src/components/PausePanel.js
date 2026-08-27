@@ -1,4 +1,4 @@
-import { formatDuration, restInsights } from '../restState.js';
+import { restInsights } from '../restState.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -9,6 +9,19 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
+function formatInsightDuration(ms) {
+  const totalSeconds = Math.max(0, Math.round(Number(ms || 0) / 1000));
+  if (totalSeconds < 60) return `${totalSeconds} sec`;
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+  if (seconds === 0) return `${minutes} min`;
+  return `${minutes}m ${seconds}s`;
+}
+
 function ensureInsightStyles() {
   if (document.querySelector('#pause-detailed-insights-style')) return;
   const style = document.createElement('style');
@@ -16,6 +29,27 @@ function ensureInsightStyles() {
   style.textContent = `
     .pause-view-insights {
       max-height: min(84svh, 780px);
+    }
+
+    .pause-live-data-note {
+      margin: -5px 0 14px;
+      color: #746d7d;
+      font-size: .6rem;
+      font-weight: 600;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    .pause-live-data-note::before {
+      content: '';
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      margin-right: 7px;
+      border-radius: 50%;
+      background: #a579ff;
+      box-shadow: 0 0 8px rgba(165, 121, 255, .5);
+      vertical-align: 1px;
     }
 
     .pause-rhythm-hero {
@@ -90,16 +124,37 @@ function ensureInsightStyles() {
 
     .pause-rhythm-days {
       display: grid;
-      gap: 10px;
+      gap: 11px;
     }
 
     .pause-rhythm-day {
       display: grid;
-      grid-template-columns: 34px 1fr 58px;
+      grid-template-columns: 68px 1fr 62px;
       align-items: center;
-      gap: 9px;
+      gap: 10px;
       color: #a79fac;
       font-size: .69rem;
+    }
+
+    .pause-rhythm-day-label {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+
+    .pause-rhythm-day-label strong {
+      overflow: hidden;
+      color: #c7bfce;
+      font-size: .69rem;
+      font-weight: 520;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pause-rhythm-day-label small {
+      color: #706978;
+      font-size: .57rem;
+      letter-spacing: .02em;
     }
 
     .pause-rhythm-track {
@@ -195,7 +250,7 @@ function ensureInsightStyles() {
 
     @media (max-width: 390px) {
       .pause-detailed-grid { grid-template-columns: 1fr 1fr; }
-      .pause-rhythm-day { grid-template-columns: 30px 1fr 52px; gap: 7px; }
+      .pause-rhythm-day { grid-template-columns: 62px 1fr 58px; gap: 8px; }
     }
   `;
   document.head.appendChild(style);
@@ -226,9 +281,12 @@ function insightsContent(state) {
     const width = day.totalMs > 0 ? Math.max(7, Math.round((day.totalMs / maxDaily) * 100)) : 0;
     return `
       <div class="pause-rhythm-day">
-        <span>${escapeHtml(day.label)}</span>
+        <div class="pause-rhythm-day-label">
+          <strong>${escapeHtml(day.label)}</strong>
+          <small>${escapeHtml(day.dateLabel)}</small>
+        </div>
         <div class="pause-rhythm-track" aria-hidden="true"><span class="pause-rhythm-fill" style="width:${width}%"></span></div>
-        <span class="pause-rhythm-duration">${day.totalMs ? escapeHtml(formatDuration(day.totalMs)) : '—'}</span>
+        <span class="pause-rhythm-duration">${day.totalMs ? escapeHtml(formatInsightDuration(day.totalMs)) : '—'}</span>
       </div>
     `;
   }).join('');
@@ -239,7 +297,7 @@ function insightsContent(state) {
     return `
       <div class="pause-history-row">
         <div><strong>Rest</strong><small>${escapeHtml(stamp)}</small></div>
-        <span>${escapeHtml(formatDuration(entry.durationMs))}</span>
+        <span>${escapeHtml(formatInsightDuration(entry.durationMs))}</span>
       </div>
     `;
   }).join('');
@@ -247,18 +305,19 @@ function insightsContent(state) {
   return `
     ${panelHeader('Rest Insights')}
     <p class="system-panel-intro">Understand how consistently you're actually giving yourself permission to stop.</p>
+    <p class="pause-live-data-note">Calculated from your completed rests</p>
 
     <section class="pause-rhythm-hero">
-      <small>REST RHYTHM · LAST 7 DAYS</small>
+      <small>REST RHYTHM · LAST 7 CALENDAR DAYS</small>
       <strong class="pause-rhythm-value">${insights.restDays} / 7</strong>
       <p class="pause-rhythm-copy">days with at least one intentional pause</p>
     </section>
 
     <div class="pause-detailed-grid">
-      <article><small>TOTAL REST</small><strong>${escapeHtml(formatDuration(insights.totalMs))}</strong></article>
+      <article><small>TOTAL REST</small><strong>${escapeHtml(formatInsightDuration(insights.totalMs))}</strong></article>
       <article><small>PAUSES</small><strong>${insights.sessions}</strong></article>
-      <article><small>AVERAGE REST</small><strong>${escapeHtml(formatDuration(insights.averageMs))}</strong></article>
-      <article><small>LONGEST REST</small><strong>${escapeHtml(formatDuration(insights.longestMs))}</strong></article>
+      <article><small>AVERAGE REST</small><strong>${escapeHtml(formatInsightDuration(insights.averageMs))}</strong></article>
+      <article><small>LONGEST REST</small><strong>${escapeHtml(formatInsightDuration(insights.longestMs))}</strong></article>
     </div>
 
     <section class="pause-insight-section">
@@ -270,7 +329,7 @@ function insightsContent(state) {
       <p class="pause-insight-section-title">PATTERN</p>
       <div class="pause-pattern-row"><span>You pause most often</span><strong>${escapeHtml(insights.mostCommonTime)}</strong></div>
       <div class="pause-pattern-row"><span>Rest-day consistency</span><strong>${escapeHtml(changeCopy(insights.restDayChange, 'rest days'))}</strong></div>
-      <div class="pause-pattern-row"><span>Compared with last week</span><strong>${insights.totalMsChange === 0 ? 'Same rest time' : `${insights.totalMsChange > 0 ? '+' : '−'}${escapeHtml(formatDuration(Math.abs(insights.totalMsChange)))}`}</strong></div>
+      <div class="pause-pattern-row"><span>Compared with last week</span><strong>${insights.totalMsChange === 0 ? 'Same rest time' : `${insights.totalMsChange > 0 ? '+' : '−'}${escapeHtml(formatInsightDuration(Math.abs(insights.totalMsChange)))}`}</strong></div>
     </section>
 
     <section class="pause-insight-section">
@@ -278,7 +337,7 @@ function insightsContent(state) {
       <div class="pause-history-list">${historyRows || '<p class="pause-empty">No rests yet. Tap the ORB when you decide to stop.</p>'}</div>
     </section>
 
-    <p class="pause-insight-note">PAUSE reflects your rest behavior. It doesn't grade or judge it.</p>
+    <p class="pause-insight-note">PAUSE reflects your recorded rest behavior. It doesn't grade or judge it.</p>
   `;
 }
 
