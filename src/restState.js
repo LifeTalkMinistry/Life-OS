@@ -153,6 +153,12 @@ function localDayKey(timestamp) {
   return `${year}-${month}-${day}`;
 }
 
+function startOfLocalDay(timestamp) {
+  const date = new Date(Number(timestamp));
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
 function timeOfDay(timestamp) {
   const hour = new Date(Number(timestamp)).getHours();
   if (hour >= 5 && hour < 12) return 'Morning';
@@ -171,6 +177,86 @@ function validHistoryEntries(state) {
     const duration = Number(entry.durationMs);
     return Number.isFinite(stamp) && Number.isFinite(duration) && duration >= 0;
   });
+}
+
+function buildWeekdayPattern(history, now) {
+  const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const todayStart = startOfLocalDay(now);
+  const rollingStart = new Date(todayStart);
+  rollingStart.setDate(todayStart.getDate() - 27);
+
+  const eligibleHistory = history.filter((entry) => Number(entry.startAt || entry.endedAt) <= now);
+  if (!eligibleHistory.length) {
+    return {
+      ready: false,
+      daysObserved: 0,
+      restDaysObserved: 0,
+      sessions: 0,
+      ranked: [],
+      strongest: null,
+      weakest: null
+    };
+  }
+
+  const firstStamp = Math.min(...eligibleHistory.map((entry) => Number(entry.startAt || entry.endedAt)));
+  const firstDay = startOfLocalDay(firstStamp);
+  const observedStart = firstDay > rollingStart ? firstDay : rollingStart;
+  const observedStartMs = observedStart.getTime();
+
+  const buckets = WEEKDAYS.map((label, weekday) => ({
+    weekday,
+    label,
+    occurrences: 0,
+    totalMs: 0,
+    sessions: 0,
+    restDayKeys: new Set()
+  }));
+
+  let daysObserved = 0;
+  for (let cursor = new Date(observedStart); cursor <= todayStart; cursor.setDate(cursor.getDate() + 1)) {
+    buckets[cursor.getDay()].occurrences += 1;
+    daysObserved += 1;
+  }
+
+  const patternEntries = eligibleHistory.filter((entry) => {
+    const stamp = Number(entry.startAt || entry.endedAt);
+    return stamp >= observedStartMs && stamp <= now;
+  });
+
+  patternEntries.forEach((entry) => {
+    const stamp = Number(entry.startAt || entry.endedAt);
+    const date = new Date(stamp);
+    const bucket = buckets[date.getDay()];
+    bucket.totalMs += Number(entry.durationMs || 0);
+    bucket.sessions += 1;
+    bucket.restDayKeys.add(localDayKey(stamp));
+  });
+
+  const ranked = buckets
+    .map((bucket) => ({
+      weekday: bucket.weekday,
+      label: bucket.label,
+      occurrences: bucket.occurrences,
+      totalMs: bucket.totalMs,
+      sessions: bucket.sessions,
+      restDays: bucket.restDayKeys.size,
+      averageMs: bucket.occurrences ? bucket.totalMs / bucket.occurrences : 0
+    }))
+    .sort((a, b) => b.averageMs - a.averageMs || b.totalMs - a.totalMs || a.weekday - b.weekday)
+    .map((item, index) => ({ ...item, rank: index + 1 }));
+
+  const restDaysObserved = uniqueRestDays(patternEntries);
+  const ready = daysObserved >= 14 && restDaysObserved >= 4 && patternEntries.length >= 5;
+
+  return {
+    ready,
+    daysObserved,
+    restDaysObserved,
+    sessions: patternEntries.length,
+    ranked,
+    strongest: ready ? ranked[0] : null,
+    weakest: ready ? ranked[ranked.length - 1] : null
+  };
 }
 
 export function restInsights(state, now = Date.now()) {
@@ -213,7 +299,8 @@ export function restInsights(state, now = Date.now()) {
   });
   const mostCommonTime = [...byTime.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
 
-  // Show the most relevant day first: Today → Yesterday → five earlier days.
+  // The recent timeline stays chronological by relevance: Today → Yesterday → earlier days.
+  // Ranking by strongest weekday is a separate learned pattern below it.
   const daily = [];
   for (let offset = 0; offset <= 6; offset += 1) {
     const date = new Date(todayStart);
@@ -246,6 +333,7 @@ export function restInsights(state, now = Date.now()) {
     previousTotalMs,
     totalMsChange: totalMs - previousTotalMs,
     mostCommonTime,
-    daily
+    daily,
+    weekdayPattern: buildWeekdayPattern(history, now)
   };
 }
