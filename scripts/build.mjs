@@ -6,6 +6,7 @@ const scriptOrder = [
   'src/restState.js',
   'src/components/Brand.js',
   'src/components/Orb.js',
+  'src/components/PauseScore.js',
   'src/components/TodayRing.js',
   'src/components/PausePanel.js',
   'src/app.js'
