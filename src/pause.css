@@ -1,3 +1,66 @@
+/* PAUSE physical-layout invariant.
+ * This file loads last, so the PAUSE control surface cannot be pushed down
+ * by legacy grid/min-height rules. Brand, orb center and footer keep the same
+ * physical anchors in idle, resting and menu states.
+ */
+.pause-main-screen {
+  position: relative !important;
+  display: block !important;
+  width: min(100%, 560px);
+  height: 100svh !important;
+  min-height: 100svh !important;
+}
+
+.pause-main-screen > .brand {
+  position: absolute !important;
+  top: 7.2svh !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  z-index: 6;
+}
+
+.pause-main-screen > .orb-stage,
+.pause-main-screen.is-today > .orb-stage {
+  position: absolute !important;
+  top: 55svh !important;
+  left: 50% !important;
+  width: 100% !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  transform: translate(-50%, -50%) !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: visible !important;
+}
+
+.pause-main-screen > .orb-stage > .orb-shell,
+.pause-main-screen > .orb-stage > .today-ring {
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: center;
+}
+
+.pause-main-screen > .gesture-hint {
+  position: absolute !important;
+  left: 18px !important;
+  right: 18px !important;
+  bottom: 4.6svh !important;
+  margin: 0 !important;
+  min-height: 20px;
+  text-align: center;
+}
+
+@media (max-width: 360px) {
+  .pause-main-screen > .brand { top: 7svh !important; }
+  .pause-main-screen > .orb-stage,
+  .pause-main-screen.is-today > .orb-stage { top: 55svh !important; }
+  .pause-main-screen > .gesture-hint { bottom: 4.2svh !important; }
+}
+
 .pause-brand-title,
 .pause-launch-screen .brand-title {
   letter-spacing: .24em;
