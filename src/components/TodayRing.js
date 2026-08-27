@@ -83,7 +83,7 @@ export function TodayRing(onSelect) {
   button.type = 'button';
   button.className = 'pause-home-insights-button';
   button.dataset.pauseMenu = 'insights';
-  button.innerHTML = '<strong>Rest Insights</strong><span>Understand your rest rhythm</span>';
+  button.innerHTML = '<strong>Rest Insights</strong><span>Understand your rest patterns</span>';
   button.addEventListener('click', (event) => {
     event.stopPropagation();
     onSelect?.('insights');
