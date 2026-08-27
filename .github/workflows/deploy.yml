@@ -48,8 +48,14 @@ jobs:
     needs: build
 
     steps:
+      - name: Clear stuck PAUSE Pages deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/pages/deployments/5eaf6f27f94696b08563d9d43991b2f089d6d01e/cancel" \
+            >/dev/null 2>&1 || true
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-        with:
-          timeout: 1200000
