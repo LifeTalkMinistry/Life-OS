@@ -145,17 +145,79 @@ export function formatDuration(ms) {
   return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
+function localDayKey(timestamp) {
+  const date = new Date(Number(timestamp));
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function timeOfDay(timestamp) {
+  const hour = new Date(Number(timestamp)).getHours();
+  if (hour >= 5 && hour < 12) return 'Morning';
+  if (hour >= 12 && hour < 17) return 'Afternoon';
+  if (hour >= 17 && hour < 22) return 'Evening';
+  return 'Late night';
+}
+
+function uniqueRestDays(entries) {
+  return new Set(entries.map((entry) => localDayKey(entry.startAt || entry.endedAt))).size;
+}
+
 export function restInsights(state, now = Date.now()) {
-  const since = now - 7 * 24 * 60 * 60 * 1000;
-  const recent = state.history.filter((entry) => Number(entry.endedAt) >= since);
+  const dayMs = 24 * 60 * 60 * 1000;
+  const currentSince = now - 7 * dayMs;
+  const previousSince = now - 14 * dayMs;
+  const history = Array.isArray(state.history) ? state.history : [];
+
+  const recent = history.filter((entry) => Number(entry.startAt || entry.endedAt) >= currentSince);
+  const previous = history.filter((entry) => {
+    const stamp = Number(entry.startAt || entry.endedAt);
+    return stamp >= previousSince && stamp < currentSince;
+  });
+
   const totalMs = recent.reduce((sum, entry) => sum + Number(entry.durationMs || 0), 0);
-  const byType = new Map();
-  recent.forEach((entry) => byType.set(entry.label, (byType.get(entry.label) || 0) + Number(entry.durationMs || 0)));
-  const top = [...byType.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+  const previousTotalMs = previous.reduce((sum, entry) => sum + Number(entry.durationMs || 0), 0);
+  const restDays = uniqueRestDays(recent);
+  const previousRestDays = uniqueRestDays(previous);
+  const longestMs = recent.reduce((longest, entry) => Math.max(longest, Number(entry.durationMs || 0)), 0);
+
+  const byTime = new Map();
+  recent.forEach((entry) => {
+    const label = timeOfDay(entry.startAt || entry.endedAt);
+    byTime.set(label, (byTime.get(label) || 0) + 1);
+  });
+  const mostCommonTime = [...byTime.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const daily = [];
+  for (let offset = 6; offset >= 0; offset -= 1) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - offset);
+    const key = localDayKey(date.getTime());
+    const dayEntries = recent.filter((entry) => localDayKey(entry.startAt || entry.endedAt) === key);
+    const dayTotalMs = dayEntries.reduce((sum, entry) => sum + Number(entry.durationMs || 0), 0);
+    daily.push({
+      key,
+      label: date.toLocaleDateString([], { weekday: 'short' }),
+      totalMs: dayTotalMs,
+      sessions: dayEntries.length
+    });
+  }
+
   return {
     sessions: recent.length,
     totalMs,
     averageMs: recent.length ? totalMs / recent.length : 0,
-    top
+    longestMs,
+    restDays,
+    previousRestDays,
+    restDayChange: restDays - previousRestDays,
+    previousTotalMs,
+    totalMsChange: totalMs - previousTotalMs,
+    mostCommonTime,
+    daily
   };
 }
