@@ -24,11 +24,18 @@ export function loadPauseState() {
     const raw = localStorage.getItem(PAUSE_STORAGE_KEY);
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw);
+    const active = parsed.active && parsed.active.label && parsed.active.startAt
+      ? {
+          ...parsed.active,
+          plannedMinutes: parsed.active.plannedMinutes ?? null,
+          endAt: parsed.active.endAt ?? null
+        }
+      : null;
     return {
       version: 1,
       customRests: Array.isArray(parsed.customRests) ? parsed.customRests.filter(Boolean).slice(0, 40) : [],
       history: Array.isArray(parsed.history) ? parsed.history.slice(0, 500) : [],
-      active: parsed.active && parsed.active.label && parsed.active.endAt ? parsed.active : null
+      active
     };
   } catch {
     return emptyState();
@@ -57,11 +64,13 @@ export function removeCustomRest(state, label) {
   });
 }
 
-export function startRest(state, label, durationMinutes) {
-  const cleanLabel = String(label || '').trim().slice(0, 48);
-  const minutes = Math.max(1, Math.min(720, Math.round(Number(durationMinutes) || 0)));
-  if (!cleanLabel || !minutes) return state;
+export function startRest(state, label = 'Rest', durationMinutes = null) {
+  const cleanLabel = String(label || 'Rest').trim().slice(0, 48) || 'Rest';
+  const parsedMinutes = Number(durationMinutes);
+  const hasPlannedDuration = Number.isFinite(parsedMinutes) && parsedMinutes > 0;
+  const minutes = hasPlannedDuration ? Math.max(1, Math.min(720, Math.round(parsedMinutes))) : null;
   const startAt = Date.now();
+
   return savePauseState({
     ...state,
     active: {
@@ -69,14 +78,19 @@ export function startRest(state, label, durationMinutes) {
       label: cleanLabel,
       plannedMinutes: minutes,
       startAt,
-      endAt: startAt + minutes * 60_000
+      endAt: minutes ? startAt + minutes * 60_000 : null
     }
   });
 }
 
 export function remainingMs(state, now = Date.now()) {
-  if (!state.active) return 0;
+  if (!state.active?.endAt) return 0;
   return Math.max(0, Number(state.active.endAt) - now);
+}
+
+export function elapsedMs(state, now = Date.now()) {
+  if (!state.active?.startAt) return 0;
+  return Math.max(0, now - Number(state.active.startAt));
 }
 
 export function finishRest(state, reason = 'ended', now = Date.now()) {
@@ -87,7 +101,7 @@ export function finishRest(state, reason = 'ended', now = Date.now()) {
   const entry = {
     id: active.id,
     label: active.label,
-    plannedMinutes: active.plannedMinutes,
+    plannedMinutes: active.plannedMinutes ?? null,
     startAt: active.startAt,
     endedAt,
     durationMs,
@@ -101,12 +115,21 @@ export function finishRest(state, reason = 'ended', now = Date.now()) {
 }
 
 export function completeExpiredRest(state, now = Date.now()) {
-  if (!state.active || remainingMs(state, now) > 0) return { state, completed: false };
+  if (!state.active?.endAt || remainingMs(state, now) > 0) return { state, completed: false };
   return { state: finishRest(state, 'timer-complete', Number(state.active.endAt)), completed: true };
 }
 
 export function formatCountdown(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+export function formatElapsed(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
