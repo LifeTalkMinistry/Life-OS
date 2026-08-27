@@ -101,6 +101,7 @@ function getGestureHandlers() {
       if (!pauseState.active) openPanel('take-rest');
     },
     onHoldStart: () => {
+      if (!pauseState.active) return;
       menuOpen = true;
       panelView = null;
       render();
@@ -135,16 +136,28 @@ function LaunchScreen() {
 
 function MainScreen() {
   checkExpired();
+
+  // The four governing PAUSE actions are the actual idle-state main menu.
+  // They stay visible around the ORB instead of being hidden behind a hold.
+  const showMainMenu = menuOpen || (!pauseState.active && !completionVisible && !panelView);
+
   const view = document.createElement('section');
-  view.className = `screen main-screen pause-main-screen${menuOpen ? ' is-today' : ''}${pauseState.active ? ' is-resting' : ''}`;
+  view.className = `screen main-screen pause-main-screen${showMainMenu ? ' is-today' : ''}${pauseState.active ? ' is-resting' : ''}`;
   view.appendChild(Brand());
 
   const stage = document.createElement('div');
   stage.className = 'orb-stage';
 
-  if (menuOpen) stage.appendChild(TodayRing(handleMenuSelect));
+  if (showMainMenu) stage.appendChild(TodayRing(handleMenuSelect));
 
-  const mode = completionVisible ? 'completed' : menuOpen ? 'menu' : pauseState.active ? 'resting' : 'idle';
+  const mode = completionVisible
+    ? 'completed'
+    : menuOpen && pauseState.active
+      ? 'menu'
+      : pauseState.active
+        ? 'resting'
+        : 'idle';
+
   const orb = Orb({
     state: pauseState,
     mode,
@@ -160,7 +173,7 @@ function MainScreen() {
     ? 'Choose a PAUSE action · Tap orb to return'
     : pauseState.active
       ? 'This time is yours · Hold for menu'
-      : 'Tap to rest · Hold for menu';
+      : 'Tap orb to rest · Choose an option around it';
   view.appendChild(hint);
 
   if (panelView) {
