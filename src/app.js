@@ -5,7 +5,6 @@ import { TodayRing } from './components/TodayRing.js';
 import { PausePanel } from './components/PausePanel.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
 import {
-  addCustomRest,
   completeExpiredRest,
   elapsedMs,
   finishRest,
@@ -13,7 +12,6 @@ import {
   formatElapsed,
   loadPauseState,
   remainingMs,
-  removeCustomRest,
   startRest
 } from './restState.js';
 
@@ -47,9 +45,9 @@ function showCompletion() {
   render();
 }
 
-function openPanel(view) {
+function openInsights() {
   menuOpen = false;
-  panelView = view;
+  panelView = 'insights';
   render();
 }
 
@@ -68,10 +66,7 @@ function beginImmediateRest() {
 }
 
 function handleMenuSelect(item) {
-  if (item === 'take-rest') return beginImmediateRest();
-  if (item === 'history') return openPanel('history');
-  if (item === 'insights') return openPanel('insights');
-  if (item === 'my-rests') return openPanel('my-rests');
+  if (item === 'insights') openInsights();
 }
 
 function handleOrbAction(action) {
@@ -83,25 +78,6 @@ function handleOrbAction(action) {
     pauseState = finishRest(pauseState, 'ended');
     return showCompletion();
   }
-}
-
-function handleStartRest({ label, minutes, saveCustom }) {
-  if (saveCustom) pauseState = addCustomRest(pauseState, label);
-  pauseState = startRest(pauseState, label, minutes);
-  panelView = null;
-  menuOpen = false;
-  completionVisible = false;
-  render();
-}
-
-function handleAddRest(label) {
-  pauseState = addCustomRest(pauseState, label);
-  render();
-}
-
-function handleRemoveRest(label) {
-  pauseState = removeCustomRest(pauseState, label);
-  render();
 }
 
 function getGestureHandlers() {
@@ -150,18 +126,18 @@ function LaunchScreen() {
 function MainScreen() {
   checkExpired();
 
-  // The ORB is the rest action itself. One tap starts a live, open-ended rest
-  // timer immediately; secondary navigation stays below the ORB.
-  const showMainMenu = menuOpen || (!pauseState.active && !completionVisible && !panelView);
+  // PAUSE now has two primary jobs: tap the ORB to stop, or open Rest Insights
+  // to understand the pattern of those intentional pauses.
+  const showInsightsLink = menuOpen || (!pauseState.active && !completionVisible && !panelView);
 
   const view = document.createElement('section');
-  view.className = `screen main-screen pause-main-screen${showMainMenu ? ' has-pause-menu' : ''}${pauseState.active ? ' is-resting' : ''}`;
+  view.className = `screen main-screen pause-main-screen${showInsightsLink ? ' has-pause-menu' : ''}${pauseState.active ? ' is-resting' : ''}`;
   view.appendChild(Brand());
 
   const stage = document.createElement('div');
   stage.className = 'orb-stage';
 
-  if (showMainMenu) stage.appendChild(TodayRing(handleMenuSelect));
+  if (showInsightsLink) stage.appendChild(TodayRing(handleMenuSelect));
 
   const mode = completionVisible
     ? 'completed'
@@ -183,20 +159,16 @@ function MainScreen() {
   const hint = document.createElement('p');
   hint.className = 'gesture-hint is-visible pause-hint';
   hint.textContent = menuOpen
-    ? 'Swipe menu · Tap orb to return'
+    ? 'Rest Insights · Tap orb to return'
     : pauseState.active
       ? 'Resting now · End when you’re ready'
       : 'Tap orb to pause now';
   view.appendChild(hint);
 
-  if (panelView) {
+  if (panelView === 'insights') {
     view.appendChild(PausePanel({
-      view: panelView,
       state: pauseState,
-      onClose: closePanel,
-      onStart: handleStartRest,
-      onAddRest: handleAddRest,
-      onRemoveRest: handleRemoveRest
+      onClose: closePanel
     }));
   }
 
@@ -258,6 +230,6 @@ tickTimer = setInterval(() => {
 
 window.__PAUSE__ = {
   getState: () => ({ pauseState, screen, menuOpen, panelView, completionVisible }),
-  openMenu: () => { menuOpen = true; render(); },
+  openInsights,
   takeRest: () => beginImmediateRest()
 };
