@@ -1,7 +1,6 @@
 import { Brand } from './components/Brand.js';
 import { Orb } from './components/Orb.js';
 import { OrbArtwork } from './components/OrbArtwork.js';
-import { TodayRing } from './components/TodayRing.js';
 import { PausePanel } from './components/PausePanel.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
 import {
@@ -62,6 +61,9 @@ function handleMenuSelect(item) {
 }
 
 function handleOrbAction(action) {
+  if (action?.startsWith('menu:')) {
+    return handleMenuSelect(action.slice(5));
+  }
   if (action === 'close-menu') {
     menuOpen = false;
     return render();
@@ -137,18 +139,12 @@ function LaunchScreen() {
 function MainScreen() {
   checkExpired();
 
-  // The four governing PAUSE actions live in a simple vertical swipe carousel
-  // below the ORB. The ORB stays full-size and remains the primary rest shortcut.
-  const showMainMenu = menuOpen || (!pauseState.active && !completionVisible && !panelView);
-
   const view = document.createElement('section');
-  view.className = `screen main-screen pause-main-screen${showMainMenu ? ' has-pause-menu' : ''}${pauseState.active ? ' is-resting' : ''}`;
+  view.className = `screen main-screen pause-main-screen${pauseState.active ? ' is-resting' : ''}`;
   view.appendChild(Brand());
 
   const stage = document.createElement('div');
   stage.className = 'orb-stage';
-
-  if (showMainMenu) stage.appendChild(TodayRing(handleMenuSelect));
 
   const mode = completionVisible
     ? 'completed'
@@ -170,10 +166,10 @@ function MainScreen() {
   const hint = document.createElement('p');
   hint.className = 'gesture-hint is-visible pause-hint';
   hint.textContent = menuOpen
-    ? 'Swipe menu · Tap orb to return'
+    ? 'Swipe inside the orb · Tap outside the menu to return'
     : pauseState.active
       ? 'This time is yours · Hold for menu'
-      : 'Swipe menu · Tap orb to rest';
+      : 'Swipe inside the orb · Tap orb to rest';
   view.appendChild(hint);
 
   if (panelView) {
