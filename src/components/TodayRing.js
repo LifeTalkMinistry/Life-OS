@@ -1,8 +1,8 @@
 const ITEMS = [
-  { id: 'take-rest', label: 'Take a Rest', x: 50, y: 5, icon: '⏸' },
-  { id: 'history', label: 'Rest History', x: 95, y: 50, icon: '↺' },
-  { id: 'insights', label: 'Rest Insights', x: 50, y: 95, icon: '◌' },
-  { id: 'my-rests', label: 'My Rests', x: 5, y: 50, icon: '✦' }
+  { id: 'take-rest', label: 'Take a Rest', x: 50, y: 8, icon: '⏸' },
+  { id: 'history', label: 'Rest History', x: 86, y: 50, icon: '↺' },
+  { id: 'insights', label: 'Rest Insights', x: 50, y: 92, icon: '◌' },
+  { id: 'my-rests', label: 'My Rests', x: 14, y: 50, icon: '✦' }
 ];
 
 export function TodayRing(onSelect) {
