@@ -10,6 +10,7 @@ const scriptOrder = [
   'src/components/TodayRing.js',
   'src/components/PausePanel.js',
   'src/auth/backendClient.js',
+  'src/sync/pauseSyncClient.js',
   'src/auth/LoginScreen.js',
   'src/app.js'
 ];
