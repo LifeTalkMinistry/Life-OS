@@ -5,6 +5,7 @@ import {
   manilaMonthStartKey,
   parseManilaDateKey
 } from '../manilaTime.js';
+import { restAuditForDay } from '../restState.js';
 
 const TIMEFRAMES = ['daily', 'weekly', 'monthly', 'custom'];
 
@@ -178,7 +179,7 @@ function ensurePauseScoreStyles() {
   document.head.appendChild(style);
 }
 
-function scoreForRestMs(ms) {
+export function scoreForRestMs(ms) {
   const hours = Math.max(0, Number(ms || 0)) / 3_600_000;
   const points = [
     [0, 0],
@@ -201,33 +202,6 @@ function scoreForRestMs(ms) {
   }
 
   return 100;
-}
-
-function sessionBounds(entry) {
-  const start = Number(entry?.startAt || entry?.endedAt);
-  if (!Number.isFinite(start)) return null;
-
-  const explicitEnd = Number(entry?.endedAt);
-  const duration = Math.max(0, Number(entry?.durationMs || 0));
-  const end = Number.isFinite(explicitEnd) && explicitEnd >= start
-    ? explicitEnd
-    : start + duration;
-
-  if (!Number.isFinite(end) || end < start) return null;
-  return { start, end };
-}
-
-function restMsForDay(history, dayKey) {
-  const start = manilaDateKeyToStartMs(dayKey);
-  const nextDayKey = addManilaDays(dayKey, 1);
-  const end = manilaDateKeyToStartMs(nextDayKey);
-
-  return history.reduce((total, entry) => {
-    const bounds = sessionBounds(entry);
-    if (!bounds) return total;
-    const overlap = Math.max(0, Math.min(bounds.end, end) - Math.max(bounds.start, start));
-    return total + overlap;
-  }, 0);
 }
 
 function resolveRange(timeframe, customRange, now = Date.now()) {
@@ -254,7 +228,6 @@ function resolveRange(timeframe, customRange, now = Date.now()) {
 }
 
 export function calculatePauseScore(state, timeframe = 'daily', customRange = null, now = Date.now()) {
-  const history = Array.isArray(state?.history) ? state.history : [];
   const range = resolveRange(timeframe, customRange, now);
   const days = [];
 
@@ -263,11 +236,12 @@ export function calculatePauseScore(state, timeframe = 'daily', customRange = nu
     cursorKey && cursorKey <= range.endKey;
     cursorKey = addManilaDays(cursorKey, 1)
   ) {
-    const restMs = restMsForDay(history, cursorKey);
+    const audit = restAuditForDay(state, cursorKey, now);
     days.push({
       key: cursorKey,
-      restMs,
-      score: scoreForRestMs(restMs)
+      restMs: audit.totalMs,
+      sessions: audit.sessions,
+      score: scoreForRestMs(audit.totalMs)
     });
   }
 
