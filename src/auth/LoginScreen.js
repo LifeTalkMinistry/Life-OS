@@ -76,7 +76,9 @@ export function LoginScreen({ onSubmit, loading = false, error = '' } = {}) {
   const emailInput = form?.elements?.email;
   const passwordInput = form?.elements?.password;
   const toggle = view.querySelector('.pause-password-toggle');
+  const submitButton = view.querySelector('.pause-login-submit');
   const errorNode = view.querySelector('.pause-login-error');
+  let submitting = Boolean(loading);
 
   toggle?.addEventListener('click', () => {
     if (!passwordInput) return;
@@ -89,7 +91,7 @@ export function LoginScreen({ onSubmit, loading = false, error = '' } = {}) {
 
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (loading) return;
+    if (submitting) return;
 
     const email = String(emailInput?.value || '').trim();
     const password = String(passwordInput?.value || '');
@@ -101,6 +103,16 @@ export function LoginScreen({ onSubmit, loading = false, error = '' } = {}) {
       }
       return;
     }
+
+    submitting = true;
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = 'Signing in…';
+    }
+    if (emailInput) emailInput.disabled = true;
+    if (passwordInput) passwordInput.disabled = true;
+    if (toggle) toggle.disabled = true;
+    if (errorNode) errorNode.hidden = true;
 
     await onSubmit?.({ email, password });
   });
