@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pause-shell-v40';
+const CACHE_NAME = 'pause-shell-v41';
 const BASE_URL = new URL('./', self.location.href);
 
 const toUrl = (path) => new URL(path, BASE_URL).href;
