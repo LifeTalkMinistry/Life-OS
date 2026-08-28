@@ -1,4 +1,11 @@
-import { restInsights } from '../restState.js';
+import { restAuditForDay, restInsights } from '../restState.js';
+import { scoreForRestMs } from './PauseScore.js';
+import {
+  formatManilaDate,
+  formatManilaDateTime,
+  manilaDateKey,
+  manilaDateKeyToStartMs
+} from '../manilaTime.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -131,16 +138,38 @@ function ensureInsightStyles() {
 
     .pause-rhythm-days {
       display: grid;
-      gap: 11px;
+      gap: 6px;
     }
 
     .pause-rhythm-day {
       display: grid;
-      grid-template-columns: 68px 1fr 62px;
+      grid-template-columns: 68px 1fr 72px;
       align-items: center;
       gap: 10px;
+      min-width: 0;
       color: #a79fac;
       font-size: .69rem;
+    }
+
+    .pause-rhythm-day-button {
+      appearance: none;
+      width: 100%;
+      min-height: 48px;
+      margin: 0;
+      padding: 6px 4px;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      transition: background .16s ease, border-color .16s ease;
+    }
+
+    .pause-rhythm-day-button:hover,
+    .pause-rhythm-day-button:focus-visible {
+      border-color: rgba(163, 118, 229, .14);
+      background: rgba(91, 54, 148, .1);
+      outline: none;
     }
 
     .pause-rhythm-day-label {
@@ -182,10 +211,23 @@ function ensureInsightStyles() {
       box-shadow: 0 0 10px rgba(154, 91, 255, .18);
     }
 
+    .pause-rhythm-day-tail {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 7px;
+      min-width: 0;
+    }
+
     .pause-rhythm-duration {
-      text-align: right;
       color: #c1b7cb;
       white-space: nowrap;
+    }
+
+    .pause-rhythm-chevron {
+      color: #655c6f;
+      font-size: .86rem;
+      line-height: 1;
     }
 
     .pause-weekday-learning {
@@ -339,6 +381,181 @@ function ensureInsightStyles() {
       white-space: nowrap;
     }
 
+    .pause-panel-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .pause-panel-heading > div {
+      min-width: 0;
+    }
+
+    .pause-audit-back {
+      appearance: none;
+      display: grid;
+      place-items: center;
+      flex: 0 0 32px;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 1px solid rgba(159, 121, 218, .15);
+      border-radius: 50%;
+      background: rgba(79, 47, 130, .08);
+      color: #b9afc3;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .pause-audit-back:hover,
+    .pause-audit-back:focus-visible {
+      border-color: rgba(170, 128, 235, .28);
+      background: rgba(94, 55, 158, .16);
+      color: #eee7f5;
+      outline: none;
+    }
+
+    .pause-audit-score {
+      margin: 4px 0 12px;
+      padding: 20px 18px 18px;
+      border: 1px solid rgba(174, 126, 255, .2);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(74, 37, 124, .14), rgba(17, 10, 33, .26));
+      text-align: center;
+    }
+
+    .pause-audit-score small {
+      color: #92899d;
+      font-size: .61rem;
+      font-weight: 650;
+      letter-spacing: .14em;
+    }
+
+    .pause-audit-score strong {
+      display: block;
+      margin: 6px 0 8px;
+      color: #f3edf9;
+      font-size: clamp(2.6rem, 12vw, 3.65rem);
+      font-weight: 330;
+      line-height: 1;
+    }
+
+    .pause-audit-score p {
+      margin: 0;
+      color: #91879c;
+      font-size: .7rem;
+      line-height: 1.5;
+    }
+
+    .pause-audit-summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      margin-bottom: 22px;
+    }
+
+    .pause-audit-summary article {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+      padding: 14px;
+      border: 1px solid rgba(155, 120, 219, .14);
+      border-radius: 13px;
+      background: rgba(16, 11, 33, .38);
+    }
+
+    .pause-audit-summary small {
+      color: #898190;
+      font-size: .59rem;
+      letter-spacing: .1em;
+    }
+
+    .pause-audit-summary strong {
+      color: #eee8f4;
+      font-size: 1.08rem;
+      font-weight: 430;
+    }
+
+    .pause-audit-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .pause-audit-entry {
+      padding: 14px 15px;
+      border: 1px solid rgba(155, 120, 219, .13);
+      border-radius: 14px;
+      background: rgba(15, 10, 29, .34);
+    }
+
+    .pause-audit-entry-head,
+    .pause-audit-credit {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .pause-audit-entry-head strong {
+      overflow: hidden;
+      color: #e9e2ef;
+      font-size: .83rem;
+      font-weight: 520;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pause-audit-entry-head span {
+      color: #766d80;
+      font-size: .59rem;
+      font-weight: 650;
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }
+
+    .pause-audit-range {
+      margin: 7px 0 12px;
+      color: #81788a;
+      font-size: .68rem;
+      line-height: 1.45;
+    }
+
+    .pause-audit-credit {
+      padding-top: 10px;
+      border-top: 1px solid rgba(150, 115, 203, .1);
+    }
+
+    .pause-audit-credit span {
+      color: #91889a;
+      font-size: .65rem;
+    }
+
+    .pause-audit-credit strong {
+      color: #c6a8f5;
+      font-size: .75rem;
+      font-weight: 540;
+      white-space: nowrap;
+    }
+
+    .pause-audit-split-note {
+      margin: 9px 0 0;
+      color: #736a7c;
+      font-size: .62rem;
+      line-height: 1.45;
+    }
+
+    .pause-audit-empty {
+      padding: 22px 18px;
+      border: 1px solid rgba(155, 120, 219, .12);
+      border-radius: 14px;
+      color: #8f8798;
+      background: rgba(15, 10, 29, .28);
+      font-size: .73rem;
+      line-height: 1.55;
+      text-align: center;
+    }
+
     .pause-insight-note,
     .pause-empty {
       color: #8f8798;
@@ -353,19 +570,22 @@ function ensureInsightStyles() {
 
     @media (max-width: 390px) {
       .pause-detailed-grid { grid-template-columns: 1fr 1fr; }
-      .pause-rhythm-day { grid-template-columns: 62px 1fr 58px; gap: 8px; }
+      .pause-rhythm-day { grid-template-columns: 62px 1fr 68px; gap: 8px; }
       .pause-weekday-rank-row { grid-template-columns: 20px 64px 1fr 62px; gap: 7px; }
     }
   `;
   document.head.appendChild(style);
 }
 
-function panelHeader(title, eyebrow = 'PAUSE') {
+function panelHeader(title, eyebrow = 'PAUSE', back = false) {
   return `
     <div class="system-panel-header">
-      <div>
-        <p class="system-panel-eyebrow">${escapeHtml(eyebrow)}</p>
-        <h2>${escapeHtml(title)}</h2>
+      <div class="pause-panel-heading">
+        ${back ? '<button type="button" class="pause-audit-back" data-pause-panel-action="back" aria-label="Back to Rest Insights">←</button>' : ''}
+        <div>
+          <p class="system-panel-eyebrow">${escapeHtml(eyebrow)}</p>
+          <h2>${escapeHtml(title)}</h2>
+        </div>
       </div>
       <button type="button" class="system-panel-close" data-pause-panel-action="close" aria-label="Close">×</button>
     </div>
@@ -423,23 +643,30 @@ function insightsContent(state) {
   const dailyRows = insights.daily.map((day) => {
     const width = day.totalMs > 0 ? Math.max(7, Math.round((day.totalMs / maxDaily) * 100)) : 0;
     return `
-      <div class="pause-rhythm-day">
+      <button type="button" class="pause-rhythm-day pause-rhythm-day-button" data-pause-day-key="${escapeHtml(day.key)}" aria-label="Open ${escapeHtml(day.label)} ${escapeHtml(day.dateLabel)} rest audit">
         <div class="pause-rhythm-day-label">
           <strong>${escapeHtml(day.label)}</strong>
           <small>${escapeHtml(day.dateLabel)}</small>
         </div>
         <div class="pause-rhythm-track" aria-hidden="true"><span class="pause-rhythm-fill" style="width:${width}%"></span></div>
-        <span class="pause-rhythm-duration">${day.totalMs ? escapeHtml(formatInsightDuration(day.totalMs)) : '—'}</span>
-      </div>
+        <span class="pause-rhythm-day-tail">
+          <span class="pause-rhythm-duration">${day.totalMs ? escapeHtml(formatInsightDuration(day.totalMs)) : '—'}</span>
+          <span class="pause-rhythm-chevron" aria-hidden="true">›</span>
+        </span>
+      </button>
     `;
   }).join('');
 
   const historyRows = state.history.slice(0, 20).map((entry) => {
-    const date = new Date(Number(entry.endedAt || entry.startAt));
-    const stamp = date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const stamp = formatManilaDateTime(Number(entry.endedAt || entry.startAt), {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
     return `
       <div class="pause-history-row">
-        <div><strong>Rest</strong><small>${escapeHtml(stamp)}</small></div>
+        <div><strong>${escapeHtml(entry.label || 'Rest')}</strong><small>${escapeHtml(stamp)} · Manila</small></div>
         <span>${escapeHtml(formatInsightDuration(entry.durationMs))}</span>
       </div>
     `;
@@ -465,7 +692,7 @@ function insightsContent(state) {
 
     <section class="pause-insight-section">
       <p class="pause-insight-section-title">YOUR 7-DAY RHYTHM</p>
-      <p class="pause-insight-section-copy">Recent timeline · Today stays first so you can see what happened day by day.</p>
+      <p class="pause-insight-section-copy">Tap any day to audit the exact rests credited to that Manila calendar date.</p>
       <div class="pause-rhythm-days">${dailyRows}</div>
     </section>
 
@@ -491,6 +718,78 @@ function insightsContent(state) {
   `;
 }
 
+function auditRange(entry) {
+  const startKey = manilaDateKey(entry.startAt);
+  const endKey = manilaDateKey(entry.endedAt);
+
+  if (startKey === endKey) {
+    const start = formatManilaDateTime(entry.startAt, { hour: 'numeric', minute: '2-digit' });
+    const end = formatManilaDateTime(entry.endedAt, { hour: 'numeric', minute: '2-digit' });
+    return `${start} → ${end}`;
+  }
+
+  const start = formatManilaDateTime(entry.startAt, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const end = formatManilaDateTime(entry.endedAt, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return `${start} → ${end}`;
+}
+
+function auditReason(entry) {
+  if (entry.reason === 'timer-complete') return 'COMPLETED';
+  if (entry.reason === 'ended') return 'ENDED';
+  return 'RECORDED';
+}
+
+function dayAuditContent(state, dayKey) {
+  const audit = restAuditForDay(state, dayKey);
+  const score = scoreForRestMs(audit.totalMs);
+  const dayStart = manilaDateKeyToStartMs(dayKey);
+  const dateTitle = formatManilaDate(dayStart, { month: 'long', day: 'numeric', year: 'numeric' });
+  const weekday = formatManilaDate(dayStart, { weekday: 'long' });
+  const shortDate = formatManilaDate(dayStart, { month: 'short', day: 'numeric' });
+
+  const entries = audit.entries.map((entry) => `
+    <article class="pause-audit-entry">
+      <div class="pause-audit-entry-head">
+        <strong>${escapeHtml(entry.label)}</strong>
+        <span>${escapeHtml(auditReason(entry))}</span>
+      </div>
+      <p class="pause-audit-range">${escapeHtml(auditRange(entry))} · Manila<br>Session total: ${escapeHtml(formatInsightDuration(entry.sessionDurationMs))}</p>
+      <div class="pause-audit-credit">
+        <span>Credited to ${escapeHtml(shortDate)}</span>
+        <strong>${escapeHtml(formatInsightDuration(entry.creditedMs))}</strong>
+      </div>
+      ${entry.splitAcrossDays ? `<p class="pause-audit-split-note">This rest crossed Manila midnight. Only the portion inside ${escapeHtml(shortDate)} is included in this day's total and score.</p>` : ''}
+    </article>
+  `).join('');
+
+  return `
+    ${panelHeader(dateTitle, 'DAILY AUDIT · MANILA TIME', true)}
+    <p class="system-panel-intro">${escapeHtml(weekday)} · Exact completed rests that produced this day's PAUSE metrics.</p>
+    <p class="pause-live-data-note">Audited from completed rest history</p>
+
+    <section class="pause-audit-score">
+      <small>DAILY PAUSE SCORE</small>
+      <strong>${score}</strong>
+      <p>Built from ${escapeHtml(formatInsightDuration(audit.totalMs))} of rest credited specifically to ${escapeHtml(dateTitle)}.</p>
+    </section>
+
+    <div class="pause-audit-summary">
+      <article><small>TOTAL REST</small><strong>${escapeHtml(formatInsightDuration(audit.totalMs))}</strong></article>
+      <article><small>REST ENTRIES</small><strong>${audit.sessions}</strong></article>
+    </div>
+
+    <section class="pause-insight-section">
+      <p class="pause-insight-section-title">REST BREAKDOWN</p>
+      <p class="pause-insight-section-copy">These entries reconstruct the total above. Cross-midnight rests are split at Manila midnight.</p>
+      <div class="pause-audit-list">
+        ${entries || `<div class="pause-audit-empty">No completed rests were credited to ${escapeHtml(dateTitle)}. This day's audited total is 0.</div>`}
+      </div>
+    </section>
+
+    <p class="pause-insight-note">This audit uses Asia/Manila calendar boundaries, regardless of the device timezone.</p>
+  `;
+}
+
 export function PausePanel({ state, onClose }) {
   ensureInsightStyles();
 
@@ -501,9 +800,36 @@ export function PausePanel({ state, onClose }) {
   panel.className = 'system-panel pause-panel pause-view-insights';
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-modal', 'true');
-  panel.innerHTML = insightsContent(state);
 
-  panel.querySelector('[data-pause-panel-action="close"]')?.addEventListener('click', () => onClose?.());
+  let selectedDayKey = null;
+  const renderContent = () => {
+    panel.innerHTML = selectedDayKey
+      ? dayAuditContent(state, selectedDayKey)
+      : insightsContent(state);
+    panel.scrollTop = 0;
+  };
+
+  renderContent();
+
+  panel.addEventListener('click', (event) => {
+    const action = event.target.closest('[data-pause-panel-action]')?.dataset.pausePanelAction;
+    if (action === 'close') {
+      onClose?.();
+      return;
+    }
+    if (action === 'back') {
+      selectedDayKey = null;
+      renderContent();
+      return;
+    }
+
+    const dayButton = event.target.closest('[data-pause-day-key]');
+    if (dayButton?.dataset.pauseDayKey) {
+      selectedDayKey = dayButton.dataset.pauseDayKey;
+      renderContent();
+    }
+  });
+
   backdrop.addEventListener('pointerdown', (event) => {
     if (event.target === backdrop) onClose?.();
   });
