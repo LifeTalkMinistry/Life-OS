@@ -61,13 +61,15 @@ function ensurePauseSymbolStyles() {
       text-shadow: 0 0 14px rgba(159, 103, 255, .2);
     }
 
-    .pause-timer-expired-label {
-      margin: -2px 0 0;
-      color: #d9c5f5;
-      font-size: .62rem;
-      font-weight: 650;
-      letter-spacing: .12em;
-      text-transform: uppercase;
+    .pause-resting-content {
+      display: grid;
+      place-items: center;
+      align-content: center;
+      gap: 18px;
+    }
+
+    .pause-resting-content .pause-countdown {
+      margin: 0;
     }
 
     .pause-timer-overtime {
@@ -100,15 +102,6 @@ function ensurePauseSymbolStyles() {
     }
   `;
   document.head.appendChild(style);
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
 }
 
 function idleContent() {
@@ -146,11 +139,7 @@ function restingContent(state) {
 
   return `
     <div class="orb-content orb-now-content pause-resting-content">
-      <p class="orb-kicker">${timerExpired ? 'TIMER DONE' : 'RESTING'}</p>
-      <h1 class="orb-title pause-rest-label">${escapeHtml(session?.label || 'Rest')}</h1>
-      <span class="orb-divider" aria-hidden="true"><i></i></span>
       <p class="orb-time pause-countdown${timerExpired ? ' pause-timer-overtime' : ''}" data-pause-timer>${timer}</p>
-      ${timerExpired ? '<p class="pause-timer-expired-label">Rest continues until you end it</p>' : ''}
       <button type="button" class="pause-end-rest" data-pause-action="end-rest">END REST</button>
     </div>
   `;
