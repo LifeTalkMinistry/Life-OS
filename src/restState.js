@@ -41,7 +41,8 @@ function normalizePauseState(parsed = {}) {
     ? {
         ...parsed.active,
         plannedMinutes: parsed.active.plannedMinutes ?? null,
-        endAt: parsed.active.endAt ?? null
+        endAt: parsed.active.endAt ?? null,
+        timerExpiredAt: parsed.active.timerExpiredAt ?? null
       }
     : null;
   return {
@@ -111,7 +112,8 @@ export function startRest(state, label = 'Rest', durationMinutes = null) {
       label: cleanLabel,
       plannedMinutes: minutes,
       startAt,
-      endAt: minutes ? startAt + minutes * 60_000 : null
+      endAt: minutes ? startAt + minutes * 60_000 : null,
+      timerExpiredAt: null
     }
   });
 }
@@ -126,6 +128,11 @@ export function elapsedMs(state, now = Date.now()) {
   return Math.max(0, now - Number(state.active.startAt));
 }
 
+export function timerOvertimeMs(state, now = Date.now()) {
+  if (!state.active?.timerExpiredAt) return 0;
+  return Math.max(0, now - Number(state.active.timerExpiredAt));
+}
+
 export function finishRest(state, reason = 'ended', now = Date.now()) {
   const active = state.active;
   if (!active) return state;
@@ -135,6 +142,7 @@ export function finishRest(state, reason = 'ended', now = Date.now()) {
     id: active.id,
     label: active.label,
     plannedMinutes: active.plannedMinutes ?? null,
+    timerExpiredAt: active.timerExpiredAt ?? null,
     startAt: active.startAt,
     endedAt,
     durationMs,
@@ -148,8 +156,21 @@ export function finishRest(state, reason = 'ended', now = Date.now()) {
 }
 
 export function completeExpiredRest(state, now = Date.now()) {
-  if (!state.active?.endAt || remainingMs(state, now) > 0) return { state, completed: false };
-  return { state: finishRest(state, 'timer-complete', Number(state.active.endAt)), completed: true };
+  const active = state.active;
+  if (!active?.endAt || active.timerExpiredAt || remainingMs(state, now) > 0) {
+    return { state, completed: false };
+  }
+
+  const timerExpiredAt = Number(active.endAt);
+  const nextState = savePauseState({
+    ...state,
+    active: {
+      ...active,
+      timerExpiredAt
+    }
+  });
+
+  return { state: nextState, completed: true };
 }
 
 export function formatCountdown(ms) {
@@ -244,6 +265,7 @@ export function restAuditForDay(state, dayKey, now = Date.now()) {
         label: String(entry.label || 'Rest'),
         reason: entry.reason || null,
         plannedMinutes: entry.plannedMinutes ?? null,
+        timerExpiredAt: entry.timerExpiredAt ?? null,
         startAt: bounds.start,
         endedAt: bounds.end,
         sessionDurationMs: bounds.durationMs,
