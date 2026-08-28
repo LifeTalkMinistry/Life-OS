@@ -4,6 +4,7 @@ import { OrbArtwork } from './components/OrbArtwork.js';
 import { PauseScore } from './components/PauseScore.js';
 import { TodayRing } from './components/TodayRing.js';
 import { PausePanel } from './components/PausePanel.js';
+import { PauseTimerPicker } from './components/PauseTimerPicker.js';
 import { AuthCheckingScreen, LoginScreen } from './auth/LoginScreen.js';
 import {
   createPauseBackendAccount,
@@ -15,6 +16,7 @@ import {
 import { pullPauseCloudState, pushPauseCloudState } from './sync/pauseSyncClient.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
 import { manilaDateKey } from './manilaTime.js';
+import { playPauseAlarm, primePauseAlarm } from './pauseAlarm.js';
 import {
   completeExpiredRest,
   elapsedMs,
@@ -25,7 +27,8 @@ import {
   remainingMs,
   savePauseState,
   setPauseStorageAccount,
-  startRest
+  startRest,
+  timerOvertimeMs
 } from './restState.js';
 
 const SCORE_PREFERENCE_KEY = 'pause-score-preference-v1';
@@ -254,7 +257,7 @@ async function hydrateAccountState(session) {
 function checkExpired() {
   const result = completeExpiredRest(pauseState);
   pauseState = result.state;
-  if (result.completed) showCompletion();
+  if (result.completed) playPauseAlarm();
   return result.completed;
 }
 
@@ -276,6 +279,13 @@ function openInsights() {
   render();
 }
 
+function openTimerPicker() {
+  if (pauseState.active) return;
+  menuOpen = false;
+  panelView = 'timer';
+  render();
+}
+
 function closePanel() {
   panelView = null;
   render();
@@ -290,13 +300,22 @@ function handleScoreChange({ timeframe, customRange }) {
   render();
 }
 
-function beginImmediateRest() {
+function beginRest(durationMinutes = null) {
   if (pauseState.active) return;
-  pauseState = startRest(pauseState, 'Rest');
+  if (durationMinutes) primePauseAlarm();
+  pauseState = startRest(pauseState, 'Rest', durationMinutes);
   panelView = null;
   menuOpen = false;
   completionVisible = false;
   render();
+}
+
+function beginImmediateRest() {
+  beginRest(null);
+}
+
+function beginTimedRest(minutes) {
+  beginRest(minutes);
 }
 
 function handleMenuSelect(item) {
@@ -324,10 +343,13 @@ function getGestureHandlers() {
       if (!pauseState.active) beginImmediateRest();
     },
     onHoldStart: () => {
-      if (!pauseState.active) return;
-      menuOpen = true;
-      panelView = null;
-      render();
+      if (pauseState.active) {
+        menuOpen = true;
+        panelView = null;
+        render();
+        return;
+      }
+      openTimerPicker();
     },
     onHoldEnd: () => {}
   });
@@ -337,6 +359,9 @@ function getGestureHandlers() {
     cancel: () => gestureController.cancel(),
     keyboardTap: () => {
       if (!pauseState.active) beginImmediateRest();
+    },
+    keyboardHold: () => {
+      if (!pauseState.active) openTimerPicker();
     }
   };
 }
@@ -392,7 +417,7 @@ function MainScreen() {
   const orb = Orb({
     state: pauseState,
     mode,
-    gestureHandlers: !menuOpen && !completionVisible ? getGestureHandlers() : null,
+    gestureHandlers: !menuOpen && !completionVisible && !panelView ? getGestureHandlers() : null,
     onAction: handleOrbAction
   });
   stage.appendChild(orb);
@@ -402,14 +427,26 @@ function MainScreen() {
   hint.className = 'gesture-hint is-visible pause-hint';
   hint.textContent = menuOpen
     ? 'Rest Insights · Tap orb to return'
-    : pauseState.active
-      ? 'Resting now · End when you’re ready'
-      : 'Tap orb to pause now';
+    : pauseState.active?.timerExpiredAt
+      ? 'Timer done · Rest continues until you end it'
+      : pauseState.active
+        ? 'Resting now · End when you’re ready'
+        : 'Tap to pause · Hold for timer';
   view.appendChild(hint);
 
   if (panelView === 'insights') {
     view.appendChild(PausePanel({
       state: pauseState,
+      onClose: closePanel
+    }));
+  }
+
+  if (panelView === 'timer') {
+    view.appendChild(PauseTimerPicker({
+      onSelect: (minutes) => {
+        if (minutes) beginTimedRest(minutes);
+        else beginImmediateRest();
+      },
       onClose: closePanel
     }));
   }
@@ -530,9 +567,11 @@ function updateLiveTimer() {
   const timer = app.querySelector('[data-pause-timer]');
   if (!timer) return;
 
-  const nextValue = pauseState.active.endAt
-    ? formatCountdown(remainingMs(pauseState))
-    : formatElapsed(elapsedMs(pauseState));
+  const nextValue = pauseState.active.timerExpiredAt
+    ? `+${formatElapsed(timerOvertimeMs(pauseState))}`
+    : pauseState.active.endAt
+      ? formatCountdown(remainingMs(pauseState))
+      : formatElapsed(elapsedMs(pauseState));
 
   if (timer.textContent !== nextValue) timer.textContent = nextValue;
 }
@@ -616,7 +655,10 @@ tickTimer = setInterval(() => {
   }
 
   if (!pauseState.active || completionVisible) return;
-  if (checkExpired()) return;
+  if (checkExpired()) {
+    render();
+    return;
+  }
   updateLiveTimer();
 }, 250);
 
@@ -637,7 +679,9 @@ window.__PAUSE__ = {
     }
   }),
   openInsights,
+  openTimerPicker,
   takeRest: () => beginImmediateRest(),
+  takeTimedRest: (minutes) => beginTimedRest(Number(minutes)),
   syncNow,
   signOut
 };
