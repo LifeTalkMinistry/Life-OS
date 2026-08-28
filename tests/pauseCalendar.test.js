@@ -63,6 +63,32 @@ test('a cross-midnight rest is audited into both Manila dates', () => {
   assert.equal(aug28.entries[0].splitAcrossDays, true);
 });
 
+test('daily audit puts the most recent rest log on top', () => {
+  const state = {
+    history: [
+      {
+        id: 'older-rest',
+        label: 'Older Rest',
+        startAt: Date.parse('2026-08-28T01:00:00Z'),
+        endedAt: Date.parse('2026-08-28T01:30:00Z'),
+        durationMs: 30 * 60 * 1000
+      },
+      {
+        id: 'newer-rest',
+        label: 'Newer Rest',
+        startAt: Date.parse('2026-08-28T10:00:00Z'),
+        endedAt: Date.parse('2026-08-28T10:20:00Z'),
+        durationMs: 20 * 60 * 1000
+      }
+    ]
+  };
+
+  const audit = restAuditForDay(state, '2026-08-28', Date.parse('2026-08-28T15:00:00Z'));
+  assert.equal(audit.entries.length, 2);
+  assert.equal(audit.entries[0].id, 'newer-rest');
+  assert.equal(audit.entries[1].id, 'older-rest');
+});
+
 test('7-day rhythm rows equal their per-day audit totals', () => {
   const now = Date.parse('2026-08-29T03:00:00Z');
   const state = {
