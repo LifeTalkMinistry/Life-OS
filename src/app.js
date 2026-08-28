@@ -6,6 +6,7 @@ import { TodayRing } from './components/TodayRing.js';
 import { PausePanel } from './components/PausePanel.js';
 import { AuthCheckingScreen, LoginScreen } from './auth/LoginScreen.js';
 import {
+  createPauseBackendAccount,
   friendlyAuthError,
   restorePauseBackendSession,
   signInWithPauseBackend,
@@ -31,6 +32,7 @@ let authState = {
   session: null,
   error: ''
 };
+let authMode = 'login';
 let screen = 'launch';
 let menuOpen = false;
 let panelView = null;
@@ -266,9 +268,36 @@ async function handleLogin(credentials) {
   }
 }
 
+async function handleRegister(credentials) {
+  authState.error = '';
+  try {
+    const session = await createPauseBackendAccount(credentials);
+    authState = {
+      status: 'authenticated',
+      session,
+      error: ''
+    };
+    startAuthenticatedApp();
+  } catch (error) {
+    authState = {
+      status: 'signed-out',
+      session: null,
+      error: friendlyAuthError(error)
+    };
+    render();
+  }
+}
+
+function changeAuthMode(nextMode) {
+  authMode = nextMode === 'signup' ? 'signup' : 'login';
+  authState.error = '';
+  render();
+}
+
 function signOut() {
   clearTimeout(launchTimer);
   signOutFromPauseBackend();
+  authMode = 'login';
   authState = {
     status: 'signed-out',
     session: null,
@@ -289,7 +318,10 @@ function render() {
 
   if (authState.status !== 'authenticated') {
     app.replaceChildren(LoginScreen({
-      onSubmit: handleLogin,
+      mode: authMode,
+      onLogin: handleLogin,
+      onRegister: handleRegister,
+      onModeChange: changeAuthMode,
       error: authState.error
     }));
     return;
@@ -331,6 +363,7 @@ async function bootstrapAuth() {
   try {
     const session = await restorePauseBackendSession();
     if (!session) {
+      authMode = 'login';
       authState = {
         status: 'signed-out',
         session: null,
@@ -347,6 +380,7 @@ async function bootstrapAuth() {
     };
     startAuthenticatedApp();
   } catch (error) {
+    authMode = 'login';
     authState = {
       status: 'signed-out',
       session: null,
@@ -380,6 +414,7 @@ window.__PAUSE__ = {
   getState: () => ({
     pauseState,
     authStatus: authState.status,
+    authMode,
     user: authState.session?.user || null,
     screen,
     menuOpen,
