@@ -15,7 +15,15 @@ export function AuthCheckingScreen() {
   return view;
 }
 
-export function LoginScreen({ onSubmit, loading = false, error = '' } = {}) {
+export function LoginScreen({
+  mode = 'login',
+  onLogin,
+  onRegister,
+  onModeChange,
+  loading = false,
+  error = ''
+} = {}) {
+  const signingUp = mode === 'signup';
   const view = document.createElement('section');
   view.className = 'screen pause-auth-screen pause-login-screen';
   view.innerHTML = `
@@ -28,9 +36,22 @@ export function LoginScreen({ onSubmit, loading = false, error = '' } = {}) {
 
     <form class="pause-login-form" novalidate>
       <div class="pause-login-heading">
-        <h1>Welcome back.</h1>
-        <p>Sign in with your existing account.</p>
+        <h1>${signingUp ? 'Create your PAUSE account.' : 'Welcome back.'}</h1>
+        <p>${signingUp ? 'This account belongs only to PAUSE.' : 'Sign in to your PAUSE account.'}</p>
       </div>
+
+      ${signingUp ? `
+        <label class="pause-login-field">
+          <span>Name</span>
+          <input
+            type="text"
+            name="name"
+            autocomplete="name"
+            placeholder="Your name"
+            required
+          />
+        </label>
+      ` : ''}
 
       <label class="pause-login-field">
         <span>Email</span>
@@ -52,8 +73,8 @@ export function LoginScreen({ onSubmit, loading = false, error = '' } = {}) {
           <input
             type="password"
             name="password"
-            autocomplete="current-password"
-            placeholder="Your password"
+            autocomplete="${signingUp ? 'new-password' : 'current-password'}"
+            placeholder="${signingUp ? 'At least 8 characters' : 'Your password'}"
             required
           />
           <button type="button" class="pause-password-toggle" aria-label="Show password">Show</button>
@@ -63,20 +84,26 @@ export function LoginScreen({ onSubmit, loading = false, error = '' } = {}) {
       <p class="pause-login-error" role="alert" ${error ? '' : 'hidden'}>${escapeHtml(error)}</p>
 
       <button type="submit" class="pause-login-submit" ${loading ? 'disabled' : ''}>
-        ${loading ? 'Signing in…' : 'Log in'}
+        ${loading ? (signingUp ? 'Creating account…' : 'Signing in…') : (signingUp ? 'Create account' : 'Log in')}
       </button>
 
-      <p class="pause-login-family-note">One account. Your apps.</p>
+      <button type="button" class="pause-auth-switch">
+        ${signingUp ? 'Already have a PAUSE account? Log in' : 'New to PAUSE? Create account'}
+      </button>
+
+      <p class="pause-login-family-note">Your PAUSE account stays separate.</p>
     </form>
   `;
 
   view.querySelector('.pause-login-orb')?.appendChild(OrbArtwork());
 
   const form = view.querySelector('.pause-login-form');
+  const nameInput = form?.elements?.name;
   const emailInput = form?.elements?.email;
   const passwordInput = form?.elements?.password;
   const toggle = view.querySelector('.pause-password-toggle');
   const submitButton = view.querySelector('.pause-login-submit');
+  const modeButton = view.querySelector('.pause-auth-switch');
   const errorNode = view.querySelector('.pause-login-error');
   let submitting = Boolean(loading);
 
@@ -89,17 +116,25 @@ export function LoginScreen({ onSubmit, loading = false, error = '' } = {}) {
     passwordInput.focus();
   });
 
+  modeButton?.addEventListener('click', () => {
+    if (submitting) return;
+    onModeChange?.(signingUp ? 'login' : 'signup');
+  });
+
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (submitting) return;
 
+    const name = String(nameInput?.value || '').trim();
     const email = String(emailInput?.value || '').trim();
     const password = String(passwordInput?.value || '');
 
-    if (!email || !password) {
+    if ((signingUp && !name) || !email || !password) {
       if (errorNode) {
         errorNode.hidden = false;
-        errorNode.textContent = 'Enter your email and password.';
+        errorNode.textContent = signingUp
+          ? 'Enter your name, email, and password.'
+          : 'Enter your email and password.';
       }
       return;
     }
@@ -107,17 +142,20 @@ export function LoginScreen({ onSubmit, loading = false, error = '' } = {}) {
     submitting = true;
     if (submitButton) {
       submitButton.disabled = true;
-      submitButton.textContent = 'Signing in…';
+      submitButton.textContent = signingUp ? 'Creating account…' : 'Signing in…';
     }
+    if (nameInput) nameInput.disabled = true;
     if (emailInput) emailInput.disabled = true;
     if (passwordInput) passwordInput.disabled = true;
     if (toggle) toggle.disabled = true;
+    if (modeButton) modeButton.disabled = true;
     if (errorNode) errorNode.hidden = true;
 
-    await onSubmit?.({ email, password });
+    if (signingUp) await onRegister?.({ name, email, password });
+    else await onLogin?.({ email, password });
   });
 
-  queueMicrotask(() => emailInput?.focus());
+  queueMicrotask(() => (signingUp ? nameInput : emailInput)?.focus());
   return view;
 }
 
