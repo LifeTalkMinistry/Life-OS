@@ -1,3 +1,12 @@
+import {
+  addManilaDays,
+  formatManilaDate,
+  manilaDateKey,
+  manilaDateKeyToStartMs,
+  manilaHour,
+  manilaWeekday
+} from './manilaTime.js';
+
 export const PAUSE_STORAGE_KEY = 'pause-state-v1';
 
 let pauseStorageAccountId = null;
@@ -169,30 +178,16 @@ export function formatDuration(ms) {
   return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
-function localDayKey(timestamp) {
-  const date = new Date(Number(timestamp));
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function startOfLocalDay(timestamp) {
-  const date = new Date(Number(timestamp));
-  date.setHours(0, 0, 0, 0);
-  return date;
+function uniqueRestDays(entries) {
+  return new Set(entries.map((entry) => manilaDateKey(entry.startAt || entry.endedAt))).size;
 }
 
 function timeOfDay(timestamp) {
-  const hour = new Date(Number(timestamp)).getHours();
+  const hour = manilaHour(timestamp);
   if (hour >= 5 && hour < 12) return 'Morning';
   if (hour >= 12 && hour < 17) return 'Afternoon';
   if (hour >= 17 && hour < 22) return 'Evening';
   return 'Late night';
-}
-
-function uniqueRestDays(entries) {
-  return new Set(entries.map((entry) => localDayKey(entry.startAt || entry.endedAt))).size;
 }
 
 function validHistoryEntries(state) {
@@ -205,9 +200,9 @@ function validHistoryEntries(state) {
 
 function buildWeekdayPattern(history, now) {
   const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const todayStart = startOfLocalDay(now);
-  const rollingStart = new Date(todayStart);
-  rollingStart.setDate(todayStart.getDate() - 27);
+  const todayKey = manilaDateKey(now);
+  const rollingStartKey = addManilaDays(todayKey, -27);
+  const rollingStartMs = manilaDateKeyToStartMs(rollingStartKey);
 
   const eligibleHistory = history.filter((entry) => Number(entry.startAt || entry.endedAt) <= now);
   if (!eligibleHistory.length) {
@@ -223,9 +218,9 @@ function buildWeekdayPattern(history, now) {
   }
 
   const firstStamp = Math.min(...eligibleHistory.map((entry) => Number(entry.startAt || entry.endedAt)));
-  const firstDay = startOfLocalDay(firstStamp);
-  const observedStart = firstDay > rollingStart ? firstDay : rollingStart;
-  const observedStartMs = observedStart.getTime();
+  const firstDayKey = manilaDateKey(firstStamp);
+  const observedStartKey = firstDayKey > rollingStartKey ? firstDayKey : rollingStartKey;
+  const observedStartMs = manilaDateKeyToStartMs(observedStartKey);
 
   const buckets = WEEKDAYS.map((label, weekday) => ({
     weekday,
@@ -237,23 +232,27 @@ function buildWeekdayPattern(history, now) {
   }));
 
   let daysObserved = 0;
-  for (let cursor = new Date(observedStart); cursor <= todayStart; cursor.setDate(cursor.getDate() + 1)) {
-    buckets[cursor.getDay()].occurrences += 1;
+  for (
+    let cursorKey = observedStartKey;
+    cursorKey && cursorKey <= todayKey;
+    cursorKey = addManilaDays(cursorKey, 1)
+  ) {
+    const cursorStart = manilaDateKeyToStartMs(cursorKey);
+    buckets[manilaWeekday(cursorStart)].occurrences += 1;
     daysObserved += 1;
   }
 
   const patternEntries = eligibleHistory.filter((entry) => {
     const stamp = Number(entry.startAt || entry.endedAt);
-    return stamp >= observedStartMs && stamp <= now;
+    return stamp >= Math.max(observedStartMs, rollingStartMs) && stamp <= now;
   });
 
   patternEntries.forEach((entry) => {
     const stamp = Number(entry.startAt || entry.endedAt);
-    const date = new Date(stamp);
-    const bucket = buckets[date.getDay()];
+    const bucket = buckets[manilaWeekday(stamp)];
     bucket.totalMs += Number(entry.durationMs || 0);
     bucket.sessions += 1;
-    bucket.restDayKeys.add(localDayKey(stamp));
+    bucket.restDayKeys.add(manilaDateKey(stamp));
   });
 
   const ranked = buckets
@@ -286,19 +285,14 @@ function buildWeekdayPattern(history, now) {
 export function restInsights(state, now = Date.now()) {
   const history = validHistoryEntries(state);
 
-  // Analytics are based on seven LOCAL CALENDAR DAYS, including today.
-  // This keeps the headline metric and every visible day row on the exact same window.
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
+  // Analytics are based on seven MANILA CALENDAR DAYS, including today.
+  // The app's calendar stays stable even when the device is in another timezone.
+  const todayKey = manilaDateKey(now);
+  const currentStartKey = addManilaDays(todayKey, -6);
+  const previousStartKey = addManilaDays(currentStartKey, -7);
 
-  const currentStart = new Date(todayStart);
-  currentStart.setDate(todayStart.getDate() - 6);
-
-  const previousStart = new Date(currentStart);
-  previousStart.setDate(currentStart.getDate() - 7);
-
-  const currentStartMs = currentStart.getTime();
-  const previousStartMs = previousStart.getTime();
+  const currentStartMs = manilaDateKeyToStartMs(currentStartKey);
+  const previousStartMs = manilaDateKeyToStartMs(previousStartKey);
 
   const recent = history.filter((entry) => {
     const stamp = Number(entry.startAt || entry.endedAt);
@@ -327,11 +321,10 @@ export function restInsights(state, now = Date.now()) {
   // Ranking by strongest weekday is a separate learned pattern below it.
   const daily = [];
   for (let offset = 0; offset <= 6; offset += 1) {
-    const date = new Date(todayStart);
-    date.setDate(todayStart.getDate() - offset);
-    const key = localDayKey(date.getTime());
-    const dayEntries = recent.filter((entry) => localDayKey(entry.startAt || entry.endedAt) === key);
+    const key = addManilaDays(todayKey, -offset);
+    const dayEntries = recent.filter((entry) => manilaDateKey(entry.startAt || entry.endedAt) === key);
     const dayTotalMs = dayEntries.reduce((sum, entry) => sum + Number(entry.durationMs || 0), 0);
+    const dayStartMs = manilaDateKeyToStartMs(key);
 
     daily.push({
       key,
@@ -339,8 +332,8 @@ export function restInsights(state, now = Date.now()) {
         ? 'Today'
         : offset === 1
           ? 'Yesterday'
-          : date.toLocaleDateString([], { weekday: 'short' }),
-      dateLabel: date.toLocaleDateString([], { month: 'short', day: 'numeric' }),
+          : formatManilaDate(dayStartMs, { weekday: 'short' }),
+      dateLabel: formatManilaDate(dayStartMs, { month: 'short', day: 'numeric' }),
       totalMs: dayTotalMs,
       sessions: dayEntries.length
     });
