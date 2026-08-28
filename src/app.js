@@ -14,6 +14,7 @@ import {
 } from './auth/backendClient.js';
 import { pullPauseCloudState, pushPauseCloudState } from './sync/pauseSyncClient.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
+import { manilaDateKey } from './manilaTime.js';
 import {
   completeExpiredRest,
   elapsedMs,
@@ -28,6 +29,7 @@ import {
 } from './restState.js';
 
 const SCORE_PREFERENCE_KEY = 'pause-score-preference-v1';
+const SCORE_PREFERENCE_VERSION = 2;
 const LEGACY_OWNER_KEY = 'pause-legacy-owner-v1';
 const app = document.querySelector('#app');
 let pauseState = loadPauseState();
@@ -52,6 +54,7 @@ let syncPullInFlight = null;
 let syncDirty = false;
 let applyingCloudSnapshot = false;
 let lastCloudRevision = 0;
+let renderedManilaDayKey = manilaDateKey();
 
 function scorePreferenceStorageKey(accountId = authState.session?.user?.id) {
   const clean = String(accountId ?? '').trim();
@@ -76,13 +79,17 @@ function markLegacyOwner(accountId) {
 }
 
 function normalizeScorePreference(parsed = {}) {
-  const timeframe = ['daily', 'weekly', 'monthly', 'custom'].includes(parsed.timeframe)
+  const requestedTimeframe = ['daily', 'weekly', 'monthly', 'custom'].includes(parsed.timeframe)
     ? parsed.timeframe
-    : 'weekly';
+    : null;
+  const isLegacyPreference = Number(parsed.version || 0) < SCORE_PREFERENCE_VERSION;
+  const timeframe = isLegacyPreference && requestedTimeframe === 'weekly'
+    ? 'daily'
+    : requestedTimeframe || 'daily';
   const customRange = parsed.customRange && parsed.customRange.start && parsed.customRange.end
     ? parsed.customRange
     : null;
-  return { timeframe, customRange };
+  return { version: SCORE_PREFERENCE_VERSION, timeframe, customRange };
 }
 
 function loadScorePreference({ fallbackToLegacy = false } = {}) {
@@ -94,7 +101,7 @@ function loadScorePreference({ fallbackToLegacy = false } = {}) {
     }
     return normalizeScorePreference(JSON.parse(raw || '{}'));
   } catch {
-    return { timeframe: 'weekly', customRange: null };
+    return { version: SCORE_PREFERENCE_VERSION, timeframe: 'daily', customRange: null };
   }
 }
 
@@ -276,7 +283,8 @@ function closePanel() {
 
 function handleScoreChange({ timeframe, customRange }) {
   saveScorePreference({
-    timeframe: ['daily', 'weekly', 'monthly', 'custom'].includes(timeframe) ? timeframe : 'weekly',
+    version: SCORE_PREFERENCE_VERSION,
+    timeframe: ['daily', 'weekly', 'monthly', 'custom'].includes(timeframe) ? timeframe : 'daily',
     customRange: customRange || scorePreference.customRange || null
   });
   render();
@@ -495,6 +503,8 @@ async function signOut() {
 }
 
 function render() {
+  renderedManilaDayKey = manilaDateKey();
+
   if (authState.status === 'checking') {
     app.replaceChildren(AuthCheckingScreen());
     return;
@@ -596,7 +606,16 @@ window.addEventListener('focus', () => {
 });
 
 tickTimer = setInterval(() => {
-  if (authState.status !== 'authenticated' || screen !== 'main' || !pauseState.active || completionVisible) return;
+  if (authState.status !== 'authenticated' || screen !== 'main') return;
+
+  const currentManilaDayKey = manilaDateKey();
+  if (currentManilaDayKey !== renderedManilaDayKey) {
+    renderedManilaDayKey = currentManilaDayKey;
+    render();
+    return;
+  }
+
+  if (!pauseState.active || completionVisible) return;
   if (checkExpired()) return;
   updateLiveTimer();
 }, 250);
