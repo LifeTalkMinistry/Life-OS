@@ -4,6 +4,13 @@ import { OrbArtwork } from './components/OrbArtwork.js';
 import { PauseScore } from './components/PauseScore.js';
 import { TodayRing } from './components/TodayRing.js';
 import { PausePanel } from './components/PausePanel.js';
+import { AuthCheckingScreen, LoginScreen } from './auth/LoginScreen.js';
+import {
+  friendlyAuthError,
+  restorePauseBackendSession,
+  signInWithPauseBackend,
+  signOutFromPauseBackend
+} from './auth/backendClient.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
 import {
   completeExpiredRest,
@@ -19,6 +26,11 @@ import {
 const SCORE_PREFERENCE_KEY = 'pause-score-preference-v1';
 const app = document.querySelector('#app');
 let pauseState = loadPauseState();
+let authState = {
+  status: 'checking',
+  session: null,
+  error: ''
+};
 let screen = 'launch';
 let menuOpen = false;
 let panelView = null;
@@ -219,13 +231,76 @@ function MainScreen() {
   return view;
 }
 
+function startAuthenticatedApp() {
+  clearTimeout(launchTimer);
+  screen = 'launch';
+  menuOpen = false;
+  panelView = null;
+  completionVisible = false;
+  render();
+  launchTimer = setTimeout(() => {
+    if (authState.status !== 'authenticated') return;
+    screen = 'main';
+    checkExpired();
+    render();
+  }, 1100);
+}
+
+async function handleLogin(credentials) {
+  authState.error = '';
+  try {
+    const session = await signInWithPauseBackend(credentials);
+    authState = {
+      status: 'authenticated',
+      session,
+      error: ''
+    };
+    startAuthenticatedApp();
+  } catch (error) {
+    authState = {
+      status: 'signed-out',
+      session: null,
+      error: friendlyAuthError(error)
+    };
+    render();
+  }
+}
+
+function signOut() {
+  clearTimeout(launchTimer);
+  signOutFromPauseBackend();
+  authState = {
+    status: 'signed-out',
+    session: null,
+    error: ''
+  };
+  screen = 'launch';
+  menuOpen = false;
+  panelView = null;
+  completionVisible = false;
+  render();
+}
+
 function render() {
+  if (authState.status === 'checking') {
+    app.replaceChildren(AuthCheckingScreen());
+    return;
+  }
+
+  if (authState.status !== 'authenticated') {
+    app.replaceChildren(LoginScreen({
+      onSubmit: handleLogin,
+      error: authState.error
+    }));
+    return;
+  }
+
   if (screen === 'launch') app.replaceChildren(LaunchScreen());
   else app.replaceChildren(MainScreen());
 }
 
 function updateLiveTimer() {
-  if (!pauseState.active || completionVisible || menuOpen) return;
+  if (authState.status !== 'authenticated' || !pauseState.active || completionVisible || menuOpen) return;
   const timer = app.querySelector('[data-pause-timer]');
   if (!timer) return;
 
@@ -237,7 +312,7 @@ function updateLiveTimer() {
 }
 
 function onKeydown(event) {
-  if (event.key !== 'Escape') return;
+  if (authState.status !== 'authenticated' || event.key !== 'Escape') return;
   if (panelView) return closePanel();
   if (menuOpen) {
     menuOpen = false;
@@ -245,35 +320,76 @@ function onKeydown(event) {
   }
 }
 
+async function bootstrapAuth() {
+  authState = {
+    status: 'checking',
+    session: null,
+    error: ''
+  };
+  render();
+
+  try {
+    const session = await restorePauseBackendSession();
+    if (!session) {
+      authState = {
+        status: 'signed-out',
+        session: null,
+        error: ''
+      };
+      render();
+      return;
+    }
+
+    authState = {
+      status: 'authenticated',
+      session,
+      error: ''
+    };
+    startAuthenticatedApp();
+  } catch (error) {
+    authState = {
+      status: 'signed-out',
+      session: null,
+      error: friendlyAuthError(error)
+    };
+    render();
+  }
+}
+
 document.addEventListener('keydown', onKeydown);
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && screen === 'main') {
+  if (!document.hidden && authState.status === 'authenticated' && screen === 'main') {
     checkExpired();
     render();
   }
 });
 window.addEventListener('focus', () => {
-  if (screen === 'main') {
+  if (authState.status === 'authenticated' && screen === 'main') {
     checkExpired();
     render();
   }
 });
 
-render();
-launchTimer = setTimeout(() => {
-  screen = 'main';
-  checkExpired();
-  render();
-}, 1100);
-
 tickTimer = setInterval(() => {
-  if (screen !== 'main' || !pauseState.active || completionVisible) return;
+  if (authState.status !== 'authenticated' || screen !== 'main' || !pauseState.active || completionVisible) return;
   if (checkExpired()) return;
   updateLiveTimer();
 }, 250);
 
 window.__PAUSE__ = {
-  getState: () => ({ pauseState, screen, menuOpen, panelView, completionVisible, scorePreference }),
+  getState: () => ({
+    pauseState,
+    authStatus: authState.status,
+    user: authState.session?.user || null,
+    screen,
+    menuOpen,
+    panelView,
+    completionVisible,
+    scorePreference
+  }),
   openInsights,
-  takeRest: () => beginImmediateRest()
+  takeRest: () => beginImmediateRest(),
+  signOut
 };
+
+bootstrapAuth();
