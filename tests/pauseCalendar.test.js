@@ -7,7 +7,7 @@ import {
   manilaMonthStartKey
 } from '../src/manilaTime.js';
 import { calculatePauseScore } from '../src/components/PauseScore.js';
-import { restAuditForDay, restInsights } from '../src/restState.js';
+import { completeExpiredRest, restAuditForDay, restInsights } from '../src/restState.js';
 
 test('Manila calendar flips at 16:00 UTC', () => {
   assert.equal(manilaDateKey(Date.parse('2026-08-27T15:59:59Z')), '2026-08-27');
@@ -37,6 +37,35 @@ test('daily PAUSE score uses Manila midnight', () => {
   assert.equal(result.days[0].key, '2026-08-28');
   assert.equal(result.days[0].restMs, 30 * 60 * 1000);
   assert.equal(result.score, 13);
+});
+
+test('a finished timer rings once but does not automatically end the rest', () => {
+  const startAt = Date.parse('2026-08-28T01:00:00Z');
+  const endAt = Date.parse('2026-08-28T01:15:00Z');
+  const state = {
+    version: 1,
+    customRests: [],
+    history: [],
+    active: {
+      id: 'timed-rest',
+      label: 'Rest',
+      plannedMinutes: 15,
+      startAt,
+      endAt,
+      timerExpiredAt: null
+    }
+  };
+
+  const first = completeExpiredRest(state, endAt + 1000);
+  assert.equal(first.completed, true);
+  assert.ok(first.state.active);
+  assert.equal(first.state.active.timerExpiredAt, endAt);
+  assert.equal(first.state.history.length, 0);
+
+  const second = completeExpiredRest(first.state, endAt + 5000);
+  assert.equal(second.completed, false);
+  assert.ok(second.state.active);
+  assert.equal(second.state.active.timerExpiredAt, endAt);
 });
 
 test('a cross-midnight rest is audited into both Manila dates', () => {
