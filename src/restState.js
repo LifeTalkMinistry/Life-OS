@@ -178,10 +178,6 @@ export function formatDuration(ms) {
   return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
-function uniqueRestDays(entries) {
-  return new Set(entries.map((entry) => manilaDateKey(entry.startAt || entry.endedAt))).size;
-}
-
 function timeOfDay(timestamp) {
   const hour = manilaHour(timestamp);
   if (hour >= 5 && hour < 12) return 'Morning';
@@ -190,21 +186,95 @@ function timeOfDay(timestamp) {
   return 'Late night';
 }
 
+function sessionBounds(entry) {
+  const start = Number(entry?.startAt ?? entry?.endedAt);
+  if (!Number.isFinite(start)) return null;
+
+  const explicitEnd = Number(entry?.endedAt);
+  const duration = Math.max(0, Number(entry?.durationMs || 0));
+  const end = Number.isFinite(explicitEnd) && explicitEnd >= start
+    ? explicitEnd
+    : start + duration;
+
+  if (!Number.isFinite(end) || end < start) return null;
+  return { start, end, durationMs: Math.max(0, end - start) };
+}
+
 function validHistoryEntries(state) {
-  return (Array.isArray(state.history) ? state.history : []).filter((entry) => {
-    const stamp = Number(entry.startAt || entry.endedAt);
-    const duration = Number(entry.durationMs);
-    return Number.isFinite(stamp) && Number.isFinite(duration) && duration >= 0;
+  return (Array.isArray(state?.history) ? state.history : []).filter((entry) => sessionBounds(entry));
+}
+
+function entriesOverlappingWindow(history, start, end) {
+  return history.filter((entry) => {
+    const bounds = sessionBounds(entry);
+    if (!bounds) return false;
+    if (bounds.start === bounds.end) return bounds.start >= start && bounds.start < end;
+    return bounds.end > start && bounds.start < end;
   });
 }
 
-function buildWeekdayPattern(history, now) {
+export function restAuditForDay(state, dayKey, now = Date.now()) {
+  const dayStart = manilaDateKeyToStartMs(dayKey);
+  const nextDayKey = addManilaDays(dayKey, 1);
+  const dayEnd = manilaDateKeyToStartMs(nextDayKey);
+
+  if (!Number.isFinite(dayStart) || !Number.isFinite(dayEnd)) {
+    return { dayKey, totalMs: 0, sessions: 0, entries: [] };
+  }
+
+  const effectiveEnd = Math.min(dayEnd, Number(now));
+  if (effectiveEnd < dayStart) {
+    return { dayKey, totalMs: 0, sessions: 0, entries: [] };
+  }
+
+  const entries = validHistoryEntries(state)
+    .map((entry) => {
+      const bounds = sessionBounds(entry);
+      const creditedStartAt = Math.max(bounds.start, dayStart);
+      const creditedEndAt = Math.min(bounds.end, effectiveEnd);
+      const isZeroDurationInsideDay = bounds.start === bounds.end
+        && bounds.start >= dayStart
+        && bounds.start < effectiveEnd;
+      const creditedMs = Math.max(0, creditedEndAt - creditedStartAt);
+
+      if (creditedMs <= 0 && !isZeroDurationInsideDay) return null;
+
+      return {
+        id: entry.id || `rest-${bounds.start}-${bounds.end}`,
+        label: String(entry.label || 'Rest'),
+        reason: entry.reason || null,
+        plannedMinutes: entry.plannedMinutes ?? null,
+        startAt: bounds.start,
+        endedAt: bounds.end,
+        sessionDurationMs: bounds.durationMs,
+        creditedStartAt,
+        creditedEndAt: isZeroDurationInsideDay ? bounds.start : creditedEndAt,
+        creditedMs,
+        crossesIntoDay: bounds.start < dayStart,
+        crossesOutOfDay: bounds.end > dayEnd,
+        splitAcrossDays: bounds.start < dayStart || bounds.end > dayEnd
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.creditedStartAt - b.creditedStartAt || a.startAt - b.startAt);
+
+  return {
+    dayKey,
+    startAt: dayStart,
+    endAt: dayEnd,
+    totalMs: entries.reduce((sum, entry) => sum + entry.creditedMs, 0),
+    sessions: entries.length,
+    entries
+  };
+}
+
+function buildWeekdayPattern(state, history, now) {
   const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const todayKey = manilaDateKey(now);
   const rollingStartKey = addManilaDays(todayKey, -27);
   const rollingStartMs = manilaDateKeyToStartMs(rollingStartKey);
 
-  const eligibleHistory = history.filter((entry) => Number(entry.startAt || entry.endedAt) <= now);
+  const eligibleHistory = entriesOverlappingWindow(history, rollingStartMs, now + 1);
   if (!eligibleHistory.length) {
     return {
       ready: false,
@@ -217,10 +287,9 @@ function buildWeekdayPattern(history, now) {
     };
   }
 
-  const firstStamp = Math.min(...eligibleHistory.map((entry) => Number(entry.startAt || entry.endedAt)));
+  const firstStamp = Math.min(...eligibleHistory.map((entry) => sessionBounds(entry).start));
   const firstDayKey = manilaDateKey(firstStamp);
   const observedStartKey = firstDayKey > rollingStartKey ? firstDayKey : rollingStartKey;
-  const observedStartMs = manilaDateKeyToStartMs(observedStartKey);
 
   const buckets = WEEKDAYS.map((label, weekday) => ({
     weekday,
@@ -228,54 +297,44 @@ function buildWeekdayPattern(history, now) {
     occurrences: 0,
     totalMs: 0,
     sessions: 0,
-    restDayKeys: new Set()
+    restDays: 0
   }));
 
   let daysObserved = 0;
+  let restDaysObserved = 0;
   for (
     let cursorKey = observedStartKey;
     cursorKey && cursorKey <= todayKey;
     cursorKey = addManilaDays(cursorKey, 1)
   ) {
     const cursorStart = manilaDateKeyToStartMs(cursorKey);
-    buckets[manilaWeekday(cursorStart)].occurrences += 1;
+    const bucket = buckets[manilaWeekday(cursorStart)];
+    const audit = restAuditForDay(state, cursorKey, now);
+    bucket.occurrences += 1;
+    bucket.totalMs += audit.totalMs;
+    bucket.sessions += audit.sessions;
+    if (audit.sessions > 0) {
+      bucket.restDays += 1;
+      restDaysObserved += 1;
+    }
     daysObserved += 1;
   }
 
-  const patternEntries = eligibleHistory.filter((entry) => {
-    const stamp = Number(entry.startAt || entry.endedAt);
-    return stamp >= Math.max(observedStartMs, rollingStartMs) && stamp <= now;
-  });
-
-  patternEntries.forEach((entry) => {
-    const stamp = Number(entry.startAt || entry.endedAt);
-    const bucket = buckets[manilaWeekday(stamp)];
-    bucket.totalMs += Number(entry.durationMs || 0);
-    bucket.sessions += 1;
-    bucket.restDayKeys.add(manilaDateKey(stamp));
-  });
-
   const ranked = buckets
     .map((bucket) => ({
-      weekday: bucket.weekday,
-      label: bucket.label,
-      occurrences: bucket.occurrences,
-      totalMs: bucket.totalMs,
-      sessions: bucket.sessions,
-      restDays: bucket.restDayKeys.size,
+      ...bucket,
       averageMs: bucket.occurrences ? bucket.totalMs / bucket.occurrences : 0
     }))
     .sort((a, b) => b.averageMs - a.averageMs || b.totalMs - a.totalMs || a.weekday - b.weekday)
     .map((item, index) => ({ ...item, rank: index + 1 }));
 
-  const restDaysObserved = uniqueRestDays(patternEntries);
-  const ready = daysObserved >= 14 && restDaysObserved >= 4 && patternEntries.length >= 5;
+  const ready = daysObserved >= 14 && restDaysObserved >= 4 && eligibleHistory.length >= 5;
 
   return {
     ready,
     daysObserved,
     restDaysObserved,
-    sessions: patternEntries.length,
+    sessions: eligibleHistory.length,
     ranked,
     strongest: ready ? ranked[0] : null,
     weakest: ready ? ranked[ranked.length - 1] : null
@@ -286,44 +345,23 @@ export function restInsights(state, now = Date.now()) {
   const history = validHistoryEntries(state);
 
   // Analytics are based on seven MANILA CALENDAR DAYS, including today.
-  // The app's calendar stays stable even when the device is in another timezone.
+  // Every visible daily total comes from the same per-day audit used by PAUSE Score.
   const todayKey = manilaDateKey(now);
   const currentStartKey = addManilaDays(todayKey, -6);
   const previousStartKey = addManilaDays(currentStartKey, -7);
+  const previousEndKey = addManilaDays(currentStartKey, -1);
 
   const currentStartMs = manilaDateKeyToStartMs(currentStartKey);
   const previousStartMs = manilaDateKeyToStartMs(previousStartKey);
+  const currentWindowEnd = Number(now) + 1;
 
-  const recent = history.filter((entry) => {
-    const stamp = Number(entry.startAt || entry.endedAt);
-    return stamp >= currentStartMs && stamp <= now;
-  });
+  const recent = entriesOverlappingWindow(history, currentStartMs, currentWindowEnd);
+  const previous = entriesOverlappingWindow(history, previousStartMs, currentStartMs);
 
-  const previous = history.filter((entry) => {
-    const stamp = Number(entry.startAt || entry.endedAt);
-    return stamp >= previousStartMs && stamp < currentStartMs;
-  });
-
-  const totalMs = recent.reduce((sum, entry) => sum + Number(entry.durationMs || 0), 0);
-  const previousTotalMs = previous.reduce((sum, entry) => sum + Number(entry.durationMs || 0), 0);
-  const restDays = uniqueRestDays(recent);
-  const previousRestDays = uniqueRestDays(previous);
-  const longestMs = recent.reduce((longest, entry) => Math.max(longest, Number(entry.durationMs || 0)), 0);
-
-  const byTime = new Map();
-  recent.forEach((entry) => {
-    const label = timeOfDay(entry.startAt || entry.endedAt);
-    byTime.set(label, (byTime.get(label) || 0) + 1);
-  });
-  const mostCommonTime = [...byTime.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
-
-  // The recent timeline stays chronological by relevance: Today → Yesterday → earlier days.
-  // Ranking by strongest weekday is a separate learned pattern below it.
   const daily = [];
   for (let offset = 0; offset <= 6; offset += 1) {
     const key = addManilaDays(todayKey, -offset);
-    const dayEntries = recent.filter((entry) => manilaDateKey(entry.startAt || entry.endedAt) === key);
-    const dayTotalMs = dayEntries.reduce((sum, entry) => sum + Number(entry.durationMs || 0), 0);
+    const audit = restAuditForDay(state, key, now);
     const dayStartMs = manilaDateKeyToStartMs(key);
 
     daily.push({
@@ -334,10 +372,38 @@ export function restInsights(state, now = Date.now()) {
           ? 'Yesterday'
           : formatManilaDate(dayStartMs, { weekday: 'short' }),
       dateLabel: formatManilaDate(dayStartMs, { month: 'short', day: 'numeric' }),
-      totalMs: dayTotalMs,
-      sessions: dayEntries.length
+      totalMs: audit.totalMs,
+      sessions: audit.sessions
     });
   }
+
+  const previousDaily = [];
+  for (
+    let cursorKey = previousStartKey;
+    cursorKey && cursorKey <= previousEndKey;
+    cursorKey = addManilaDays(cursorKey, 1)
+  ) {
+    previousDaily.push(restAuditForDay(state, cursorKey, now));
+  }
+
+  const totalMs = daily.reduce((sum, day) => sum + day.totalMs, 0);
+  const previousTotalMs = previousDaily.reduce((sum, day) => sum + day.totalMs, 0);
+  const restDays = daily.filter((day) => day.sessions > 0).length;
+  const previousRestDays = previousDaily.filter((day) => day.sessions > 0).length;
+
+  const recentCreditedDurations = recent.map((entry) => {
+    const bounds = sessionBounds(entry);
+    return Math.max(0, Math.min(bounds.end, now) - Math.max(bounds.start, currentStartMs));
+  });
+  const longestMs = recentCreditedDurations.reduce((longest, duration) => Math.max(longest, duration), 0);
+
+  const byTime = new Map();
+  recent.forEach((entry) => {
+    const bounds = sessionBounds(entry);
+    const label = timeOfDay(bounds.start);
+    byTime.set(label, (byTime.get(label) || 0) + 1);
+  });
+  const mostCommonTime = [...byTime.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
 
   return {
     sessions: recent.length,
@@ -351,6 +417,6 @@ export function restInsights(state, now = Date.now()) {
     totalMsChange: totalMs - previousTotalMs,
     mostCommonTime,
     daily,
-    weekdayPattern: buildWeekdayPattern(history, now)
+    weekdayPattern: buildWeekdayPattern(state, history, now)
   };
 }
