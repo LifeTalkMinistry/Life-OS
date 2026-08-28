@@ -1,3 +1,11 @@
+import {
+  addManilaDays,
+  manilaDateKey,
+  manilaDateKeyToStartMs,
+  manilaMonthStartKey,
+  parseManilaDateKey
+} from '../manilaTime.js';
+
 const TIMEFRAMES = ['daily', 'weekly', 'monthly', 'custom'];
 
 function ensurePauseScoreStyles() {
@@ -170,33 +178,6 @@ function ensurePauseScoreStyles() {
   document.head.appendChild(style);
 }
 
-function localDateKey(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function parseLocalDate(value) {
-  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  date.setHours(0, 0, 0, 0);
-  return Number.isFinite(date.getTime()) ? date : null;
-}
-
-function startOfToday(now = Date.now()) {
-  const date = new Date(now);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function addDays(date, amount) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + amount);
-  return next;
-}
-
 function scoreForRestMs(ms) {
   const hours = Math.max(0, Number(ms || 0)) / 3_600_000;
   const points = [
@@ -236,9 +217,10 @@ function sessionBounds(entry) {
   return { start, end };
 }
 
-function restMsForDay(history, dayStart) {
-  const start = dayStart.getTime();
-  const end = addDays(dayStart, 1).getTime();
+function restMsForDay(history, dayKey) {
+  const start = manilaDateKeyToStartMs(dayKey);
+  const nextDayKey = addManilaDays(dayKey, 1);
+  const end = manilaDateKeyToStartMs(nextDayKey);
 
   return history.reduce((total, entry) => {
     const bounds = sessionBounds(entry);
@@ -249,39 +231,41 @@ function restMsForDay(history, dayStart) {
 }
 
 function resolveRange(timeframe, customRange, now = Date.now()) {
-  const today = startOfToday(now);
+  const todayKey = manilaDateKey(now);
 
-  if (timeframe === 'daily') return { start: today, end: today };
+  if (timeframe === 'daily') return { startKey: todayKey, endKey: todayKey };
 
   if (timeframe === 'monthly') {
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    start.setHours(0, 0, 0, 0);
-    return { start, end: today };
+    return { startKey: manilaMonthStartKey(now), endKey: todayKey };
   }
 
   if (timeframe === 'custom') {
-    const requestedStart = parseLocalDate(customRange?.start);
-    const requestedEnd = parseLocalDate(customRange?.end);
+    const requestedStart = parseManilaDateKey(customRange?.start)?.key;
+    const requestedEnd = parseManilaDateKey(customRange?.end)?.key;
     if (requestedStart && requestedEnd) {
-      const start = requestedStart <= requestedEnd ? requestedStart : requestedEnd;
+      const startKey = requestedStart <= requestedEnd ? requestedStart : requestedEnd;
       const requestedFinal = requestedStart <= requestedEnd ? requestedEnd : requestedStart;
-      const end = requestedFinal > today ? today : requestedFinal;
-      if (start <= end) return { start, end };
+      const endKey = requestedFinal > todayKey ? todayKey : requestedFinal;
+      if (startKey <= endKey) return { startKey, endKey };
     }
   }
 
-  return { start: addDays(today, -6), end: today };
+  return { startKey: addManilaDays(todayKey, -6), endKey: todayKey };
 }
 
-export function calculatePauseScore(state, timeframe = 'weekly', customRange = null, now = Date.now()) {
+export function calculatePauseScore(state, timeframe = 'daily', customRange = null, now = Date.now()) {
   const history = Array.isArray(state?.history) ? state.history : [];
   const range = resolveRange(timeframe, customRange, now);
   const days = [];
 
-  for (let cursor = new Date(range.start); cursor <= range.end; cursor = addDays(cursor, 1)) {
-    const restMs = restMsForDay(history, cursor);
+  for (
+    let cursorKey = range.startKey;
+    cursorKey && cursorKey <= range.endKey;
+    cursorKey = addManilaDays(cursorKey, 1)
+  ) {
+    const restMs = restMsForDay(history, cursorKey);
     days.push({
-      key: localDateKey(cursor),
+      key: cursorKey,
       restMs,
       score: scoreForRestMs(restMs)
     });
@@ -291,18 +275,25 @@ export function calculatePauseScore(state, timeframe = 'weekly', customRange = n
     ? Math.round(days.reduce((sum, day) => sum + day.score, 0) / days.length)
     : 0;
 
-  return { score, days, start: range.start, end: range.end };
-}
-
-function defaultCustomRange(now = Date.now()) {
-  const today = startOfToday(now);
   return {
-    start: localDateKey(addDays(today, -6)),
-    end: localDateKey(today)
+    score,
+    days,
+    start: new Date(manilaDateKeyToStartMs(range.startKey)),
+    end: new Date(manilaDateKeyToStartMs(range.endKey)),
+    startKey: range.startKey,
+    endKey: range.endKey
   };
 }
 
-export function PauseScore({ state, timeframe = 'weekly', customRange = null, onChange }) {
+function defaultCustomRange(now = Date.now()) {
+  const todayKey = manilaDateKey(now);
+  return {
+    start: addManilaDays(todayKey, -6),
+    end: todayKey
+  };
+}
+
+export function PauseScore({ state, timeframe = 'daily', customRange = null, onChange }) {
   ensurePauseScoreStyles();
   const scoreData = calculatePauseScore(state, timeframe, customRange);
   const wrapper = document.createElement('section');
@@ -380,15 +371,15 @@ export function PauseScore({ state, timeframe = 'weekly', customRange = null, on
     const form = new FormData(customForm);
     const start = String(form.get('start') || '');
     const end = String(form.get('end') || '');
-    const startDate = parseLocalDate(start);
-    const endDate = parseLocalDate(end);
+    const startDate = parseManilaDateKey(start);
+    const endDate = parseManilaDateKey(end);
     const error = customForm.querySelector('.pause-score-error');
 
     if (!startDate || !endDate) {
       if (error) error.textContent = 'Choose both dates.';
       return;
     }
-    if (startDate > endDate) {
+    if (startDate.key > endDate.key) {
       if (error) error.textContent = 'Start date must be before end date.';
       return;
     }
