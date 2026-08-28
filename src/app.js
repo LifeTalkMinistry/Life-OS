@@ -12,6 +12,7 @@ import {
   signInWithPauseBackend,
   signOutFromPauseBackend
 } from './auth/backendClient.js';
+import { pullPauseCloudState, pushPauseCloudState } from './sync/pauseSyncClient.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
 import {
   completeExpiredRest,
@@ -21,10 +22,13 @@ import {
   formatElapsed,
   loadPauseState,
   remainingMs,
+  savePauseState,
+  setPauseStorageAccount,
   startRest
 } from './restState.js';
 
 const SCORE_PREFERENCE_KEY = 'pause-score-preference-v1';
+const LEGACY_OWNER_KEY = 'pause-legacy-owner-v1';
 const app = document.querySelector('#app');
 let pauseState = loadPauseState();
 let authState = {
@@ -41,17 +45,54 @@ let launchTimer = null;
 let completionTimer = null;
 let tickTimer = null;
 let gestureController = null;
+let syncPushTimer = null;
+let syncPollTimer = null;
+let syncPushInFlight = null;
+let syncPullInFlight = null;
+let syncDirty = false;
+let applyingCloudSnapshot = false;
+let lastCloudRevision = 0;
 
-function loadScorePreference() {
+function scorePreferenceStorageKey(accountId = authState.session?.user?.id) {
+  const clean = String(accountId ?? '').trim();
+  return clean ? `${SCORE_PREFERENCE_KEY}:account:${clean}` : SCORE_PREFERENCE_KEY;
+}
+
+function shouldAdoptLegacy(accountId) {
   try {
-    const parsed = JSON.parse(localStorage.getItem(SCORE_PREFERENCE_KEY) || '{}');
-    const timeframe = ['daily', 'weekly', 'monthly', 'custom'].includes(parsed.timeframe)
-      ? parsed.timeframe
-      : 'weekly';
-    const customRange = parsed.customRange && parsed.customRange.start && parsed.customRange.end
-      ? parsed.customRange
-      : null;
-    return { timeframe, customRange };
+    const owner = String(localStorage.getItem(LEGACY_OWNER_KEY) || '').trim();
+    return !owner || owner === String(accountId);
+  } catch {
+    return false;
+  }
+}
+
+function markLegacyOwner(accountId) {
+  try {
+    if (!localStorage.getItem(LEGACY_OWNER_KEY)) {
+      localStorage.setItem(LEGACY_OWNER_KEY, String(accountId));
+    }
+  } catch {}
+}
+
+function normalizeScorePreference(parsed = {}) {
+  const timeframe = ['daily', 'weekly', 'monthly', 'custom'].includes(parsed.timeframe)
+    ? parsed.timeframe
+    : 'weekly';
+  const customRange = parsed.customRange && parsed.customRange.start && parsed.customRange.end
+    ? parsed.customRange
+    : null;
+  return { timeframe, customRange };
+}
+
+function loadScorePreference({ fallbackToLegacy = false } = {}) {
+  try {
+    const accountId = authState.session?.user?.id;
+    let raw = localStorage.getItem(scorePreferenceStorageKey(accountId));
+    if (!raw && accountId && fallbackToLegacy) {
+      raw = localStorage.getItem(SCORE_PREFERENCE_KEY);
+    }
+    return normalizeScorePreference(JSON.parse(raw || '{}'));
   } catch {
     return { timeframe: 'weekly', customRange: null };
   }
@@ -59,11 +100,148 @@ function loadScorePreference() {
 
 let scorePreference = loadScorePreference();
 
-function saveScorePreference(next) {
-  scorePreference = next;
+function saveScorePreference(next, { notify = true } = {}) {
+  scorePreference = normalizeScorePreference(next);
   try {
-    localStorage.setItem(SCORE_PREFERENCE_KEY, JSON.stringify(next));
+    localStorage.setItem(scorePreferenceStorageKey(), JSON.stringify(scorePreference));
   } catch {}
+  if (notify) queueCloudPush();
+}
+
+function applyCloudSnapshot(snapshot) {
+  if (!snapshot?.exists || !snapshot.state) return false;
+  applyingCloudSnapshot = true;
+  try {
+    pauseState = savePauseState(snapshot.state, { notify: false });
+    saveScorePreference(snapshot.scorePreference || {}, { notify: false });
+    lastCloudRevision = Math.max(lastCloudRevision, Number(snapshot.revision || 0));
+    syncDirty = false;
+  } finally {
+    applyingCloudSnapshot = false;
+  }
+  return true;
+}
+
+async function pushCloudNow() {
+  if (authState.status !== 'authenticated' || !authState.session?.token || applyingCloudSnapshot) return null;
+  if (syncPushInFlight) return syncPushInFlight;
+
+  clearTimeout(syncPushTimer);
+  syncPushTimer = null;
+  const token = authState.session.token;
+  const stateToSend = pauseState;
+  const preferenceToSend = scorePreference;
+
+  syncPushInFlight = pushPauseCloudState(token, {
+    state: stateToSend,
+    scorePreference: preferenceToSend
+  })
+    .then((snapshot) => {
+      lastCloudRevision = Math.max(lastCloudRevision, Number(snapshot?.revision || 0));
+      syncDirty = false;
+      return snapshot;
+    })
+    .catch((error) => {
+      syncDirty = true;
+      if (error?.status === 401 || error?.status === 403) return null;
+      return null;
+    })
+    .finally(() => {
+      syncPushInFlight = null;
+    });
+
+  return syncPushInFlight;
+}
+
+function queueCloudPush() {
+  if (authState.status !== 'authenticated' || applyingCloudSnapshot) return;
+  syncDirty = true;
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(() => {
+    pushCloudNow();
+  }, 500);
+}
+
+async function pullCloudNow({ force = false } = {}) {
+  if (authState.status !== 'authenticated' || !authState.session?.token) return null;
+  if (!force && (syncDirty || syncPushInFlight)) return null;
+  if (syncPullInFlight) return syncPullInFlight;
+
+  const token = authState.session.token;
+  syncPullInFlight = pullPauseCloudState(token)
+    .then((snapshot) => {
+      const revision = Number(snapshot?.revision || 0);
+      if (snapshot?.exists && (force || revision > lastCloudRevision)) {
+        applyCloudSnapshot(snapshot);
+        if (screen === 'main') {
+          checkExpired();
+          render();
+        }
+      }
+      return snapshot;
+    })
+    .catch(() => null)
+    .finally(() => {
+      syncPullInFlight = null;
+    });
+
+  return syncPullInFlight;
+}
+
+async function syncNow() {
+  if (syncDirty) await pushCloudNow();
+  if (!syncDirty) await pullCloudNow();
+}
+
+function startSyncPolling() {
+  clearInterval(syncPollTimer);
+  syncPollTimer = setInterval(() => {
+    if (document.hidden || authState.status !== 'authenticated') return;
+    syncNow();
+  }, 30_000);
+}
+
+function stopSyncPolling() {
+  clearTimeout(syncPushTimer);
+  clearInterval(syncPollTimer);
+  syncPushTimer = null;
+  syncPollTimer = null;
+  syncDirty = false;
+  syncPushInFlight = null;
+  syncPullInFlight = null;
+  lastCloudRevision = 0;
+}
+
+async function hydrateAccountState(session) {
+  const accountId = session?.user?.id;
+  if (!accountId) return;
+
+  setPauseStorageAccount(accountId);
+  const fallbackToLegacy = shouldAdoptLegacy(accountId);
+  pauseState = loadPauseState({ fallbackToLegacy });
+  scorePreference = loadScorePreference({ fallbackToLegacy });
+
+  if (session.offline) {
+    if (fallbackToLegacy) markLegacyOwner(accountId);
+    return;
+  }
+
+  try {
+    const snapshot = await pullPauseCloudState(session.token);
+    if (snapshot?.exists) {
+      applyCloudSnapshot(snapshot);
+    } else {
+      const saved = await pushPauseCloudState(session.token, {
+        state: pauseState,
+        scorePreference
+      });
+      lastCloudRevision = Number(saved?.revision || 0);
+      syncDirty = false;
+    }
+    if (fallbackToLegacy) markLegacyOwner(accountId);
+  } catch {
+    // PAUSE remains local-first if sync is temporarily unavailable.
+  }
 }
 
 function checkExpired() {
@@ -174,8 +352,6 @@ function LaunchScreen() {
 function MainScreen() {
   checkExpired();
 
-  // Home stays intentionally minimal: PAUSE Score above the ORB, the ORB as
-  // the rest action itself, and Rest Insights below it.
   const showHomeControls = !pauseState.active && !completionVisible && !panelView;
   const showInsightsLink = menuOpen || showHomeControls;
 
@@ -239,6 +415,7 @@ function startAuthenticatedApp() {
   menuOpen = false;
   panelView = null;
   completionVisible = false;
+  startSyncPolling();
   render();
   launchTimer = setTimeout(() => {
     if (authState.status !== 'authenticated') return;
@@ -257,6 +434,7 @@ async function handleLogin(credentials) {
       session,
       error: ''
     };
+    await hydrateAccountState(session);
     startAuthenticatedApp();
   } catch (error) {
     authState = {
@@ -277,6 +455,7 @@ async function handleRegister(credentials) {
       session,
       error: ''
     };
+    await hydrateAccountState(session);
     startAuthenticatedApp();
   } catch (error) {
     authState = {
@@ -294,15 +473,20 @@ function changeAuthMode(nextMode) {
   render();
 }
 
-function signOut() {
+async function signOut() {
   clearTimeout(launchTimer);
+  if (syncDirty) await pushCloudNow();
+  stopSyncPolling();
   signOutFromPauseBackend();
+  setPauseStorageAccount(null);
   authMode = 'login';
   authState = {
     status: 'signed-out',
     session: null,
     error: ''
   };
+  pauseState = loadPauseState();
+  scorePreference = loadScorePreference();
   screen = 'launch';
   menuOpen = false;
   panelView = null;
@@ -378,6 +562,7 @@ async function bootstrapAuth() {
       session,
       error: ''
     };
+    await hydrateAccountState(session);
     startAuthenticatedApp();
   } catch (error) {
     authMode = 'login';
@@ -391,16 +576,22 @@ async function bootstrapAuth() {
 }
 
 document.addEventListener('keydown', onKeydown);
+window.addEventListener('pause:state-changed', (event) => {
+  if (event.detail) pauseState = event.detail;
+  queueCloudPush();
+});
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && authState.status === 'authenticated' && screen === 'main') {
     checkExpired();
     render();
+    syncNow();
   }
 });
 window.addEventListener('focus', () => {
   if (authState.status === 'authenticated' && screen === 'main') {
     checkExpired();
     render();
+    syncNow();
   }
 });
 
@@ -420,10 +611,15 @@ window.__PAUSE__ = {
     menuOpen,
     panelView,
     completionVisible,
-    scorePreference
+    scorePreference,
+    sync: {
+      dirty: syncDirty,
+      revision: lastCloudRevision
+    }
   }),
   openInsights,
   takeRest: () => beginImmediateRest(),
+  syncNow,
   signOut
 };
 
