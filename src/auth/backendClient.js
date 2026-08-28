@@ -1,6 +1,7 @@
 const DEFAULT_API_URL = 'https://api.clarapmc.com';
-const LOGIN_PATH = '/api/clara/auth/login';
-const ME_PATH = '/api/users/me';
+const REGISTER_PATH = '/api/pause/auth/register';
+const LOGIN_PATH = '/api/pause/auth/login';
+const ME_PATH = '/api/pause/me';
 const TOKEN_KEY = 'pause_backend_access_token_v1';
 const USER_KEY = 'pause_backend_user_v1';
 
@@ -34,13 +35,17 @@ function normalizeUser(payload = {}) {
   const id = user?.id ?? user?.user_id ?? user?.userId ?? null;
   if (id === null || id === undefined || String(id).trim() === '') return null;
 
+  const app = String(user.app || 'pause').trim().toLowerCase() || 'pause';
+  if (app !== 'pause') return null;
+
   return {
     id,
     name: String(user.name || user.full_name || user.display_name || 'PAUSE User').trim() || 'PAUSE User',
     email: String(user.email || '').trim().toLowerCase(),
     role: String(user.role || user.user_role || 'user').trim().toLowerCase() || 'user',
     status: String(user.status || user.account_status || '').trim().toLowerCase() || 'inactive',
-    plan: String(user.plan || user.subscription_plan || 'free').trim().toLowerCase() || 'free'
+    plan: String(user.plan || user.subscription_plan || 'free').trim().toLowerCase() || 'free',
+    app: 'pause'
   };
 }
 
@@ -56,10 +61,17 @@ function readJwtPayload(token) {
   }
 }
 
-function isTokenLive(token, now = Date.now()) {
+function isPauseToken(token, now = Date.now()) {
   const payload = readJwtPayload(token);
   const expiresAt = Number(payload?.exp || 0) * 1000;
-  return Boolean(token && Number.isFinite(expiresAt) && expiresAt > now + 5000);
+  const audience = Array.isArray(payload?.aud) ? payload.aud : [payload?.aud];
+  return Boolean(
+    token &&
+    payload?.app === 'pause' &&
+    audience.includes('pause-client') &&
+    Number.isFinite(expiresAt) &&
+    expiresAt > now + 5000
+  );
 }
 
 function getStoredToken() {
@@ -76,7 +88,9 @@ function getStoredUser() {
 
 function saveSession({ token, user }) {
   const normalizedUser = normalizeUser(user);
-  if (!token || !normalizedUser) throw new Error('The account server returned an incomplete login response.');
+  if (!isPauseToken(token) || !normalizedUser) {
+    throw new Error('The PAUSE account server returned an invalid session.');
+  }
   const storage = getStorage();
   storage?.setItem(TOKEN_KEY, token);
   storage?.setItem(USER_KEY, JSON.stringify(normalizedUser));
@@ -100,6 +114,7 @@ async function parseResponse(response) {
   if (!response.ok) {
     const error = new Error(payload?.message || `Account request failed with status ${response.status}.`);
     error.status = response.status;
+    error.code = payload?.code || null;
     throw error;
   }
   return payload;
@@ -127,6 +142,18 @@ async function request(path, { method = 'GET', body, token } = {}) {
   return parseResponse(response);
 }
 
+export async function createPauseBackendAccount({ name, email, password }) {
+  const payload = await request(REGISTER_PATH, {
+    method: 'POST',
+    body: {
+      name: String(name || '').trim(),
+      email: String(email || '').trim(),
+      password: String(password || '')
+    }
+  });
+  return saveSession(payload || {});
+}
+
 export async function signInWithPauseBackend({ email, password }) {
   const payload = await request(LOGIN_PATH, {
     method: 'POST',
@@ -142,12 +169,7 @@ export async function restorePauseBackendSession() {
   const token = getStoredToken();
   const cachedUser = getStoredUser();
 
-  if (!token || !cachedUser) {
-    clearPauseSession();
-    return null;
-  }
-
-  if (!isTokenLive(token)) {
+  if (!token || !cachedUser || !isPauseToken(token)) {
     clearPauseSession();
     return null;
   }
@@ -155,7 +177,7 @@ export async function restorePauseBackendSession() {
   try {
     const payload = await request(ME_PATH, { token });
     const user = normalizeUser(payload);
-    if (!user) throw new Error('The account server returned an incomplete user profile.');
+    if (!user) throw new Error('The PAUSE account server returned an incomplete user profile.');
     return saveSession({ token, user });
   } catch (error) {
     if (error?.status === 401 || error?.status === 403) {
@@ -180,16 +202,22 @@ export function friendlyAuthError(error) {
   if (error?.code === 'NETWORK_ERROR' || normalized.includes('account server')) {
     return 'PAUSE could not reach the account server. Check your connection and try again.';
   }
-  if (error?.status === 401 || normalized.includes('invalid email or password')) {
-    return 'Invalid email or password.';
+  if (error?.status === 401 || error?.code === 'INVALID_CREDENTIALS' || normalized.includes('invalid email or password')) {
+    return 'Invalid PAUSE email or password.';
+  }
+  if (error?.status === 409 || error?.code === 'EMAIL_ALREADY_REGISTERED') {
+    return 'That email already has a PAUSE account. Log in instead.';
+  }
+  if (error?.code === 'PASSWORD_TOO_SHORT' || normalized.includes('at least 8 characters')) {
+    return 'Password must contain at least 8 characters.';
   }
   if (error?.status === 429) {
-    return 'Too many login attempts. Please wait a moment and try again.';
+    return 'Too many account attempts. Please wait a moment and try again.';
   }
   if (normalized.includes('origin is not allowed')) {
     return 'This PAUSE installation is not yet approved by the account server.';
   }
-  return message || 'PAUSE could not complete the login.';
+  return message || 'PAUSE could not complete the account request.';
 }
 
-export { DEFAULT_API_URL, LOGIN_PATH, ME_PATH, TOKEN_KEY, USER_KEY };
+export { DEFAULT_API_URL, REGISTER_PATH, LOGIN_PATH, ME_PATH, TOKEN_KEY, USER_KEY };
