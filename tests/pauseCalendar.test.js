@@ -7,7 +7,7 @@ import {
   manilaMonthStartKey
 } from '../src/manilaTime.js';
 import { calculatePauseScore } from '../src/components/PauseScore.js';
-import { restInsights } from '../src/restState.js';
+import { restAuditForDay, restInsights } from '../src/restState.js';
 
 test('Manila calendar flips at 16:00 UTC', () => {
   assert.equal(manilaDateKey(Date.parse('2026-08-27T15:59:59Z')), '2026-08-27');
@@ -37,6 +37,58 @@ test('daily PAUSE score uses Manila midnight', () => {
   assert.equal(result.days[0].key, '2026-08-28');
   assert.equal(result.days[0].restMs, 30 * 60 * 1000);
   assert.equal(result.score, 13);
+});
+
+test('a cross-midnight rest is audited into both Manila dates', () => {
+  const state = {
+    history: [{
+      id: 'cross-midnight',
+      label: 'Sleep',
+      startAt: Date.parse('2026-08-27T15:30:00Z'), // Aug 27 11:30 PM Manila
+      endedAt: Date.parse('2026-08-27T17:00:00Z'), // Aug 28 1:00 AM Manila
+      durationMs: 90 * 60 * 1000,
+      reason: 'ended'
+    }]
+  };
+  const now = Date.parse('2026-08-27T18:00:00Z');
+
+  const aug27 = restAuditForDay(state, '2026-08-27', now);
+  const aug28 = restAuditForDay(state, '2026-08-28', now);
+
+  assert.equal(aug27.totalMs, 30 * 60 * 1000);
+  assert.equal(aug28.totalMs, 60 * 60 * 1000);
+  assert.equal(aug27.sessions, 1);
+  assert.equal(aug28.sessions, 1);
+  assert.equal(aug27.entries[0].splitAcrossDays, true);
+  assert.equal(aug28.entries[0].splitAcrossDays, true);
+});
+
+test('7-day rhythm rows equal their per-day audit totals', () => {
+  const now = Date.parse('2026-08-29T03:00:00Z');
+  const state = {
+    history: [
+      {
+        id: 'yesterday-rest',
+        label: 'Rest',
+        startAt: Date.parse('2026-08-28T02:00:00Z'),
+        endedAt: Date.parse('2026-08-28T04:00:00Z'),
+        durationMs: 2 * 60 * 60 * 1000
+      },
+      {
+        id: 'cross-rest',
+        label: 'Sleep',
+        startAt: Date.parse('2026-08-28T15:30:00Z'),
+        endedAt: Date.parse('2026-08-28T16:30:00Z'),
+        durationMs: 60 * 60 * 1000
+      }
+    ]
+  };
+
+  const insights = restInsights(state, now);
+  insights.daily.forEach((day) => {
+    assert.equal(day.totalMs, restAuditForDay(state, day.key, now).totalMs);
+  });
+  assert.equal(insights.totalMs, insights.daily.reduce((sum, day) => sum + day.totalMs, 0));
 });
 
 test('rest insights label today by Manila calendar date', () => {
