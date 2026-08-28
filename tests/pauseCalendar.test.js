@@ -91,7 +91,22 @@ test('7-day rhythm rows equal their per-day audit totals', () => {
   assert.equal(insights.totalMs, insights.daily.reduce((sum, day) => sum + day.totalMs, 0));
 });
 
-test('rest insights label today by Manila calendar date', () => {
+test('relative labels never replace the actual Manila calendar day', () => {
+  const now = Date.parse('2026-08-29T03:00:00Z'); // Aug 29, 11:00 AM Manila
+  const insights = restInsights({ history: [] }, now);
+
+  assert.equal(insights.daily[0].key, '2026-08-29');
+  assert.equal(insights.daily[0].label, 'Sat');
+  assert.equal(insights.daily[0].relativeLabel, 'Today');
+  assert.equal(insights.daily[0].dateLabel, 'Aug 29 · Today');
+
+  assert.equal(insights.daily[1].key, '2026-08-28');
+  assert.equal(insights.daily[1].label, 'Fri');
+  assert.equal(insights.daily[1].relativeLabel, 'Yesterday');
+  assert.equal(insights.daily[1].dateLabel, 'Aug 28 · Yesterday');
+});
+
+test('rest insights assign completed rests to the actual Manila calendar date', () => {
   const now = Date.parse('2026-08-27T17:00:00Z');
   const state = {
     history: [{
@@ -103,6 +118,7 @@ test('rest insights label today by Manila calendar date', () => {
 
   const insights = restInsights(state, now);
   assert.equal(insights.daily[0].key, '2026-08-28');
-  assert.equal(insights.daily[0].label, 'Today');
+  assert.equal(insights.daily[0].label, 'Fri');
+  assert.equal(insights.daily[0].relativeLabel, 'Today');
   assert.equal(insights.daily[0].sessions, 1);
 });
