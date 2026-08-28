@@ -3,6 +3,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 const scriptOrder = [
   'src/gestures/orbGestures.js',
   'src/components/OrbArtwork.js',
+  'src/manilaTime.js',
   'src/restState.js',
   'src/components/Brand.js',
   'src/components/Orb.js',
