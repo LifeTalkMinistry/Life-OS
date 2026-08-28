@@ -1,5 +1,7 @@
 export const PAUSE_STORAGE_KEY = 'pause-state-v1';
 
+let pauseStorageAccountId = null;
+
 export const DEFAULT_RESTS = [
   'Sleep',
   'Nap',
@@ -19,34 +21,56 @@ function emptyState() {
   return { version: 1, customRests: [], history: [], active: null };
 }
 
-export function loadPauseState() {
+function activeStorageKey() {
+  return pauseStorageAccountId
+    ? `${PAUSE_STORAGE_KEY}:account:${pauseStorageAccountId}`
+    : PAUSE_STORAGE_KEY;
+}
+
+function normalizePauseState(parsed = {}) {
+  const active = parsed.active && parsed.active.label && parsed.active.startAt
+    ? {
+        ...parsed.active,
+        plannedMinutes: parsed.active.plannedMinutes ?? null,
+        endAt: parsed.active.endAt ?? null
+      }
+    : null;
+  return {
+    version: 1,
+    customRests: Array.isArray(parsed.customRests) ? parsed.customRests.filter(Boolean).slice(0, 40) : [],
+    history: Array.isArray(parsed.history) ? parsed.history.slice(0, 500) : [],
+    active
+  };
+}
+
+export function setPauseStorageAccount(accountId) {
+  const clean = String(accountId ?? '').trim();
+  pauseStorageAccountId = clean || null;
+  return activeStorageKey();
+}
+
+export function loadPauseState({ fallbackToLegacy = false } = {}) {
   try {
-    const raw = localStorage.getItem(PAUSE_STORAGE_KEY);
+    let raw = localStorage.getItem(activeStorageKey());
+    if (!raw && pauseStorageAccountId && fallbackToLegacy) {
+      raw = localStorage.getItem(PAUSE_STORAGE_KEY);
+    }
     if (!raw) return emptyState();
-    const parsed = JSON.parse(raw);
-    const active = parsed.active && parsed.active.label && parsed.active.startAt
-      ? {
-          ...parsed.active,
-          plannedMinutes: parsed.active.plannedMinutes ?? null,
-          endAt: parsed.active.endAt ?? null
-        }
-      : null;
-    return {
-      version: 1,
-      customRests: Array.isArray(parsed.customRests) ? parsed.customRests.filter(Boolean).slice(0, 40) : [],
-      history: Array.isArray(parsed.history) ? parsed.history.slice(0, 500) : [],
-      active
-    };
+    return normalizePauseState(JSON.parse(raw));
   } catch {
     return emptyState();
   }
 }
 
-export function savePauseState(state) {
+export function savePauseState(state, { notify = true } = {}) {
+  const normalized = normalizePauseState(state);
   try {
-    localStorage.setItem(PAUSE_STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(activeStorageKey(), JSON.stringify(normalized));
   } catch {}
-  return state;
+  if (notify && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('pause:state-changed', { detail: normalized }));
+  }
+  return normalized;
 }
 
 export function addCustomRest(state, label) {
