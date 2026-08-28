@@ -19,7 +19,7 @@ function stripModuleSyntax(source) {
     .replace(/import\s+[\s\S]*?\s+from\s+['"][^'"]+['"];?\s*/g, '')
     .replace(/\bexport\s*\{[\s\S]*?\};?\s*/g, '')
     .replace(/\bexport\s+default\s+/g, '')
-    .replace(/\bexport\s+(?=(const|let|var|function|class)\b)/g, '');
+    .replace(/\bexport\s+(?=(?:async\s+)?(?:const|let|var|function|class)\b)/g, '');
 }
 
 const cssFiles = [
