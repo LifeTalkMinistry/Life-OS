@@ -256,7 +256,7 @@ export function restAuditForDay(state, dayKey, now = Date.now()) {
       };
     })
     .filter(Boolean)
-    .sort((a, b) => a.creditedStartAt - b.creditedStartAt || a.startAt - b.startAt);
+    .sort((a, b) => b.creditedStartAt - a.creditedStartAt || b.startAt - a.startAt);
 
   return {
     dayKey,
