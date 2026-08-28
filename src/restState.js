@@ -363,15 +363,21 @@ export function restInsights(state, now = Date.now()) {
     const key = addManilaDays(todayKey, -offset);
     const audit = restAuditForDay(state, key, now);
     const dayStartMs = manilaDateKeyToStartMs(key);
+    const weekdayLabel = formatManilaDate(dayStartMs, { weekday: 'short' });
+    const baseDateLabel = formatManilaDate(dayStartMs, { month: 'short', day: 'numeric' });
+    const relativeLabel = offset === 0
+      ? 'Today'
+      : offset === 1
+        ? 'Yesterday'
+        : null;
 
     daily.push({
       key,
-      label: offset === 0
-        ? 'Today'
-        : offset === 1
-          ? 'Yesterday'
-          : formatManilaDate(dayStartMs, { weekday: 'short' }),
-      dateLabel: formatManilaDate(dayStartMs, { month: 'short', day: 'numeric' }),
+      dateKey: key,
+      label: weekdayLabel,
+      weekdayLabel,
+      relativeLabel,
+      dateLabel: relativeLabel ? `${baseDateLabel} · ${relativeLabel}` : baseDateLabel,
       totalMs: audit.totalMs,
       sessions: audit.sessions
     });
