@@ -9,6 +9,8 @@ const scriptOrder = [
   'src/components/PauseScore.js',
   'src/components/TodayRing.js',
   'src/components/PausePanel.js',
+  'src/auth/backendClient.js',
+  'src/auth/LoginScreen.js',
   'src/app.js'
 ];
 
@@ -24,7 +26,8 @@ const cssFiles = [
   'src/orb-depth.css',
   'src/system-controls.css',
   'src/layout-invariant.css',
-  'src/pause.css'
+  'src/pause.css',
+  'src/auth/auth.css'
 ];
 
 const css = cssFiles.map((file) => readFileSync(file, 'utf8')).join('\n\n');
