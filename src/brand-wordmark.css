@@ -1,0 +1,55 @@
+/* PAUSE wordmark concept
+ * Keep PAUSE readable first, then reveal the secondary U / USE meaning:
+ * U = YOU, while USE is gently framed as a single visual unit.
+ */
+.pause-brand-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 4.3vw, 18px);
+  letter-spacing: 0;
+}
+
+.pause-brand-title .pause-brand-letter,
+.pause-brand-title .pause-brand-you {
+  display: inline-block;
+  color: #f6f4fb;
+  line-height: 1;
+  text-shadow: 0 0 22px rgba(157, 103, 255, 0.3);
+}
+
+.pause-brand-title .pause-brand-use {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(12px, 4.3vw, 18px);
+  padding: 0.15em 0.30em 0.19em 0.22em;
+  margin-left: -0.08em;
+  border: 1px solid rgba(181, 139, 255, 0.46);
+  border-radius: 0.34em;
+  background:
+    linear-gradient(135deg, rgba(122, 72, 255, 0.09), rgba(255, 92, 182, 0.035));
+  box-shadow:
+    0 0 18px rgba(126, 75, 255, 0.12),
+    inset 0 0 16px rgba(157, 103, 255, 0.045);
+}
+
+.pause-brand-title .pause-brand-you {
+  color: #b482ff;
+  font-weight: 430;
+  text-shadow:
+    0 0 8px rgba(181, 130, 255, 0.9),
+    0 0 20px rgba(132, 77, 255, 0.46);
+}
+
+/* Preserve the compact premium feel on narrower phones. */
+@media (max-width: 360px) {
+  .pause-brand-title,
+  .pause-brand-title .pause-brand-use {
+    gap: 11px;
+  }
+
+  .pause-brand-title .pause-brand-use {
+    padding-inline: 0.20em 0.27em;
+  }
+}
