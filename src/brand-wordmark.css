@@ -23,15 +23,20 @@
   display: inline-flex;
   align-items: center;
   gap: clamp(12px, 4.3vw, 18px);
-  padding: 0.055em 0.30em 0.055em 0.22em;
+  height: 1.05em;
+  padding: 0 0.30em 0 0.22em;
   margin-left: -0.08em;
   border: 1px solid rgba(181, 139, 255, 0.46);
-  border-radius: 0.26em;
+  border-radius: 0.24em;
   background:
     linear-gradient(135deg, rgba(122, 72, 255, 0.09), rgba(255, 92, 182, 0.035));
   box-shadow:
     0 0 18px rgba(126, 75, 255, 0.12),
     inset 0 0 16px rgba(157, 103, 255, 0.045);
+}
+
+.pause-brand-title .pause-brand-use > span {
+  transform: translateY(0.015em);
 }
 
 .pause-brand-title .pause-brand-you {
