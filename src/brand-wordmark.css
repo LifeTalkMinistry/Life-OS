@@ -23,7 +23,7 @@
   display: inline-flex;
   align-items: center;
   gap: clamp(12px, 4.3vw, 18px);
-  padding: 0.15em 0.30em 0.19em 0.22em;
+  padding: 0.13em 0.30em 0.13em 0.22em;
   margin-left: -0.08em;
   border: 1px solid rgba(181, 139, 255, 0.46);
   border-radius: 0.34em;
