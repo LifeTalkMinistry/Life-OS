@@ -24,7 +24,7 @@
   align-items: center;
   gap: clamp(12px, 4.3vw, 18px);
   height: 1.05em;
-  padding: 0 0.20em 0 0.22em;
+  padding: 0 0.06em 0 0.22em;
   margin-left: -0.08em;
   border: 1px solid rgba(181, 139, 255, 0.46);
   border-radius: 0.24em;
@@ -47,7 +47,7 @@
     0 0 20px rgba(132, 77, 255, 0.46);
 }
 
-/* Preserve the compact premium feel on narrower phones. */
+/* Preserve the same optical balance on narrower phones. */
 @media (max-width: 360px) {
   .pause-brand-title,
   .pause-brand-title .pause-brand-use {
@@ -55,6 +55,7 @@
   }
 
   .pause-brand-title .pause-brand-use {
-    padding-inline: 0.20em;
+    padding-left: 0.20em;
+    padding-right: 0.05em;
   }
 }
