@@ -33,6 +33,7 @@ const cssFiles = [
   'src/system-controls.css',
   'src/layout-invariant.css',
   'src/pause.css',
+  'src/brand-wordmark.css',
   'src/auth/auth.css'
 ];
 
