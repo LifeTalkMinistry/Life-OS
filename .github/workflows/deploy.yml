@@ -28,8 +28,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Test PAUSE calendar audit
-        run: node --test tests/pauseCalendar.test.js
+      - name: Test PAUSE calendar and recovery status
+        run: node --test tests/pauseCalendar.test.js tests/recoveryStatus.test.js
 
       - name: Build PAUSE
         run: npm run build
