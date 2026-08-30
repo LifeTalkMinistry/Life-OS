@@ -15,6 +15,7 @@ const scriptOrder = [
   'src/auth/backendClient.js',
   'src/sync/pauseSyncClient.js',
   'src/auth/LoginScreen.js',
+  'src/recoveryStatusCard.js',
   'src/app.js'
 ];
 
