@@ -26,6 +26,24 @@ function normalizedRange(startKey, endKey, now = Date.now()) {
   return { startKey: first, endKey: last };
 }
 
+function firstRecordedRestDayKey(state, now = Date.now()) {
+  const todayKey = manilaDateKey(now);
+  let firstKey = null;
+
+  for (const entry of Array.isArray(state?.history) ? state.history : []) {
+    const startAt = Number(entry?.startAt);
+    const endedAt = Number(entry?.endedAt);
+    const timestamp = Number.isFinite(startAt) ? startAt : endedAt;
+    if (!Number.isFinite(timestamp)) continue;
+
+    const key = manilaDateKey(timestamp);
+    if (key > todayKey) continue;
+    if (!firstKey || key < firstKey) firstKey = key;
+  }
+
+  return firstKey;
+}
+
 export function recoveryRangeForDays(days = 7, now = Date.now()) {
   const count = Math.max(1, Math.round(Number(days) || 7));
   const endKey = manilaDateKey(now);
@@ -47,6 +65,8 @@ export function buildRecoverySummary(
     return {
       startKey: null,
       endKey: null,
+      observedStartKey: null,
+      observedEndKey: null,
       days: 0,
       totalMs: 0,
       targetMs: 0,
@@ -56,11 +76,32 @@ export function buildRecoverySummary(
     };
   }
 
+  const firstTrackedKey = firstRecordedRestDayKey(state, now);
+  if (!firstTrackedKey || firstTrackedKey > range.endKey) {
+    return {
+      ...range,
+      observedStartKey: null,
+      observedEndKey: null,
+      days: 0,
+      totalMs: 0,
+      targetMs: 0,
+      averageMs: 0,
+      differenceMs: 0,
+      progressPct: 0
+    };
+  }
+
+  // A selected window may reach further back than PAUSE has actual history.
+  // Do not penalize the user for days before their first recorded rest.
+  // Once tracking has begun, every calendar day counts, including a zero-rest day.
+  const observedStartKey = firstTrackedKey > range.startKey ? firstTrackedKey : range.startKey;
+  const observedEndKey = range.endKey;
+
   let totalMs = 0;
   let days = 0;
   for (
-    let cursorKey = range.startKey;
-    cursorKey && cursorKey <= range.endKey;
+    let cursorKey = observedStartKey;
+    cursorKey && cursorKey <= observedEndKey;
     cursorKey = addManilaDays(cursorKey, 1)
   ) {
     totalMs += restAuditForDay(state, cursorKey, now).totalMs;
@@ -75,6 +116,8 @@ export function buildRecoverySummary(
 
   return {
     ...range,
+    observedStartKey,
+    observedEndKey,
     days,
     totalMs,
     targetMs,
@@ -410,21 +453,26 @@ function selectionForPanel(panel) {
 function recoveryStatusMarkup(selection, summary) {
   const diff = summary.differenceMs;
   const threshold = 60_000;
-  let statusValue = 'ON TARGET';
+  const hasData = summary.days > 0;
+  let statusValue = hasData ? 'ON TARGET' : 'NO DATA YET';
   let statusLabel = '';
 
-  if (diff < -threshold) {
+  if (hasData && diff < -threshold) {
     statusValue = formatDuration(Math.abs(diff));
     statusLabel = 'SHORT';
-  } else if (diff > threshold) {
+  } else if (hasData && diff > threshold) {
     statusValue = formatDuration(diff);
     statusLabel = 'ABOVE TARGET';
   }
 
-  const displayPct = Math.max(0, Math.round(summary.progressPct));
-  const barPct = Math.max(0, Math.min(100, summary.progressPct));
+  const displayPct = hasData ? Math.max(0, Math.round(summary.progressPct)) : 0;
+  const barPct = hasData ? Math.max(0, Math.min(100, summary.progressPct)) : 0;
   const todayKey = manilaDateKey();
   const range = selectedRange(selection);
+  const dayWord = summary.days === 1 ? 'day' : 'days';
+  const statusCopy = hasData
+    ? `Based on <strong>${summary.days} available ${dayWord}</strong>, you recorded <strong>${formatDuration(summary.totalMs)}</strong> of your <strong>${formatDuration(summary.targetMs)}</strong> recovery target.`
+    : 'Complete your first rest to start your recovery status.';
 
   return `
     <div class="pause-recovery-status-head">
@@ -453,7 +501,7 @@ function recoveryStatusMarkup(selection, summary) {
     <div class="pause-recovery-status-main">
       <strong class="pause-recovery-status-value">${statusValue}</strong>
       ${statusLabel ? `<span class="pause-recovery-status-label">${statusLabel}</span>` : ''}
-      <p class="pause-recovery-status-copy">You recorded <strong>${formatDuration(summary.totalMs)}</strong> of your <strong>${formatDuration(summary.targetMs)}</strong> recovery target.</p>
+      <p class="pause-recovery-status-copy">${statusCopy}</p>
     </div>
 
     <div class="pause-recovery-progress-row" aria-label="${displayPct}% of recovery target recorded">
@@ -462,7 +510,7 @@ function recoveryStatusMarkup(selection, summary) {
     </div>
 
     <div class="pause-recovery-status-stats">
-      <div class="pause-recovery-status-stat"><small>AVERAGE / DAY</small><strong>${formatDuration(summary.averageMs)}</strong></div>
+      <div class="pause-recovery-status-stat"><small>AVERAGE / DAY</small><strong>${hasData ? formatDuration(summary.averageMs) : '—'}</strong></div>
       <div class="pause-recovery-status-stat"><small>DAILY TARGET</small><strong>${formatDuration(RECOVERY_DAILY_TARGET_MS)}</strong></div>
     </div>
   `;
