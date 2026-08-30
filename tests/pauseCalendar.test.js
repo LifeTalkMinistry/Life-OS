@@ -92,6 +92,36 @@ test('a cross-midnight rest is audited into both Manila dates', () => {
   assert.equal(aug28.entries[0].splitAcrossDays, true);
 });
 
+test('an edited rest that now crosses midnight is redistributed across both Manila dates', () => {
+  const state = {
+    history: [{
+      id: 'edited-cross-midnight',
+      label: 'Rest',
+      originalStartAt: Date.parse('2026-08-27T14:00:00Z'), // Aug 27 10:00 PM Manila
+      originalEndedAt: Date.parse('2026-08-27T15:00:00Z'), // Aug 27 11:00 PM Manila
+      startAt: Date.parse('2026-08-27T15:00:00Z'), // Edited to Aug 27 11:00 PM Manila
+      endedAt: Date.parse('2026-08-27T17:00:00Z'), // Edited to Aug 28 1:00 AM Manila
+      durationMs: 2 * 60 * 60 * 1000,
+      reason: 'ended',
+      manuallyEdited: true,
+      editedAt: Date.parse('2026-08-28T02:00:00Z')
+    }]
+  };
+  const now = Date.parse('2026-08-28T03:00:00Z');
+
+  const aug27 = restAuditForDay(state, '2026-08-27', now);
+  const aug28 = restAuditForDay(state, '2026-08-28', now);
+
+  assert.equal(aug27.totalMs, 60 * 60 * 1000);
+  assert.equal(aug28.totalMs, 60 * 60 * 1000);
+  assert.equal(aug27.sessions, 1);
+  assert.equal(aug28.sessions, 1);
+  assert.equal(aug27.entries[0].sessionDurationMs, 2 * 60 * 60 * 1000);
+  assert.equal(aug28.entries[0].sessionDurationMs, 2 * 60 * 60 * 1000);
+  assert.equal(aug27.entries[0].splitAcrossDays, true);
+  assert.equal(aug28.entries[0].splitAcrossDays, true);
+});
+
 test('daily audit puts the most recent rest log on top', () => {
   const state = {
     history: [
