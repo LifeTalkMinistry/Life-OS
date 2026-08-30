@@ -1,4 +1,4 @@
-import { restAuditForDay, restInsights } from '../restState.js';
+import { restAuditForDay, restInsights, savePauseState } from '../restState.js';
 import { scoreForRestMs } from './PauseScore.js';
 import {
   formatManilaDate,
@@ -27,6 +27,86 @@ function formatInsightDuration(ms) {
   if (hours > 0) return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
   if (seconds === 0) return `${minutes} min`;
   return `${minutes}m ${seconds}s`;
+}
+
+function pad2(value) {
+  return String(value).padStart(2, '0');
+}
+
+function manilaDateTimeInputValue(timestamp) {
+  const stamp = Number(timestamp);
+  if (!Number.isFinite(stamp)) return '';
+  const dateKey = manilaDateKey(stamp);
+  const dayStart = manilaDateKeyToStartMs(dateKey);
+  if (!Number.isFinite(dayStart)) return '';
+  const totalMinutes = Math.max(0, Math.min(1439, Math.floor((stamp - dayStart) / 60_000)));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${dateKey}T${pad2(hours)}:${pad2(minutes)}`;
+}
+
+function parseManilaDateTimeInput(value) {
+  const match = String(value || '').match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return NaN;
+  const dayStart = manilaDateKeyToStartMs(match[1]);
+  const hours = Number(match[2]);
+  const minutes = Number(match[3]);
+  if (!Number.isFinite(dayStart) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return NaN;
+  return dayStart + hours * 3_600_000 + minutes * 60_000;
+}
+
+function historyEntryKey(entry) {
+  const explicitId = String(entry?.id || '').trim();
+  if (explicitId) return explicitId;
+
+  const startAt = Number(entry?.startAt ?? entry?.endedAt);
+  if (!Number.isFinite(startAt)) return '';
+  const explicitEndAt = Number(entry?.endedAt);
+  const durationMs = Math.max(0, Number(entry?.durationMs || entry?.sessionDurationMs || 0));
+  const endedAt = Number.isFinite(explicitEndAt) && explicitEndAt >= startAt
+    ? explicitEndAt
+    : startAt + durationMs;
+  return `rest-${startAt}-${endedAt}`;
+}
+
+function findHistoryEntry(state, entryId) {
+  const id = String(entryId || '');
+  return (Array.isArray(state?.history) ? state.history : []).find((entry) => historyEntryKey(entry) === id) || null;
+}
+
+function updateRestHistoryEntry(state, entryId, startAt, endedAt) {
+  const id = String(entryId || '');
+  const nextStartAt = Number(startAt);
+  const nextEndedAt = Number(endedAt);
+  if (!id || !Number.isFinite(nextStartAt) || !Number.isFinite(nextEndedAt) || nextEndedAt < nextStartAt) return state;
+
+  let changed = false;
+  const editedAt = Date.now();
+  const history = (Array.isArray(state?.history) ? state.history : []).map((entry) => {
+    if (historyEntryKey(entry) !== id) return entry;
+    if (Number(entry.startAt) === nextStartAt && Number(entry.endedAt) === nextEndedAt) return entry;
+    changed = true;
+    return {
+      ...entry,
+      originalStartAt: entry.originalStartAt ?? entry.startAt,
+      originalEndedAt: entry.originalEndedAt ?? entry.endedAt,
+      startAt: nextStartAt,
+      endedAt: nextEndedAt,
+      durationMs: Math.max(0, nextEndedAt - nextStartAt),
+      manuallyEdited: true,
+      editedAt
+    };
+  });
+
+  if (!changed) return state;
+
+  history.sort((a, b) => {
+    const aStamp = Number(a?.endedAt ?? a?.startAt ?? 0);
+    const bStamp = Number(b?.endedAt ?? b?.startAt ?? 0);
+    return bStamp - aStamp;
+  });
+
+  return savePauseState({ ...state, history });
 }
 
 function ensureInsightStyles() {
@@ -354,31 +434,68 @@ function ensureInsightStyles() {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
       padding: 13px 2px;
       border-bottom: 1px solid rgba(153, 124, 202, .11);
     }
 
-    .pause-history-row > div {
+    .pause-history-row-main {
+      min-width: 0;
       display: grid;
       gap: 4px;
     }
 
-    .pause-history-row strong {
+    .pause-history-row-main strong {
+      overflow: hidden;
       color: #e8e2ee;
       font-size: .84rem;
       font-weight: 500;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .pause-history-row small {
+    .pause-history-row-main small {
       color: #837b8b;
       font-size: .68rem;
     }
 
-    .pause-history-row > span {
+    .pause-history-row-tail {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+
+    .pause-history-duration {
       color: #b792f4;
       font-size: .74rem;
       white-space: nowrap;
+    }
+
+    .pause-history-edit-button,
+    .pause-audit-edit-button {
+      appearance: none;
+      min-height: 30px;
+      padding: 0 9px;
+      border: 1px solid rgba(169, 126, 235, .2);
+      border-radius: 8px;
+      background: rgba(92, 55, 151, .1);
+      color: #a998b8;
+      font-size: .56rem;
+      font-weight: 700;
+      letter-spacing: .09em;
+      cursor: pointer;
+    }
+
+    .pause-history-edit-button:hover,
+    .pause-history-edit-button:focus-visible,
+    .pause-audit-edit-button:hover,
+    .pause-audit-edit-button:focus-visible {
+      border-color: rgba(180, 137, 247, .34);
+      background: rgba(104, 63, 174, .18);
+      color: #eee6f6;
+      outline: none;
     }
 
     .pause-panel-heading {
@@ -489,6 +606,11 @@ function ensureInsightStyles() {
       background: rgba(15, 10, 29, .34);
     }
 
+    .pause-audit-entry.is-editing {
+      border-color: rgba(174, 126, 255, .28);
+      background: rgba(25, 15, 45, .48);
+    }
+
     .pause-audit-entry-head,
     .pause-audit-credit {
       display: flex;
@@ -506,7 +628,15 @@ function ensureInsightStyles() {
       white-space: nowrap;
     }
 
-    .pause-audit-entry-head span {
+    .pause-audit-entry-head-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 7px;
+      flex: 0 0 auto;
+    }
+
+    .pause-audit-entry-status {
       color: #766d80;
       font-size: .59rem;
       font-weight: 650;
@@ -519,6 +649,15 @@ function ensureInsightStyles() {
       color: #81788a;
       font-size: .68rem;
       line-height: 1.45;
+    }
+
+    .pause-audit-edited-note {
+      margin: -5px 0 11px;
+      color: #8d78a6;
+      font-size: .59rem;
+      font-weight: 650;
+      letter-spacing: .06em;
+      text-transform: uppercase;
     }
 
     .pause-audit-credit {
@@ -543,6 +682,122 @@ function ensureInsightStyles() {
       color: #736a7c;
       font-size: .62rem;
       line-height: 1.45;
+    }
+
+    .pause-audit-edit-form {
+      display: grid;
+      gap: 11px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(150, 115, 203, .12);
+    }
+
+    .pause-audit-edit-grid {
+      display: grid;
+      gap: 9px;
+    }
+
+    .pause-audit-edit-field {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .pause-audit-edit-field > span {
+      color: #82788d;
+      font-size: .58rem;
+      font-weight: 650;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .pause-audit-edit-field input {
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      min-height: 43px;
+      padding: 0 10px;
+      border: 1px solid rgba(163, 121, 226, .2);
+      border-radius: 10px;
+      background: rgba(12, 8, 24, .72);
+      color: #eee7f5;
+      font: inherit;
+      font-size: .72rem;
+      color-scheme: dark;
+      outline: none;
+    }
+
+    .pause-audit-edit-field input:focus {
+      border-color: rgba(181, 135, 246, .42);
+      background: rgba(18, 11, 34, .9);
+    }
+
+    .pause-audit-edit-duration {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-top: 1px solid rgba(150, 115, 203, .09);
+      border-bottom: 1px solid rgba(150, 115, 203, .09);
+    }
+
+    .pause-audit-edit-duration span {
+      color: #91889a;
+      font-size: .65rem;
+    }
+
+    .pause-audit-edit-duration strong {
+      color: #c6a8f5;
+      font-size: .76rem;
+      font-weight: 560;
+    }
+
+    .pause-audit-edit-error {
+      min-height: 1em;
+      margin: -2px 0 0;
+      color: #c39bc9;
+      font-size: .63rem;
+      line-height: 1.4;
+    }
+
+    .pause-audit-edit-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .pause-audit-edit-cancel,
+    .pause-audit-edit-save {
+      appearance: none;
+      min-height: 38px;
+      padding: 0 13px;
+      border-radius: 10px;
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: .07em;
+      cursor: pointer;
+    }
+
+    .pause-audit-edit-cancel {
+      border: 1px solid rgba(153, 119, 202, .15);
+      background: transparent;
+      color: #968d9f;
+    }
+
+    .pause-audit-edit-save {
+      border: 1px solid rgba(182, 138, 248, .28);
+      background: rgba(105, 65, 184, .2);
+      color: #e9dff4;
+    }
+
+    .pause-audit-edit-cancel:hover,
+    .pause-audit-edit-cancel:focus-visible,
+    .pause-audit-edit-save:hover,
+    .pause-audit-edit-save:focus-visible {
+      outline: none;
+      border-color: rgba(184, 139, 249, .4);
+      color: #f3ecf8;
     }
 
     .pause-audit-empty {
@@ -572,6 +827,8 @@ function ensureInsightStyles() {
       .pause-detailed-grid { grid-template-columns: 1fr 1fr; }
       .pause-rhythm-day { grid-template-columns: 62px 1fr 68px; gap: 8px; }
       .pause-weekday-rank-row { grid-template-columns: 20px 64px 1fr 62px; gap: 7px; }
+      .pause-history-row { align-items: flex-start; }
+      .pause-history-row-tail { flex-direction: column; align-items: flex-end; gap: 5px; }
     }
   `;
   document.head.appendChild(style);
@@ -637,6 +894,21 @@ function weekdayPatternMarkup(pattern) {
   `;
 }
 
+function auditRange(entry) {
+  const startKey = manilaDateKey(entry.startAt);
+  const endKey = manilaDateKey(entry.endedAt);
+
+  if (startKey === endKey) {
+    const start = formatManilaDateTime(entry.startAt, { hour: 'numeric', minute: '2-digit' });
+    const end = formatManilaDateTime(entry.endedAt, { hour: 'numeric', minute: '2-digit' });
+    return `${start} → ${end}`;
+  }
+
+  const start = formatManilaDateTime(entry.startAt, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const end = formatManilaDateTime(entry.endedAt, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return `${start} → ${end}`;
+}
+
 function insightsContent(state) {
   const insights = restInsights(state);
   const maxDaily = Math.max(1, ...insights.daily.map((day) => day.totalMs));
@@ -658,16 +930,25 @@ function insightsContent(state) {
   }).join('');
 
   const historyRows = state.history.slice(0, 20).map((entry) => {
+    const entryId = historyEntryKey(entry);
     const stamp = formatManilaDateTime(Number(entry.endedAt || entry.startAt), {
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit'
     });
+    const editDayKey = manilaDateKey(Number(entry.startAt || entry.endedAt));
+    const editedText = entry.manuallyEdited || entry.editedAt ? ' · Edited' : '';
     return `
       <div class="pause-history-row">
-        <div><strong>${escapeHtml(entry.label || 'Rest')}</strong><small>${escapeHtml(stamp)} · Manila</small></div>
-        <span>${escapeHtml(formatInsightDuration(entry.durationMs))}</span>
+        <div class="pause-history-row-main">
+          <strong>${escapeHtml(entry.label || 'Rest')}</strong>
+          <small>${escapeHtml(stamp)} · Manila${editedText}</small>
+        </div>
+        <div class="pause-history-row-tail">
+          <span class="pause-history-duration">${escapeHtml(formatInsightDuration(entry.durationMs))}</span>
+          ${entryId ? `<button type="button" class="pause-history-edit-button" data-pause-history-edit-id="${escapeHtml(entryId)}" data-pause-history-day-key="${escapeHtml(editDayKey)}" aria-label="Edit ${escapeHtml(entry.label || 'Rest')} rest time">EDIT</button>` : ''}
+        </div>
       </div>
     `;
   }).join('');
@@ -711,26 +992,12 @@ function insightsContent(state) {
 
     <section class="pause-insight-section">
       <p class="pause-insight-section-title">RECENT RESTS</p>
+      <p class="pause-insight-section-copy">Edit a rest if the recorded start or end time does not match what actually happened.</p>
       <div class="pause-history-list">${historyRows || '<p class="pause-empty">No rests yet. Tap the ORB when you decide to stop.</p>'}</div>
     </section>
 
     <p class="pause-insight-note">PAUSE reflects your recorded rest behavior. It doesn't grade or judge it.</p>
   `;
-}
-
-function auditRange(entry) {
-  const startKey = manilaDateKey(entry.startAt);
-  const endKey = manilaDateKey(entry.endedAt);
-
-  if (startKey === endKey) {
-    const start = formatManilaDateTime(entry.startAt, { hour: 'numeric', minute: '2-digit' });
-    const end = formatManilaDateTime(entry.endedAt, { hour: 'numeric', minute: '2-digit' });
-    return `${start} → ${end}`;
-  }
-
-  const start = formatManilaDateTime(entry.startAt, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  const end = formatManilaDateTime(entry.endedAt, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  return `${start} → ${end}`;
 }
 
 function auditReason(entry) {
@@ -739,7 +1006,34 @@ function auditReason(entry) {
   return 'RECORDED';
 }
 
-function dayAuditContent(state, dayKey) {
+function auditEditForm(entry, entryId) {
+  const maxValue = manilaDateTimeInputValue(Date.now());
+  return `
+    <form class="pause-audit-edit-form" data-pause-edit-form="${escapeHtml(entryId)}">
+      <div class="pause-audit-edit-grid">
+        <label class="pause-audit-edit-field">
+          <span>Actual start · Manila</span>
+          <input type="datetime-local" name="startAt" step="60" max="${escapeHtml(maxValue)}" value="${escapeHtml(manilaDateTimeInputValue(entry.startAt))}" data-pause-edit-start required>
+        </label>
+        <label class="pause-audit-edit-field">
+          <span>Actual end · Manila</span>
+          <input type="datetime-local" name="endedAt" step="60" max="${escapeHtml(maxValue)}" value="${escapeHtml(manilaDateTimeInputValue(entry.endedAt))}" data-pause-edit-end required>
+        </label>
+      </div>
+      <div class="pause-audit-edit-duration">
+        <span>Actual rest</span>
+        <strong data-pause-edit-duration>${escapeHtml(formatInsightDuration(entry.sessionDurationMs))}</strong>
+      </div>
+      <p class="pause-audit-edit-error" data-pause-edit-error aria-live="polite"></p>
+      <div class="pause-audit-edit-actions">
+        <button type="button" class="pause-audit-edit-cancel" data-pause-panel-action="cancel-edit">Cancel</button>
+        <button type="submit" class="pause-audit-edit-save">Save Changes</button>
+      </div>
+    </form>
+  `;
+}
+
+function dayAuditContent(state, dayKey, editingEntryId = null) {
   const audit = restAuditForDay(state, dayKey);
   const score = scoreForRestMs(audit.totalMs);
   const dayStart = manilaDateKeyToStartMs(dayKey);
@@ -747,20 +1041,33 @@ function dayAuditContent(state, dayKey) {
   const weekday = formatManilaDate(dayStart, { weekday: 'long' });
   const shortDate = formatManilaDate(dayStart, { month: 'short', day: 'numeric' });
 
-  const entries = audit.entries.map((entry) => `
-    <article class="pause-audit-entry">
-      <div class="pause-audit-entry-head">
-        <strong>${escapeHtml(entry.label)}</strong>
-        <span>${escapeHtml(auditReason(entry))}</span>
-      </div>
-      <p class="pause-audit-range">${escapeHtml(auditRange(entry))} · Manila<br>Session total: ${escapeHtml(formatInsightDuration(entry.sessionDurationMs))}</p>
-      <div class="pause-audit-credit">
-        <span>Credited to ${escapeHtml(shortDate)}</span>
-        <strong>${escapeHtml(formatInsightDuration(entry.creditedMs))}</strong>
-      </div>
-      ${entry.splitAcrossDays ? `<p class="pause-audit-split-note">This rest crossed Manila midnight. Only the portion inside ${escapeHtml(shortDate)} is included in this day's total and score.</p>` : ''}
-    </article>
-  `).join('');
+  const entries = audit.entries.map((entry) => {
+    const entryId = historyEntryKey(entry);
+    const sourceEntry = findHistoryEntry(state, entryId);
+    const isEditing = Boolean(entryId && editingEntryId === entryId);
+    const wasEdited = Boolean(sourceEntry?.manuallyEdited || sourceEntry?.editedAt);
+
+    return `
+      <article class="pause-audit-entry${isEditing ? ' is-editing' : ''}">
+        <div class="pause-audit-entry-head">
+          <strong>${escapeHtml(entry.label)}</strong>
+          <div class="pause-audit-entry-head-actions">
+            <span class="pause-audit-entry-status">${escapeHtml(auditReason(entry))}</span>
+            ${!isEditing && entryId ? `<button type="button" class="pause-audit-edit-button" data-pause-edit-entry-id="${escapeHtml(entryId)}" aria-label="Edit ${escapeHtml(entry.label)} rest time">EDIT</button>` : ''}
+          </div>
+        </div>
+        ${isEditing ? auditEditForm(entry, entryId) : `
+          <p class="pause-audit-range">${escapeHtml(auditRange(entry))} · Manila<br>Session total: ${escapeHtml(formatInsightDuration(entry.sessionDurationMs))}</p>
+          ${wasEdited ? '<p class="pause-audit-edited-note">Edited manually</p>' : ''}
+          <div class="pause-audit-credit">
+            <span>Credited to ${escapeHtml(shortDate)}</span>
+            <strong>${escapeHtml(formatInsightDuration(entry.creditedMs))}</strong>
+          </div>
+          ${entry.splitAcrossDays ? `<p class="pause-audit-split-note">This rest crossed Manila midnight. Only the portion inside ${escapeHtml(shortDate)} is included in this day's total and score.</p>` : ''}
+        `}
+      </article>
+    `;
+  }).join('');
 
   return `
     ${panelHeader(dateTitle, 'DAILY AUDIT · MANILA TIME', true)}
@@ -780,7 +1087,7 @@ function dayAuditContent(state, dayKey) {
 
     <section class="pause-insight-section">
       <p class="pause-insight-section-title">REST BREAKDOWN</p>
-      <p class="pause-insight-section-copy">These entries reconstruct the total above. Cross-midnight rests are split at Manila midnight.</p>
+      <p class="pause-insight-section-copy">These entries reconstruct the total above. Cross-midnight rests are split at Manila midnight. Edit only the real start or end time; PAUSE recalculates the duration automatically.</p>
       <div class="pause-audit-list">
         ${entries || `<div class="pause-audit-empty">No completed rests were credited to ${escapeHtml(dateTitle)}. This day's audited total is 0.</div>`}
       </div>
@@ -788,6 +1095,33 @@ function dayAuditContent(state, dayKey) {
 
     <p class="pause-insight-note">This audit uses Asia/Manila calendar boundaries, regardless of the device timezone.</p>
   `;
+}
+
+function updateEditPreview(form) {
+  const startAt = parseManilaDateTimeInput(form.querySelector('[name="startAt"]')?.value);
+  const endedAt = parseManilaDateTimeInput(form.querySelector('[name="endedAt"]')?.value);
+  const duration = form.querySelector('[data-pause-edit-duration]');
+  const error = form.querySelector('[data-pause-edit-error]');
+
+  if (!Number.isFinite(startAt) || !Number.isFinite(endedAt)) {
+    if (duration) duration.textContent = '—';
+    if (error) error.textContent = 'Choose both the actual start and end time.';
+    return false;
+  }
+  if (endedAt < startAt) {
+    if (duration) duration.textContent = '—';
+    if (error) error.textContent = 'End time must be after the start time.';
+    return false;
+  }
+  if (endedAt > Date.now() + 60_000) {
+    if (duration) duration.textContent = formatInsightDuration(endedAt - startAt);
+    if (error) error.textContent = 'End time cannot be in the future.';
+    return false;
+  }
+
+  if (duration) duration.textContent = formatInsightDuration(endedAt - startAt);
+  if (error) error.textContent = '';
+  return true;
 }
 
 export function PausePanel({ state, onClose }) {
@@ -801,12 +1135,20 @@ export function PausePanel({ state, onClose }) {
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-modal', 'true');
 
+  let panelState = state;
   let selectedDayKey = null;
-  const renderContent = () => {
+  let editingEntryId = null;
+
+  const renderContent = ({ resetScroll = true } = {}) => {
+    const previousScrollTop = panel.scrollTop;
     panel.innerHTML = selectedDayKey
-      ? dayAuditContent(state, selectedDayKey)
-      : insightsContent(state);
-    panel.scrollTop = 0;
+      ? dayAuditContent(panelState, selectedDayKey, editingEntryId)
+      : insightsContent(panelState);
+    panel.scrollTop = resetScroll ? 0 : previousScrollTop;
+  };
+
+  const focusEditor = () => {
+    panel.querySelector('[data-pause-edit-start]')?.focus();
   };
 
   renderContent();
@@ -818,16 +1160,62 @@ export function PausePanel({ state, onClose }) {
       return;
     }
     if (action === 'back') {
+      editingEntryId = null;
       selectedDayKey = null;
       renderContent();
+      return;
+    }
+    if (action === 'cancel-edit') {
+      editingEntryId = null;
+      renderContent({ resetScroll: false });
+      return;
+    }
+
+    const historyEditButton = event.target.closest('[data-pause-history-edit-id]');
+    if (historyEditButton?.dataset.pauseHistoryEditId) {
+      editingEntryId = historyEditButton.dataset.pauseHistoryEditId;
+      selectedDayKey = historyEditButton.dataset.pauseHistoryDayKey || null;
+      renderContent();
+      focusEditor();
+      return;
+    }
+
+    const editButton = event.target.closest('[data-pause-edit-entry-id]');
+    if (editButton?.dataset.pauseEditEntryId) {
+      editingEntryId = editButton.dataset.pauseEditEntryId;
+      renderContent({ resetScroll: false });
+      focusEditor();
       return;
     }
 
     const dayButton = event.target.closest('[data-pause-day-key]');
     if (dayButton?.dataset.pauseDayKey) {
+      editingEntryId = null;
       selectedDayKey = dayButton.dataset.pauseDayKey;
       renderContent();
     }
+  });
+
+  panel.addEventListener('input', (event) => {
+    const form = event.target.closest('[data-pause-edit-form]');
+    if (form) updateEditPreview(form);
+  });
+
+  panel.addEventListener('submit', (event) => {
+    const form = event.target.closest('[data-pause-edit-form]');
+    if (!form) return;
+    event.preventDefault();
+
+    if (!updateEditPreview(form)) return;
+
+    const entryId = form.dataset.pauseEditForm;
+    const startAt = parseManilaDateTimeInput(form.querySelector('[name="startAt"]')?.value);
+    const endedAt = parseManilaDateTimeInput(form.querySelector('[name="endedAt"]')?.value);
+    const nextState = updateRestHistoryEntry(panelState, entryId, startAt, endedAt);
+
+    panelState = nextState;
+    editingEntryId = null;
+    renderContent({ resetScroll: false });
   });
 
   backdrop.addEventListener('pointerdown', (event) => {
