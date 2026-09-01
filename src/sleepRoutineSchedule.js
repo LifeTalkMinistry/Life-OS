@@ -57,18 +57,24 @@ function pauseScheduleCreateEmptyPlan() {
   return {
     ...base,
     version: 4,
-    sleepStart: pauseScheduleLegacySleepStart(base)
+    sleepStart: ''
   };
 }
 
 function pauseScheduleNormalizePlan(value = {}) {
   const base = pauseScheduleBaseNormalize ? pauseScheduleBaseNormalize(value) : value;
   const fallbackSleepStart = pauseScheduleLegacySleepStart(base);
-  const sleepStart = pauseScheduleValidTime(value.sleepStart) ? String(value.sleepStart) : fallbackSleepStart;
+  const sleepStart = pauseScheduleValidTime(value.sleepStart)
+    ? String(value.sleepStart)
+    : base.setupComplete
+      ? fallbackSleepStart
+      : '';
   const homeAt = pauseScheduleMinutesToTime(
     pauseScheduleTimeToMinutes(base.shiftEnd) + Number(base.commuteMinutes || 0)
   );
-  const availableWindDown = Math.min(240, pauseScheduleMinutesBetween(homeAt, sleepStart));
+  const availableWindDown = sleepStart
+    ? Math.min(240, pauseScheduleMinutesBetween(homeAt, sleepStart))
+    : 240;
   const windDownMinutes = Math.min(Math.max(0, Number(base.windDownMinutes || 0)), availableWindDown);
   return {
     ...base,
@@ -87,11 +93,14 @@ export function deriveSleepRoutineSchedule(rawPlan = {}) {
   const homeAt = pauseScheduleMinutesToTime(
     pauseScheduleTimeToMinutes(plan.shiftEnd) + plan.commuteMinutes
   );
+  const effectiveSleepStart = pauseScheduleValidTime(plan.sleepStart)
+    ? plan.sleepStart
+    : pauseScheduleLegacySleepStart(plan);
   const windDownStart = pauseScheduleMinutesToTime(
-    pauseScheduleTimeToMinutes(plan.sleepStart) - plan.windDownMinutes
+    pauseScheduleTimeToMinutes(effectiveSleepStart) - plan.windDownMinutes
   );
   const wakeAt = pauseScheduleMinutesToTime(
-    pauseScheduleTimeToMinutes(plan.sleepStart) + plan.recoveryMinutes
+    pauseScheduleTimeToMinutes(effectiveSleepStart) + plan.recoveryMinutes
   );
   return {
     shiftEnd: plan.shiftEnd,
@@ -104,12 +113,15 @@ export function deriveSleepRoutineSchedule(rawPlan = {}) {
 
 function pauseScheduleNudgeMoments(rawPlan = {}) {
   const plan = pauseScheduleNormalizePlan(rawPlan);
-  const sleepMinutes = pauseScheduleTimeToMinutes(plan.sleepStart);
+  const effectiveSleepStart = pauseScheduleValidTime(plan.sleepStart)
+    ? plan.sleepStart
+    : pauseScheduleLegacySleepStart(plan);
+  const sleepMinutes = pauseScheduleTimeToMinutes(effectiveSleepStart);
   return {
     shiftEnd: plan.shiftEnd,
     commuteEnd: pauseScheduleMinutesToTime(pauseScheduleTimeToMinutes(plan.shiftEnd) + plan.commuteMinutes),
     windDownReminder: pauseScheduleMinutesToTime(sleepMinutes - Math.min(15, plan.windDownMinutes)),
-    recoveryStart: plan.sleepStart,
+    recoveryStart: effectiveSleepStart,
     wakeTarget: pauseScheduleMinutesToTime(sleepMinutes + plan.recoveryMinutes)
   };
 }
@@ -118,11 +130,11 @@ function pauseScheduleOption(value, current, label) {
   return `<button type="button" class="recovery-plan-option${Number(current) === Number(value) ? ' is-selected' : ''}" data-plan-value="${value}">${label}</button>`;
 }
 
-function pauseScheduleNavigation(label = 'Continue') {
+function pauseScheduleNavigation(label = 'Continue', disabled = false) {
   return `
     <div class="recovery-plan-nav">
       <button type="button" class="recovery-plan-back" data-plan-action="back">Back</button>
-      <button type="button" class="recovery-plan-continue" data-plan-action="continue">${label}</button>
+      <button type="button" class="recovery-plan-continue" data-plan-action="continue" ${disabled ? 'disabled' : ''}>${label}</button>
     </div>
   `;
 }
@@ -152,14 +164,14 @@ function pauseScheduleContentForStep() {
 
   if (currentStep === 'sleepstart') {
     return `
-      <p class="recovery-plan-eyebrow">SLEEP ANCHOR</p>
+      <p class="recovery-plan-eyebrow">SLEEP START</p>
       <h1>What time do you want to start sleeping?</h1>
-      <p class="recovery-plan-copy">Choose this first. PAUSE will anchor your wind-down and wake target around the sleep time you declare.</p>
+      <p class="recovery-plan-copy">Choose your preferred sleep time first. PAUSE will build the rest of your routine around it.</p>
       <div class="recovery-plan-time-grid recovery-plan-time-grid-single">
         <label><span>Preferred sleep starts</span><input type="time" data-pause-sleep-start value="${plan.sleepStart}" required></label>
       </div>
       <p class="recovery-plan-note">Expected home around ${pauseScheduleFormatTime(timeline.homeAt)}.</p>
-      ${pauseScheduleNavigation()}
+      ${pauseScheduleNavigation('Continue', !pauseScheduleValidTime(plan.sleepStart))}
     `;
   }
 
@@ -169,7 +181,7 @@ function pauseScheduleContentForStep() {
     return `
       <p class="recovery-plan-eyebrow">WIND-DOWN</p>
       <h1>How much wind-down time do you want before sleep?</h1>
-      <p class="recovery-plan-copy">You said you want to sleep at <strong>${pauseScheduleFormatTime(plan.sleepStart)}</strong>. Choose how much time you want immediately before that.</p>
+      <p class="recovery-plan-copy">You plan to sleep at <strong>${pauseScheduleFormatTime(plan.sleepStart)}</strong>. Choose how much wind-down time you want before then.</p>
       <div class="recovery-plan-options">
         ${options.map((minutes) => pauseScheduleOption(minutes, plan.windDownMinutes, minutes === 0 ? 'None' : pauseScheduleFormatMinutes(minutes))).join('')}
       </div>
@@ -244,7 +256,7 @@ function pauseScheduleInstallEvents() {
 
 async function pauseSchedulePullCloudPlan(token) {
   const cloud = await pauseScheduleBasePullCloudPlan(token);
-  if (cloud?.plan && Number(cloud.plan.version || 0) < 4 && currentPlan?.sleepStart) {
+  if (cloud?.plan && Number(cloud.plan.version || 0) < 4 && pauseScheduleValidTime(currentPlan?.sleepStart)) {
     return {
       ...cloud,
       plan: {
@@ -291,6 +303,17 @@ if (typeof window !== 'undefined' && pauseScheduleBaseNormalize && pauseSchedule
   if (pauseScheduleBasePullCloudPlan) pullCloudPlan = pauseSchedulePullCloudPlan;
   if (pauseScheduleBasePushCloudPlan) pushCloudPlan = pauseSchedulePushCloudPlan;
 
-  if (currentPlan) currentPlan = pauseScheduleNormalizePlan(currentPlan);
+  if (currentPlan) {
+    let rawSleepStart = '';
+    try {
+      const raw = currentAccountId ? localStorage.getItem(storageKey(currentAccountId)) : null;
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (pauseScheduleValidTime(parsed?.sleepStart)) rawSleepStart = parsed.sleepStart;
+    } catch {}
+    currentPlan = pauseScheduleNormalizePlan({
+      ...currentPlan,
+      ...(rawSleepStart ? { sleepStart: rawSleepStart, version: 4 } : {})
+    });
+  }
   renderOverlay?.();
 }
