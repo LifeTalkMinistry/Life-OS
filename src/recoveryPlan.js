@@ -198,6 +198,12 @@ function formatMinutes(value) {
   return `${hours}h ${remainder}m`;
 }
 
+export function sleepRoutineMinutesBetween(startTime, endTime) {
+  const start = timeToMinutes(startTime);
+  const end = timeToMinutes(endTime);
+  return ((end - start) + 1440) % 1440;
+}
+
 export function deriveRecoveryTimeline(rawPlan) {
   const plan = normalizeRecoveryPlan(rawPlan);
   const shiftEndMinutes = timeToMinutes(plan.shiftEnd);
@@ -346,11 +352,15 @@ function contentForStep() {
   if (currentStep === 'commute') {
     return `
       <p class="recovery-plan-eyebrow">AFTER SHIFT</p>
-      <h1>How long does it usually take you to get home?</h1>
+      <h1>When do you usually get home?</h1>
+      <div class="recovery-plan-time-grid">
+        <label><span>Shift ends</span><input type="time" value="${plan.shiftEnd}" disabled></label>
+        <label><span>Expected home</span><input type="time" data-plan-clock="homeAt" value="${timeline.homeAt}"></label>
+      </div>
+      <p class="recovery-plan-note">Or choose your usual commute length.</p>
       <div class="recovery-plan-options">
         ${[15, 30, 45, 60, 90].map((minutes) => optionButton(minutes, plan.commuteMinutes, formatMinutes(minutes))).join('')}
       </div>
-      <label class="recovery-plan-custom"><span>Custom minutes</span><input type="number" min="0" max="240" step="5" data-plan-field="commuteMinutes" value="${plan.commuteMinutes}"></label>
       <p class="recovery-plan-note">This is your usual travel time, not location tracking.</p>
       ${navigation()}
     `;
@@ -358,13 +368,17 @@ function contentForStep() {
 
   if (currentStep === 'winddown') {
     return `
-      <p class="recovery-plan-eyebrow">YOUR TIME</p>
-      <h1>How much wind-down time do you want before sleep?</h1>
-      <p class="recovery-plan-copy">Food, shower, family time, scrolling, or simply doing nothing. This is time you intentionally leave between getting home and sleeping.</p>
+      <p class="recovery-plan-eyebrow">WIND-DOWN</p>
+      <h1>When do you want to wind down?</h1>
+      <p class="recovery-plan-copy">Set the actual time you want to begin winding down and the time you want sleep to start.</p>
+      <div class="recovery-plan-time-grid">
+        <label><span>Wind-down starts</span><input type="time" data-plan-clock="homeAt" value="${timeline.homeAt}"></label>
+        <label><span>Sleep starts</span><input type="time" data-plan-clock="sleepStart" value="${timeline.recoveryStart}"></label>
+      </div>
+      <p class="recovery-plan-note">${formatMinutes(plan.windDownMinutes)} of wind-down. Or choose a quick length below.</p>
       <div class="recovery-plan-options">
         ${[15, 30, 45, 60, 90].map((minutes) => optionButton(minutes, plan.windDownMinutes, formatMinutes(minutes))).join('')}
       </div>
-      <label class="recovery-plan-custom"><span>Custom minutes</span><input type="number" min="0" max="240" step="5" data-plan-field="windDownMinutes" value="${plan.windDownMinutes}"></label>
       ${navigation()}
     `;
   }
@@ -372,11 +386,15 @@ function contentForStep() {
   if (currentStep === 'recovery') {
     return `
       <p class="recovery-plan-eyebrow">SLEEP ROUTINE</p>
-      <h1>How much sleep are you aiming for?</h1>
+      <h1>When do you want to sleep and wake?</h1>
+      <div class="recovery-plan-time-grid">
+        <label><span>Sleep starts</span><input type="time" data-plan-clock="sleepStart" value="${timeline.recoveryStart}"></label>
+        <label><span>Wake target</span><input type="time" data-plan-clock="wakeTarget" value="${timeline.wakeAt}"></label>
+      </div>
+      <p class="recovery-plan-note">${formatMinutes(plan.recoveryMinutes)} of planned sleep. Or choose a quick length below.</p>
       <div class="recovery-plan-options recovery-plan-options-wide">
         ${[420, 450, 480, 510, 540].map((minutes) => optionButton(minutes, plan.recoveryMinutes, formatMinutes(minutes))).join('')}
       </div>
-      <label class="recovery-plan-custom"><span>Custom minutes</span><input type="number" min="240" max="720" step="15" data-plan-field="recoveryMinutes" value="${plan.recoveryMinutes}"></label>
       ${navigation()}
     `;
   }
@@ -454,6 +472,35 @@ function installEvents() {
       const field = input.dataset.planField;
       const value = input.type === 'number' ? Number(input.value) : input.value;
       setPlan({ [field]: value });
+      renderOverlay();
+    });
+  });
+
+  overlay.querySelectorAll('[data-plan-clock]').forEach((input) => {
+    input.addEventListener('change', () => {
+      const clock = input.dataset.planClock;
+      const value = input.value;
+      const plan = normalizeRecoveryPlan(currentPlan || {});
+      const timeline = deriveRecoveryTimeline(plan);
+
+      if (clock === 'homeAt') {
+        setPlan({ commuteMinutes: sleepRoutineMinutesBetween(plan.shiftEnd, value) });
+      }
+
+      if (clock === 'sleepStart') {
+        const windDownMinutes = sleepRoutineMinutesBetween(timeline.homeAt, value);
+        if (currentStep === 'recovery') {
+          const recoveryMinutes = sleepRoutineMinutesBetween(value, timeline.wakeAt);
+          setPlan({ windDownMinutes, recoveryMinutes });
+        } else {
+          setPlan({ windDownMinutes });
+        }
+      }
+
+      if (clock === 'wakeTarget') {
+        setPlan({ recoveryMinutes: sleepRoutineMinutesBetween(timeline.recoveryStart, value) });
+      }
+
       renderOverlay();
     });
   });
