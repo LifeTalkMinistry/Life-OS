@@ -11,7 +11,8 @@ const DAY_OPTIONS = [
   { id: 6, short: 'S', label: 'Saturday' },
   { id: 0, short: 'S', label: 'Sunday' }
 ];
-const STEPS = ['intro', 'days', 'shift', 'commute', 'winddown', 'recovery', 'review'];
+const NUDGE_KEYS = ['shiftEnd', 'commuteEnd', 'windDownReminder', 'recoveryStart', 'wakeTarget'];
+const STEPS = ['intro', 'days', 'shift', 'commute', 'winddown', 'recovery', 'review', 'nudges'];
 
 let currentAccountId = null;
 let currentPlan = null;
@@ -48,16 +49,35 @@ function clampMinutes(value, fallback, min, max) {
   return Math.max(min, Math.min(max, Math.round(parsed)));
 }
 
+function normalizeNudges(value, windDownMinutes) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    shiftEnd: source.shiftEnd === true,
+    commuteEnd: source.commuteEnd === true,
+    windDownReminder: windDownMinutes > 0 && source.windDownReminder === true,
+    recoveryStart: source.recoveryStart === true,
+    wakeTarget: source.wakeTarget === true
+  };
+}
+
 export function createEmptyRecoveryPlan() {
   return {
-    version: 1,
+    version: 2,
     setupComplete: false,
+    nudgeConsentComplete: false,
     workDays: [1, 2, 3, 4, 5],
     shiftStart: '22:00',
     shiftEnd: '08:00',
     commuteMinutes: 60,
     windDownMinutes: 45,
-    recoveryMinutes: 480
+    recoveryMinutes: 480,
+    nudges: {
+      shiftEnd: false,
+      commuteEnd: false,
+      windDownReminder: false,
+      recoveryStart: false,
+      wakeTarget: false
+    }
   };
 }
 
@@ -72,16 +92,19 @@ export function normalizeRecoveryPlan(value = {}) {
   const setupComplete = value.setupComplete === true
     && workDays.length > 0
     && shiftStart !== shiftEnd;
+  const nudges = normalizeNudges(value.nudges, windDownMinutes);
 
   return {
-    version: 1,
+    version: 2,
     setupComplete,
+    nudgeConsentComplete: setupComplete && value.nudgeConsentComplete === true,
     workDays,
     shiftStart,
     shiftEnd,
     commuteMinutes,
     windDownMinutes,
-    recoveryMinutes
+    recoveryMinutes,
+    nudges
   };
 }
 
@@ -184,6 +207,23 @@ export function deriveRecoveryTimeline(rawPlan) {
   };
 }
 
+export function deriveNudgeMoments(rawPlan) {
+  const plan = normalizeRecoveryPlan(rawPlan);
+  const shiftEndMinutes = timeToMinutes(plan.shiftEnd);
+  const commuteEndMinutes = shiftEndMinutes + plan.commuteMinutes;
+  const recoveryStartMinutes = commuteEndMinutes + plan.windDownMinutes;
+  const windDownReminderMinutes = commuteEndMinutes + Math.max(0, plan.windDownMinutes - 15);
+  const wakeTargetMinutes = recoveryStartMinutes + plan.recoveryMinutes;
+
+  return {
+    shiftEnd: minutesToTime(shiftEndMinutes),
+    commuteEnd: minutesToTime(commuteEndMinutes),
+    windDownReminder: minutesToTime(windDownReminderMinutes),
+    recoveryStart: minutesToTime(recoveryStartMinutes),
+    wakeTarget: minutesToTime(wakeTargetMinutes)
+  };
+}
+
 function daysLabel(days) {
   const normalized = normalizeDays(days);
   if (normalized.length === 7) return 'Every day';
@@ -206,7 +246,25 @@ function previousStep() {
 }
 
 function setPlan(patch) {
-  currentPlan = normalizeRecoveryPlan({ ...currentPlan, ...patch, setupComplete: false });
+  currentPlan = normalizeRecoveryPlan({
+    ...currentPlan,
+    ...patch,
+    setupComplete: false,
+    nudgeConsentComplete: false
+  });
+}
+
+function setNudge(key, enabled) {
+  if (!NUDGE_KEYS.includes(key)) return;
+  const plan = normalizeRecoveryPlan(currentPlan || {});
+  currentPlan = normalizeRecoveryPlan({
+    ...plan,
+    nudgeConsentComplete: false,
+    nudges: {
+      ...plan.nudges,
+      [key]: enabled === true
+    }
+  });
 }
 
 function optionButton(value, current, label, attr = 'data-plan-value') {
@@ -219,6 +277,19 @@ function navigation({ back = true, continueLabel = 'Continue', continueDisabled 
       ${back ? '<button type="button" class="recovery-plan-back" data-plan-action="back">Back</button>' : '<span></span>'}
       <button type="button" class="recovery-plan-continue" data-plan-action="${action}" ${continueDisabled ? 'disabled' : ''}>${continueLabel}</button>
     </div>
+  `;
+}
+
+function nudgeButton(key, title, detail, time, enabled) {
+  return `
+    <button type="button" class="recovery-plan-nudge${enabled ? ' is-selected' : ''}" data-plan-nudge="${key}" aria-pressed="${enabled ? 'true' : 'false'}">
+      <span class="recovery-plan-nudge-copy">
+        <strong>${title}</strong>
+        <span>${detail}</span>
+        <small>${formatTime(time)}</small>
+      </span>
+      <span class="recovery-plan-nudge-switch" aria-hidden="true"><i></i></span>
+    </button>
   `;
 }
 
@@ -298,18 +369,38 @@ function contentForStep() {
     `;
   }
 
+  if (currentStep === 'review') {
+    return `
+      <p class="recovery-plan-eyebrow">YOUR RECOVERY ROUTINE</p>
+      <h1>Here’s where recovery fits.</h1>
+      <div class="recovery-plan-summary">
+        <div><span>WORK DAYS</span><strong>${daysLabel(plan.workDays)}</strong></div>
+        <div><span>SHIFT</span><strong>${formatTime(plan.shiftStart)} → ${formatTime(plan.shiftEnd)}</strong></div>
+        <div><span>USUAL COMMUTE</span><strong>${formatTime(plan.shiftEnd)} → ${formatTime(timeline.homeAt)}</strong><small>${formatMinutes(plan.commuteMinutes)}</small></div>
+        <div><span>WIND-DOWN</span><strong>${formatTime(timeline.homeAt)} → ${formatTime(timeline.recoveryStart)}</strong><small>${formatMinutes(plan.windDownMinutes)}</small></div>
+        <div class="is-protected"><span>PROTECTED RECOVERY</span><strong>${formatTime(timeline.recoveryStart)} → ${formatTime(timeline.wakeAt)}</strong><small>${formatMinutes(plan.recoveryMinutes)} protected</small></div>
+      </div>
+      <p class="recovery-plan-note">Nothing here tracks your location or assumes you actually arrived home. These are the routine anchors you chose.</p>
+      ${navigation({ continueLabel: 'Choose nudges' })}
+    `;
+  }
+
+  const moments = deriveNudgeMoments(plan);
+  const selectedCount = Object.values(plan.nudges).filter(Boolean).length;
   return `
-    <p class="recovery-plan-eyebrow">YOUR RECOVERY ROUTINE</p>
-    <h1>Here’s where recovery fits.</h1>
-    <div class="recovery-plan-summary">
-      <div><span>WORK DAYS</span><strong>${daysLabel(plan.workDays)}</strong></div>
-      <div><span>SHIFT</span><strong>${formatTime(plan.shiftStart)} → ${formatTime(plan.shiftEnd)}</strong></div>
-      <div><span>USUAL COMMUTE</span><strong>${formatTime(plan.shiftEnd)} → ${formatTime(timeline.homeAt)}</strong><small>${formatMinutes(plan.commuteMinutes)}</small></div>
-      <div><span>WIND-DOWN</span><strong>${formatTime(timeline.homeAt)} → ${formatTime(timeline.recoveryStart)}</strong><small>${formatMinutes(plan.windDownMinutes)}</small></div>
-      <div class="is-protected"><span>PROTECTED RECOVERY</span><strong>${formatTime(timeline.recoveryStart)} → ${formatTime(timeline.wakeAt)}</strong><small>${formatMinutes(plan.recoveryMinutes)} protected</small></div>
+    <p class="recovery-plan-eyebrow">NOISE BY CONSENT</p>
+    <h1>When may PAUSE interrupt you?</h1>
+    <p class="recovery-plan-copy">Nothing is on by default. Choose only the moments worth a nudge. Leaving everything off is completely valid.</p>
+    <div class="recovery-plan-nudges" aria-label="Recovery nudge choices">
+      ${nudgeButton('shiftEnd', 'Shift finished', 'A gentle transition out of work.', moments.shiftEnd, plan.nudges.shiftEnd)}
+      ${nudgeButton('commuteEnd', 'Expected home window', 'Your usual commute window has ended. No location tracking.', moments.commuteEnd, plan.nudges.commuteEnd)}
+      ${plan.windDownMinutes > 0 ? nudgeButton('windDownReminder', 'Get ready for recovery', 'A final cue to wrap up your wind-down.', moments.windDownReminder, plan.nudges.windDownReminder) : ''}
+      ${nudgeButton('recoveryStart', 'Protected recovery starts', 'The recovery block you chose begins now.', moments.recoveryStart, plan.nudges.recoveryStart)}
+      ${nudgeButton('wakeTarget', 'Wake target', 'Your protected recovery window is complete.', moments.wakeTarget, plan.nudges.wakeTarget)}
     </div>
-    <p class="recovery-plan-note">Nothing here tracks your location or assumes you actually arrived home. These are the routine anchors you chose.</p>
-    ${navigation({ continueLabel: 'Protect this routine', action: 'save' })}
+    <p class="recovery-plan-nudge-summary">${selectedCount === 0 ? 'No nudges selected — PAUSE will stay quiet.' : `${selectedCount} nudge${selectedCount === 1 ? '' : 's'} selected.`}</p>
+    <p class="recovery-plan-note">This saves consent only. PAUSE will ask separately before using device notifications.</p>
+    ${navigation({ continueLabel: 'Save my choices', action: 'save' })}
   `;
 }
 
@@ -354,6 +445,15 @@ function installEvents() {
       renderOverlay();
     });
   });
+
+  overlay.querySelectorAll('[data-plan-nudge]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const key = button.dataset.planNudge;
+      const plan = normalizeRecoveryPlan(currentPlan || {});
+      setNudge(key, !plan.nudges[key]);
+      renderOverlay();
+    });
+  });
 }
 
 function renderOverlay() {
@@ -388,7 +488,11 @@ async function saveCompletedPlan(button) {
     button.textContent = 'Saving…';
   }
 
-  const completed = normalizeRecoveryPlan({ ...currentPlan, setupComplete: true });
+  const completed = normalizeRecoveryPlan({
+    ...currentPlan,
+    setupComplete: true,
+    nudgeConsentComplete: true
+  });
   currentPlan = saveLocalPlan(currentAccountId, completed);
   editRequested = false;
   hideOverlay();
@@ -449,9 +553,26 @@ async function reconcileRecoveryPlan() {
 
   if (hydrationPromise || pause.screen === 'launch') return;
 
-  const complete = normalizeRecoveryPlan(currentPlan || {}).setupComplete;
-  if ((!complete || editRequested) && pause.screen === 'main') showOverlay();
-  else if (complete && !editRequested) hideOverlay();
+  const plan = normalizeRecoveryPlan(currentPlan || {});
+  if (!plan.setupComplete && pause.screen === 'main') {
+    showOverlay();
+    return;
+  }
+
+  if (plan.setupComplete && !plan.nudgeConsentComplete && !editRequested && pause.screen === 'main') {
+    if (!overlay) {
+      currentStep = 'nudges';
+      showOverlay();
+    }
+    return;
+  }
+
+  if (editRequested && pause.screen === 'main') {
+    showOverlay();
+    return;
+  }
+
+  if (plan.setupComplete && plan.nudgeConsentComplete && !editRequested) hideOverlay();
 }
 
 export function openRecoveryPlanSetup() {
@@ -470,7 +591,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   window.__PAUSE_RECOVERY_PLAN__ = {
     getPlan: getRecoveryPlan,
     openSetup: openRecoveryPlanSetup,
-    deriveTimeline: () => currentPlan ? deriveRecoveryTimeline(currentPlan) : null
+    deriveTimeline: () => currentPlan ? deriveRecoveryTimeline(currentPlan) : null,
+    deriveNudgeMoments: () => currentPlan ? deriveNudgeMoments(currentPlan) : null
   };
 
   const interval = setInterval(reconcileRecoveryPlan, 700);
