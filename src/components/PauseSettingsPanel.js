@@ -1,4 +1,4 @@
-function ensureStyles() {
+function ensurePauseSettingsPanelStyles() {
   if (document.querySelector('#pause-settings-panel-style')) return;
   const style = document.createElement('style');
   style.id = 'pause-settings-panel-style';
@@ -216,7 +216,7 @@ function settingsRow(id, title, detail, iconName) {
 }
 
 export function PauseSettingsPanel({ email = '', onClose, onSelect, onSignOut }) {
-  ensureStyles();
+  ensurePauseSettingsPanelStyles();
   const backdrop = document.createElement('div');
   backdrop.className = 'pause-settings-backdrop';
 
