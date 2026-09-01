@@ -22,6 +22,7 @@ const scriptOrder = [
   'src/restInsightsInfo.js',
   'src/app.js',
   'src/recoveryPlan.js',
+  'src/recoveryPlanCommuteCustomizer.js',
   'src/recoveryBriefing.js'
 ];
 
