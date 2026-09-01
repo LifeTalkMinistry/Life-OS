@@ -16,7 +16,8 @@ const scriptOrder = [
   'src/sync/pauseSyncClient.js',
   'src/auth/LoginScreen.js',
   'src/recoveryStatusCard.js',
-  'src/app.js'
+  'src/app.js',
+  'src/recoveryPlan.js'
 ];
 
 function stripModuleSyntax(source) {
@@ -35,7 +36,8 @@ const cssFiles = [
   'src/layout-invariant.css',
   'src/pause.css',
   'src/brand-wordmark.css',
-  'src/auth/auth.css'
+  'src/auth/auth.css',
+  'src/recovery-plan.css'
 ];
 
 const css = cssFiles.map((file) => readFileSync(file, 'utf8')).join('\n\n');
