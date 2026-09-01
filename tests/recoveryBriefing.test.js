@@ -12,6 +12,7 @@ function nightShiftPlan(overrides = {}) {
     commuteMinutes: 60,
     windDownMinutes: 45,
     recoveryMinutes: 480,
+    sleepStart: '09:45',
     ...overrides
   };
 }
@@ -66,6 +67,41 @@ test('routine agenda names the sleep block without protected-recovery language',
   assert.equal(JSON.stringify(status).includes('Protected'), false);
 });
 
+test('declared sleep start stays fixed even when commute plus wind-down would end earlier', () => {
+  const plan = nightShiftPlan({
+    workDays: [1],
+    commuteMinutes: 45,
+    windDownMinutes: 30,
+    sleepStart: '10:00',
+    recoveryMinutes: 420
+  });
+
+  const personal = deriveRecoveryBriefingStatus(plan, new Date(2026, 8, 1, 9, 0, 0));
+  assert.equal(personal.phase, 'personal');
+  assert.equal(personal.agenda, 'YOUR TIME');
+  assert.equal(personal.value, '30m');
+  assert.equal(personal.next, 'Next · Wind-down — 9:30 AM');
+
+  const windDown = deriveRecoveryBriefingStatus(plan, new Date(2026, 8, 1, 9, 40, 0));
+  assert.equal(windDown.phase, 'winddown');
+  assert.equal(windDown.value, '20m');
+  assert.equal(windDown.next, 'Next · Sleep Routine — 10:00 AM');
+
+  const sleep = deriveRecoveryBriefingStatus(plan, new Date(2026, 8, 1, 10, 10, 0));
+  assert.equal(sleep.phase, 'recovery');
+  assert.equal(sleep.next, 'Next · Wake — 5:00 PM');
+});
+
+test('legacy plan without an explicit sleep start keeps its previous calculated schedule', () => {
+  const status = deriveRecoveryBriefingStatus(
+    nightShiftPlan({ workDays: [1], sleepStart: undefined }),
+    new Date(2026, 8, 1, 9, 20, 0)
+  );
+
+  assert.equal(status.phase, 'winddown');
+  assert.equal(status.next, 'Next · Sleep Routine — 9:45 AM');
+});
+
 test('outside the current routine, agenda points to the next sleep routine', () => {
   const status = deriveRecoveryBriefingStatus(
     nightShiftPlan(),
@@ -78,7 +114,7 @@ test('outside the current routine, agenda points to the next sleep routine', () 
   assert.match(status.next, /^Starts · /);
 });
 
-test('briefing stays absent until a Recovery Plan exists', () => {
+test('briefing stays absent until a Sleep Routine exists', () => {
   assert.equal(
     deriveRecoveryBriefingStatus({ setupComplete: false }, new Date(2026, 8, 1, 8, 0, 0)),
     null
