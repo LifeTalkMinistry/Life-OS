@@ -146,6 +146,7 @@ export async function enablePausePushNotifications() {
 
   const registration = await pauseServiceWorkerRegistration();
   let subscription = await registration.pushManager.getSubscription();
+  let createdHere = false;
 
   if (!subscription) {
     const keyPayload = await pausePushRequest(PUBLIC_KEY_PATH);
@@ -155,9 +156,15 @@ export async function enablePausePushNotifications() {
       userVisibleOnly: true,
       applicationServerKey: pauseBase64UrlToBytes(publicKey)
     });
+    createdHere = true;
   }
 
-  await pauseRegisterSubscriptionWithServer(subscription);
+  try {
+    await pauseRegisterSubscriptionWithServer(subscription);
+  } catch (error) {
+    if (createdHere) await subscription.unsubscribe().catch(() => false);
+    throw error;
+  }
   return getPausePushState();
 }
 
