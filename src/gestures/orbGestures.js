@@ -140,12 +140,18 @@ export function createOrbGestureController({
     },
 
     cancel() {
+      const wasHolding = holding;
       clearHoldTimer();
       clearSingleTimer();
       detachReleaseListeners();
       clearDragTarget();
       holding = false;
       lastTapAt = 0;
+
+      if (wasHolding) {
+        closeTemporaryHoldMenu();
+        onHoldEnd?.({ selected: false, target: null });
+      }
     },
 
     destroy() {
