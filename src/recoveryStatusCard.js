@@ -471,12 +471,12 @@ function recoveryStatusMarkup(selection, summary) {
   const range = selectedRange(selection);
   const dayWord = summary.days === 1 ? 'day' : 'days';
   const statusCopy = hasData
-    ? `Based on <strong>${summary.days} available ${dayWord}</strong>, you recorded <strong>${formatDuration(summary.totalMs)}</strong> of your <strong>${formatDuration(summary.targetMs)}</strong> recovery target.`
-    : 'Complete your first rest to start your recovery status.';
+    ? `Based on <strong>${summary.days} available ${dayWord}</strong>, you recorded <strong>${formatDuration(summary.totalMs)}</strong> of your <strong>${formatDuration(summary.targetMs)}</strong> rest target.`
+    : 'Complete your first rest to start your rest status.';
 
   return `
     <div class="pause-recovery-status-head">
-      <p class="pause-recovery-status-kicker">RECOVERY STATUS</p>
+      <p class="pause-recovery-status-kicker">REST STATUS</p>
       <button type="button" class="pause-recovery-range-trigger" data-recovery-range-trigger aria-expanded="${selection.menuOpen ? 'true' : 'false'}">
         ${selectorLabel(selection)} &nbsp;⌄
       </button>
@@ -484,7 +484,7 @@ function recoveryStatusMarkup(selection, summary) {
     </div>
 
     <div class="pause-recovery-range-menu" data-recovery-range-menu ${selection.menuOpen ? '' : 'hidden'}>
-      <div class="pause-recovery-quick-ranges" role="group" aria-label="Recovery timeframe">
+      <div class="pause-recovery-quick-ranges" role="group" aria-label="Rest timeframe">
         <button type="button" class="pause-recovery-range-option${selection.mode === 'quick' && selection.days === 1 ? ' is-selected' : ''}" data-recovery-days="1">1 DAY</button>
         <button type="button" class="pause-recovery-range-option${selection.mode === 'quick' && selection.days === 3 ? ' is-selected' : ''}" data-recovery-days="3">3 DAYS</button>
         <button type="button" class="pause-recovery-range-option${selection.mode === 'quick' && selection.days === 7 ? ' is-selected' : ''}" data-recovery-days="7">7 DAYS</button>
@@ -504,7 +504,7 @@ function recoveryStatusMarkup(selection, summary) {
       <p class="pause-recovery-status-copy">${statusCopy}</p>
     </div>
 
-    <div class="pause-recovery-progress-row" aria-label="${displayPct}% of recovery target recorded">
+    <div class="pause-recovery-progress-row" aria-label="${displayPct}% of rest target recorded">
       <div class="pause-recovery-progress-track" aria-hidden="true"><span class="pause-recovery-progress-fill" style="width:${barPct}%"></span></div>
       <span class="pause-recovery-progress-pct">${displayPct}%</span>
     </div>
@@ -585,7 +585,7 @@ function mountRecoveryCard(panel) {
 
   const card = document.createElement('section');
   card.className = 'pause-recovery-status-card';
-  card.setAttribute('aria-label', 'Recovery status');
+  card.setAttribute('aria-label', 'Rest status');
   oldHero.replaceWith(card);
   panel.querySelector('.pause-detailed-grid')?.remove();
   renderRecoveryCard(card, panel);
