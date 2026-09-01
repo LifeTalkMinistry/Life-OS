@@ -1,3 +1,9 @@
+import {
+  disablePausePushNotifications,
+  enablePausePushNotifications,
+  getPausePushState
+} from '../pausePushClient.js';
+
 function ensurePauseSettingsPanelStyles() {
   if (document.querySelector('#pause-settings-panel-style')) return;
   const style = document.createElement('style');
@@ -161,6 +167,15 @@ function ensurePauseSettingsPanelStyles() {
     .pause-settings-value.is-on { color: #c9a8f5; }
     .pause-settings-value.is-blocked { color: #aa8999; }
 
+    .pause-settings-notice {
+      margin: 7px 2px 0;
+      color: #8e8198;
+      font-size: .6rem;
+      line-height: 1.45;
+    }
+
+    .pause-settings-notice.is-error { color: #b58b9d; }
+
     .pause-settings-chevron {
       color: #695f73;
       font-size: 1rem;
@@ -245,30 +260,32 @@ function settingsIcon(name) {
   return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8h.01"/></svg>';
 }
 
-function notificationState() {
-  if (typeof Notification === 'undefined') {
-    return { label: 'Unavailable', className: 'is-blocked', canRequest: false };
-  }
-  if (Notification.permission === 'granted') {
-    return { label: 'Allowed', className: 'is-on', canRequest: false };
-  }
-  if (Notification.permission === 'denied') {
-    return { label: 'Blocked', className: 'is-blocked', canRequest: false };
-  }
-  return { label: 'Not allowed yet', className: '', canRequest: true };
-}
-
-function updateNotificationRow(panel) {
+async function updatePauseNotificationRow(panel) {
   const button = panel.querySelector('[data-settings-notifications]');
   const value = panel.querySelector('[data-settings-notification-value]');
-  if (!button || !value) return;
-  const state = notificationState();
+  const notice = panel.querySelector('[data-settings-notification-notice]');
+  if (!button || !value) return null;
+
+  value.textContent = 'Checking…';
+  button.disabled = true;
+  let state;
+  try {
+    state = await getPausePushState();
+  } catch {
+    state = { status: 'unavailable', label: 'Unavailable', canEnable: false, canDisable: false };
+  }
+
   value.textContent = state.label;
-  value.className = `pause-settings-value ${state.className}`.trim();
-  button.disabled = !state.canRequest;
-  button.setAttribute('aria-label', state.canRequest
-    ? 'Allow PAUSE device notifications'
-    : `PAUSE device notifications: ${state.label}`);
+  value.className = `pause-settings-value ${state.status === 'on' ? 'is-on' : state.status === 'blocked' ? 'is-blocked' : ''}`.trim();
+  button.disabled = !(state.canEnable || state.canDisable);
+  button.dataset.notificationAction = state.canDisable ? 'disable' : 'enable';
+  button.setAttribute('aria-label', state.canDisable
+    ? 'Turn off PAUSE device notifications on this device'
+    : state.canEnable
+      ? 'Turn on PAUSE device notifications on this device'
+      : `PAUSE device notifications: ${state.label}`);
+  if (notice && !notice.classList.contains('is-error')) notice.textContent = '';
+  return state;
 }
 
 export function PauseSettingsPanel({ email = '', onClose, onSignOut }) {
@@ -296,10 +313,11 @@ export function PauseSettingsPanel({ email = '', onClose, onSignOut }) {
         <span class="pause-settings-icon" aria-hidden="true">${settingsIcon('notifications')}</span>
         <span class="pause-settings-copy">
           <strong>Device Notifications</strong>
-          <small>Permission for PAUSE alerts on this device.</small>
+          <small>Connect this device to the nudges you chose in Recovery Plan.</small>
         </span>
-        <span class="pause-settings-value" data-settings-notification-value></span>
+        <span class="pause-settings-value" data-settings-notification-value>Checking…</span>
       </button>
+      <p class="pause-settings-notice" data-settings-notification-notice></p>
     </div>
 
     <p class="pause-settings-section-label">ACCOUNT</p>
@@ -338,12 +356,29 @@ export function PauseSettingsPanel({ email = '', onClose, onSignOut }) {
 
   const notificationButton = panel.querySelector('[data-settings-notifications]');
   notificationButton?.addEventListener('click', async () => {
-    const state = notificationState();
-    if (!state.canRequest || typeof Notification === 'undefined') return;
+    const notice = panel.querySelector('[data-settings-notification-notice]');
+    notificationButton.disabled = true;
+    if (notice) {
+      notice.classList.remove('is-error');
+      notice.textContent = notificationButton.dataset.notificationAction === 'disable'
+        ? 'Turning notifications off…'
+        : 'Connecting this device…';
+    }
+
     try {
-      await Notification.requestPermission();
-    } catch {}
-    updateNotificationRow(panel);
+      if (notificationButton.dataset.notificationAction === 'disable') {
+        await disablePausePushNotifications();
+      } else {
+        await enablePausePushNotifications();
+      }
+      if (notice) notice.textContent = '';
+    } catch (error) {
+      if (notice) {
+        notice.classList.add('is-error');
+        notice.textContent = String(error?.message || 'PAUSE could not change notifications on this device.');
+      }
+    }
+    await updatePauseNotificationRow(panel);
   });
 
   const privacyButton = panel.querySelector('[data-settings-privacy]');
@@ -359,7 +394,7 @@ export function PauseSettingsPanel({ email = '', onClose, onSignOut }) {
     if (event.target === backdrop) onClose?.();
   });
 
-  updateNotificationRow(panel);
+  void updatePauseNotificationRow(panel);
   backdrop.appendChild(panel);
   return backdrop;
 }
