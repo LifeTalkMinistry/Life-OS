@@ -16,10 +16,27 @@ function briefingTimeToMinutes(value, fallback = 0) {
   return hour * 60 + minute;
 }
 
+function briefingMinutesToTime(value) {
+  const normalized = ((Number(value) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, '0')}:${String(normalized % 60).padStart(2, '0')}`;
+}
+
+function briefingValidTime(value) {
+  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(value || ''));
+}
+
 function briefingClampMinutes(value, fallback, min, max) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.max(min, Math.min(max, Math.round(parsed)));
+}
+
+function briefingLegacySleepStart(rawPlan = {}) {
+  return briefingMinutesToTime(
+    briefingTimeToMinutes(rawPlan.shiftEnd || '08:00', 8 * 60)
+      + briefingClampMinutes(rawPlan.commuteMinutes, 60, 0, 240)
+      + briefingClampMinutes(rawPlan.windDownMinutes, 45, 0, 240)
+  );
 }
 
 function briefingPlan(rawPlan = {}) {
@@ -34,7 +51,10 @@ function briefingPlan(rawPlan = {}) {
     shiftEnd: String(rawPlan.shiftEnd || '08:00'),
     commuteMinutes: briefingClampMinutes(rawPlan.commuteMinutes, 60, 0, 240),
     windDownMinutes: briefingClampMinutes(rawPlan.windDownMinutes, 45, 0, 240),
-    recoveryMinutes: briefingClampMinutes(rawPlan.recoveryMinutes, 480, 240, 720)
+    recoveryMinutes: briefingClampMinutes(rawPlan.recoveryMinutes, 480, 240, 720),
+    sleepStart: briefingValidTime(rawPlan.sleepStart)
+      ? String(rawPlan.sleepStart)
+      : briefingLegacySleepStart(rawPlan)
   };
 }
 
@@ -62,16 +82,20 @@ function briefingCycleForDay(plan, dayStart) {
   if (!plan.workDays.includes(dayStart.getDay())) return null;
   const startMinutes = briefingTimeToMinutes(plan.shiftStart, 22 * 60);
   const endMinutes = briefingTimeToMinutes(plan.shiftEnd, 8 * 60);
+  const sleepStartMinutes = briefingTimeToMinutes(plan.sleepStart, 9 * 60 + 45);
   const shiftStartAt = new Date(dayStart.getTime() + startMinutes * 60_000);
   const shiftEndAt = new Date(dayStart.getTime() + (endMinutes + (endMinutes <= startMinutes ? 1440 : 0)) * 60_000);
   const commuteEndAt = new Date(shiftEndAt.getTime() + plan.commuteMinutes * 60_000);
-  const recoveryStartAt = new Date(commuteEndAt.getTime() + plan.windDownMinutes * 60_000);
+  const sleepAfterShiftMinutes = ((sleepStartMinutes - endMinutes) + 1440) % 1440;
+  const recoveryStartAt = new Date(shiftEndAt.getTime() + sleepAfterShiftMinutes * 60_000);
+  const windDownStartAt = new Date(recoveryStartAt.getTime() - plan.windDownMinutes * 60_000);
   const wakeTargetAt = new Date(recoveryStartAt.getTime() + plan.recoveryMinutes * 60_000);
   return {
     key: `${briefingDateKey(dayStart)}:${plan.shiftStart}`,
     shiftStartAt,
     shiftEndAt,
     commuteEndAt,
+    windDownStartAt,
     recoveryStartAt,
     wakeTargetAt
   };
@@ -90,7 +114,9 @@ function briefingActivePhase(plan, cycle, nowMs) {
   if (nowMs < cycle.shiftStartAt.getTime() || nowMs >= cycle.wakeTargetAt.getTime()) return null;
   if (nowMs < cycle.shiftEndAt.getTime()) return 'work';
   if (plan.commuteMinutes > 0 && nowMs < cycle.commuteEndAt.getTime()) return 'commute';
+  if (nowMs < cycle.windDownStartAt.getTime()) return 'personal';
   if (plan.windDownMinutes > 0 && nowMs < cycle.recoveryStartAt.getTime()) return 'winddown';
+  if (nowMs < cycle.recoveryStartAt.getTime()) return 'personal';
   if (nowMs < cycle.wakeTargetAt.getTime()) return 'recovery';
   return null;
 }
@@ -123,12 +149,18 @@ function briefingFormatRemaining(ms) {
 function briefingNextAgenda(plan, cycle, phase) {
   if (phase === 'work') {
     if (plan.commuteMinutes > 0) return { label: 'Commute', at: cycle.shiftEndAt };
+    if (cycle.windDownStartAt.getTime() > cycle.shiftEndAt.getTime()) return { label: 'Your Time', at: cycle.shiftEndAt };
     if (plan.windDownMinutes > 0) return { label: 'Wind-down', at: cycle.shiftEndAt };
-    return { label: 'Sleep Routine', at: cycle.shiftEndAt };
+    return { label: 'Sleep Routine', at: cycle.recoveryStartAt };
   }
   if (phase === 'commute') {
+    if (cycle.windDownStartAt.getTime() > cycle.commuteEndAt.getTime()) return { label: 'Your Time', at: cycle.commuteEndAt };
     if (plan.windDownMinutes > 0) return { label: 'Wind-down', at: cycle.commuteEndAt };
-    return { label: 'Sleep Routine', at: cycle.commuteEndAt };
+    return { label: 'Sleep Routine', at: cycle.recoveryStartAt };
+  }
+  if (phase === 'personal') {
+    if (plan.windDownMinutes > 0) return { label: 'Wind-down', at: cycle.windDownStartAt };
+    return { label: 'Sleep Routine', at: cycle.recoveryStartAt };
   }
   if (phase === 'winddown') return { label: 'Sleep Routine', at: cycle.recoveryStartAt };
   return { label: 'Wake', at: cycle.wakeTargetAt };
@@ -154,9 +186,11 @@ export function deriveRecoveryBriefingStatus(rawPlan, nowValue = new Date()) {
       ? cycle.shiftEndAt
       : phase === 'commute'
         ? cycle.commuteEndAt
-        : phase === 'winddown'
-          ? cycle.recoveryStartAt
-          : cycle.wakeTargetAt;
+        : phase === 'personal'
+          ? (plan.windDownMinutes > 0 ? cycle.windDownStartAt : cycle.recoveryStartAt)
+          : phase === 'winddown'
+            ? cycle.recoveryStartAt
+            : cycle.wakeTargetAt;
 
     return {
       phase,
@@ -165,9 +199,11 @@ export function deriveRecoveryBriefingStatus(rawPlan, nowValue = new Date()) {
         ? 'WORK'
         : phase === 'commute'
           ? 'COMMUTE'
-          : phase === 'winddown'
-            ? 'WIND-DOWN'
-            : 'SLEEP ROUTINE',
+          : phase === 'personal'
+            ? 'YOUR TIME'
+            : phase === 'winddown'
+              ? 'WIND-DOWN'
+              : 'SLEEP ROUTINE',
       value: briefingFormatRemaining(phaseEndAt.getTime() - nowMs),
       suffix: 'left',
       next: `Next · ${next.label} — ${briefingFormatClock(next.at)}`,
