@@ -119,10 +119,7 @@ function idleContent() {
 function menuContent() {
   return `
     <div class="orb-content orb-now-content pause-menu-content">
-      <p class="orb-kicker">KEEP HOLDING</p>
-      <h1 class="orb-title">DRAG<br>TO CHOOSE</h1>
-      <span class="orb-divider" aria-hidden="true"><i></i></span>
-      <p class="orb-until">Release on an option</p>
+      <h1 class="orb-title">Drag to Choose</h1>
     </div>
   `;
 }
