@@ -63,7 +63,9 @@ export function createOrbGestureController({
   const finishHold = (event, allowSelection = true) => {
     if (!holding) return false;
 
-    const selected = allowSelection ? (dragTargetAt(event) || activeDragTarget) : null;
+    // The release position is authoritative. If the finger leaves a highlighted
+    // option and comes back to the center before release, the gesture cancels.
+    const selected = allowSelection ? dragTargetAt(event) : null;
 
     holding = false;
     lastTapAt = 0;
