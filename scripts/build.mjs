@@ -44,6 +44,7 @@ const cssFiles = [
   'src/brand-wordmark.css',
   'src/auth/auth.css',
   'src/recovery-plan.css',
+  'src/sleep-routine-schedule.css',
   'src/recovery-briefing-brand.css'
 ];
 
