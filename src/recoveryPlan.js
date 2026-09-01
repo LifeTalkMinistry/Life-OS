@@ -155,7 +155,7 @@ async function requestPlan(token, method, body) {
   } catch {}
 
   if (!response.ok) {
-    const error = new Error(payload?.message || `Recovery Plan request failed with status ${response.status}.`);
+    const error = new Error(payload?.message || `Sleep Routine request failed with status ${response.status}.`);
     error.status = response.status;
     throw error;
   }
@@ -311,10 +311,10 @@ function contentForStep() {
 
   if (currentStep === 'intro') {
     return `
-      <p class="recovery-plan-eyebrow">RECOVERY PLAN</p>
-      <h1>Let’s find where recovery fits in your real day.</h1>
-      <p class="recovery-plan-copy">PAUSE only needs a few anchors around your shift. It will use them to understand the recovery routine you want to protect.</p>
-      <button type="button" class="recovery-plan-primary" data-plan-action="continue">Set up my recovery</button>
+      <p class="recovery-plan-eyebrow">SLEEP ROUTINE</p>
+      <h1>Let’s fit sleep into your real day.</h1>
+      <p class="recovery-plan-copy">PAUSE uses your shift, commute, and wind-down to build the sleep routine that fits your day.</p>
+      <button type="button" class="recovery-plan-primary" data-plan-action="continue">Set up my routine</button>
     `;
   }
 
@@ -322,7 +322,7 @@ function contentForStep() {
     return `
       <p class="recovery-plan-eyebrow">YOUR REALITY</p>
       <h1>Which days do you usually work?</h1>
-      <p class="recovery-plan-copy">Choose the days this recovery routine normally follows.</p>
+      <p class="recovery-plan-copy">Choose the days this sleep routine normally follows.</p>
       <div class="recovery-plan-days" aria-label="Work days">
         ${DAY_OPTIONS.map((day) => `<button type="button" class="recovery-plan-day${plan.workDays.includes(day.id) ? ' is-selected' : ''}" data-plan-day="${day.id}" aria-label="${day.label}">${day.short}</button>`).join('')}
       </div>
@@ -359,7 +359,7 @@ function contentForStep() {
   if (currentStep === 'winddown') {
     return `
       <p class="recovery-plan-eyebrow">YOUR TIME</p>
-      <h1>How much wind-down time do you want before recovery?</h1>
+      <h1>How much wind-down time do you want before sleep?</h1>
       <p class="recovery-plan-copy">Food, shower, family time, scrolling, or simply doing nothing. This is time you intentionally leave between getting home and sleeping.</p>
       <div class="recovery-plan-options">
         ${[15, 30, 45, 60, 90].map((minutes) => optionButton(minutes, plan.windDownMinutes, formatMinutes(minutes))).join('')}
@@ -371,8 +371,8 @@ function contentForStep() {
 
   if (currentStep === 'recovery') {
     return `
-      <p class="recovery-plan-eyebrow">PROTECTED RECOVERY</p>
-      <h1>How much sleep are you trying to protect?</h1>
+      <p class="recovery-plan-eyebrow">SLEEP ROUTINE</p>
+      <h1>How much sleep are you aiming for?</h1>
       <div class="recovery-plan-options recovery-plan-options-wide">
         ${[420, 450, 480, 510, 540].map((minutes) => optionButton(minutes, plan.recoveryMinutes, formatMinutes(minutes))).join('')}
       </div>
@@ -383,14 +383,14 @@ function contentForStep() {
 
   if (currentStep === 'review') {
     return `
-      <p class="recovery-plan-eyebrow">YOUR RECOVERY ROUTINE</p>
-      <h1>Here’s where recovery fits.</h1>
+      <p class="recovery-plan-eyebrow">YOUR SLEEP ROUTINE</p>
+      <h1>Here’s your routine.</h1>
       <div class="recovery-plan-summary">
         <div><span>WORK DAYS</span><strong>${daysLabel(plan.workDays)}</strong></div>
         <div><span>SHIFT</span><strong>${formatTime(plan.shiftStart)} → ${formatTime(plan.shiftEnd)}</strong></div>
         <div><span>USUAL COMMUTE</span><strong>${formatTime(plan.shiftEnd)} → ${formatTime(timeline.homeAt)}</strong><small>${formatMinutes(plan.commuteMinutes)}</small></div>
         <div><span>WIND-DOWN</span><strong>${formatTime(timeline.homeAt)} → ${formatTime(timeline.recoveryStart)}</strong><small>${formatMinutes(plan.windDownMinutes)}</small></div>
-        <div class="is-protected"><span>PROTECTED RECOVERY</span><strong>${formatTime(timeline.recoveryStart)} → ${formatTime(timeline.wakeAt)}</strong><small>${formatMinutes(plan.recoveryMinutes)} protected</small></div>
+        <div class="is-protected"><span>SLEEP ROUTINE</span><strong>${formatTime(timeline.recoveryStart)} → ${formatTime(timeline.wakeAt)}</strong><small>${formatMinutes(plan.recoveryMinutes)} planned</small></div>
       </div>
       <p class="recovery-plan-note">Nothing here tracks your location or assumes you actually arrived home. These are the routine anchors you chose.</p>
       ${navigation({ continueLabel: 'Choose nudges' })}
@@ -403,15 +403,15 @@ function contentForStep() {
     <p class="recovery-plan-eyebrow">NOISE BY CONSENT</p>
     <h1>When may PAUSE interrupt you?</h1>
     <p class="recovery-plan-copy">Nothing is on by default. Choose only the moments worth a nudge. Leaving everything off is completely valid.</p>
-    <div class="recovery-plan-nudges" aria-label="Recovery nudge choices">
+    <div class="recovery-plan-nudges" aria-label="Sleep routine nudge choices">
       ${nudgeButton('shiftEnd', 'Shift finished', 'A gentle transition out of work.', moments.shiftEnd, plan.nudges.shiftEnd)}
       ${nudgeButton('commuteEnd', 'Expected home window', 'Your usual commute window has ended. No location tracking.', moments.commuteEnd, plan.nudges.commuteEnd)}
-      ${plan.windDownMinutes > 0 ? nudgeButton('windDownReminder', 'Get ready for recovery', 'A final cue to wrap up your wind-down.', moments.windDownReminder, plan.nudges.windDownReminder) : ''}
-      ${nudgeButton('recoveryStart', 'Protected recovery starts', 'The recovery block you chose begins now.', moments.recoveryStart, plan.nudges.recoveryStart)}
-      ${nudgeButton('wakeTarget', 'Wake target', 'Your protected recovery window is complete.', moments.wakeTarget, plan.nudges.wakeTarget)}
+      ${plan.windDownMinutes > 0 ? nudgeButton('windDownReminder', 'Get ready for sleep', 'A final cue to wrap up your wind-down.', moments.windDownReminder, plan.nudges.windDownReminder) : ''}
+      ${nudgeButton('recoveryStart', 'Sleep routine starts', 'Your planned sleep time begins now.', moments.recoveryStart, plan.nudges.recoveryStart)}
+      ${nudgeButton('wakeTarget', 'Wake target', 'Your planned sleep time is complete.', moments.wakeTarget, plan.nudges.wakeTarget)}
     </div>
     <p class="recovery-plan-nudge-summary">${selectedCount === 0 ? 'No nudges selected — PAUSE will stay quiet.' : `${selectedCount} nudge${selectedCount === 1 ? '' : 's'} selected.`}</p>
-    <p class="recovery-plan-note">This saves consent only. PAUSE will ask separately before using device notifications.</p>
+    <p class="recovery-plan-note">This saves your nudge choices. PAUSE will ask separately before using device notifications.</p>
     ${navigation({ continueLabel: 'Save my choices', action: 'save' })}
   `;
 }
@@ -471,7 +471,7 @@ function installEvents() {
 function renderOverlay() {
   if (!overlay) return;
   overlay.innerHTML = `
-    <section class="recovery-plan-card" role="dialog" aria-modal="true" aria-label="PAUSE Recovery Plan setup">
+    <section class="recovery-plan-card" role="dialog" aria-modal="true" aria-label="PAUSE Sleep Routine setup">
       <div class="recovery-plan-progress" aria-hidden="true"><span style="width:${Math.max(4, (stepIndex(currentStep) / (STEPS.length - 1)) * 100)}%"></span></div>
       <div class="recovery-plan-content">${contentForStep()}</div>
     </section>
@@ -528,7 +528,7 @@ async function saveCompletedPlan(button) {
       }
     }
   } catch {
-    // Recovery Plan remains local-first and will be retried on a future app session.
+    // Sleep Routine remains local-first and will be retried on a future app session.
   }
 }
 
