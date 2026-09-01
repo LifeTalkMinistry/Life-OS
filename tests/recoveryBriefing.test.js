@@ -16,60 +16,66 @@ function nightShiftPlan(overrides = {}) {
   };
 }
 
-test('recovery briefing recognizes the overnight work phase', () => {
+test('routine agenda recognizes the overnight work phase', () => {
   const status = deriveRecoveryBriefingStatus(
     nightShiftPlan({ workDays: [1] }),
     new Date(2026, 7, 31, 23, 0, 0)
   );
 
   assert.equal(status.phase, 'work');
-  assert.equal(status.title, 'Your shift is in progress.');
-  assert.match(status.label, /PROTECTED RECOVERY/);
+  assert.equal(status.agenda, 'WORK');
+  assert.equal(status.value, '9h');
+  assert.equal(status.suffix, 'left');
+  assert.match(status.next, /Commute/);
 });
 
-test('recovery briefing recognizes the next-day commute window', () => {
+test('routine agenda recognizes the next-day commute window', () => {
   const status = deriveRecoveryBriefingStatus(
     nightShiftPlan({ workDays: [1] }),
     new Date(2026, 8, 1, 8, 30, 0)
   );
 
   assert.equal(status.phase, 'commute');
+  assert.equal(status.agenda, 'COMMUTE');
   assert.equal(status.value, '30m');
-  assert.equal(status.label, 'LEFT IN COMMUTE WINDOW');
+  assert.equal(status.next, 'Next · Wind-down — 9:00 AM');
 });
 
-test('recovery briefing recognizes wind-down before protected recovery', () => {
+test('routine agenda recognizes wind-down before sleep routine', () => {
   const status = deriveRecoveryBriefingStatus(
     nightShiftPlan({ workDays: [1] }),
     new Date(2026, 8, 1, 9, 20, 0)
   );
 
   assert.equal(status.phase, 'winddown');
+  assert.equal(status.agenda, 'WIND-DOWN');
   assert.equal(status.value, '25m');
-  assert.equal(status.label, 'UNTIL PROTECTED RECOVERY');
+  assert.equal(status.next, 'Next · Sleep Routine — 9:45 AM');
 });
 
-test('recovery briefing shows remaining protected recovery without claiming actual sleep', () => {
+test('routine agenda names the sleep block without protected-recovery language', () => {
   const status = deriveRecoveryBriefingStatus(
     nightShiftPlan({ workDays: [1] }),
     new Date(2026, 8, 1, 10, 0, 0)
   );
 
   assert.equal(status.phase, 'recovery');
+  assert.equal(status.agenda, 'SLEEP ROUTINE');
   assert.equal(status.value, '7h 45m');
-  assert.equal(status.title, 'Protected recovery is active.');
-  assert.match(status.detail, /Wake target:/);
+  assert.equal(status.next, 'Next · Wake — 5:45 PM');
+  assert.equal(JSON.stringify(status).includes('Protected'), false);
 });
 
-test('outside the current routine, briefing points to the next protected recovery', () => {
+test('outside the current routine, agenda points to the next sleep routine', () => {
   const status = deriveRecoveryBriefingStatus(
     nightShiftPlan(),
     new Date(2026, 8, 1, 18, 0, 0)
   );
 
   assert.equal(status.phase, 'next');
-  assert.equal(status.label, 'NEXT PROTECTED RECOVERY');
-  assert.match(status.title, /next recovery/i);
+  assert.equal(status.agenda, 'NEXT SLEEP ROUTINE');
+  assert.equal(status.suffix, 'away');
+  assert.match(status.next, /^Starts · /);
 });
 
 test('briefing stays absent until a Recovery Plan exists', () => {
