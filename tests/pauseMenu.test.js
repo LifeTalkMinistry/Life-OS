@@ -7,11 +7,11 @@ test('PAUSE orb menu exposes the intended control-center actions in order', () =
   assert.deepEqual(items.map((item) => item.id), [
     'timer',
     'recovery',
-    'nudges',
     'insights',
     'settings'
   ]);
   assert.equal(items.every((item) => item.disabled === false), true);
+  assert.equal(items.some((item) => item.id === 'nudges'), false);
 });
 
 test('timer is unavailable during active rest while non-timer controls remain available', () => {
