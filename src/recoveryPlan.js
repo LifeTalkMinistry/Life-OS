@@ -60,6 +60,13 @@ function normalizeNudges(value, windDownMinutes) {
   };
 }
 
+function supportsNudgeConsent(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Number(value.version || 0) >= 2
+    || Object.prototype.hasOwnProperty.call(value, 'nudgeConsentComplete')
+    || (value.nudges && typeof value.nudges === 'object' && !Array.isArray(value.nudges));
+}
+
 export function createEmptyRecoveryPlan() {
   return {
     version: 2,
@@ -501,7 +508,9 @@ async function saveCompletedPlan(button) {
     const session = await restorePauseBackendSession();
     if (session?.token && !session.offline) {
       const saved = await pushCloudPlan(session.token, currentPlan);
-      if (saved?.plan) currentPlan = saveLocalPlan(currentAccountId, saved.plan);
+      if (saved?.plan && supportsNudgeConsent(saved.plan)) {
+        currentPlan = saveLocalPlan(currentAccountId, saved.plan);
+      }
     }
   } catch {
     // Recovery Plan remains local-first and will be retried on a future app session.
@@ -517,6 +526,13 @@ async function hydratePlan(accountId) {
     if (!session?.token || session.offline) return local;
     const cloud = await pullCloudPlan(session.token);
     if (cloud?.exists && cloud.plan) {
+      if (local.nudgeConsentComplete && !supportsNudgeConsent(cloud.plan)) {
+        const upgraded = await pushCloudPlan(session.token, local);
+        if (upgraded?.plan && supportsNudgeConsent(upgraded.plan)) {
+          currentPlan = saveLocalPlan(accountId, upgraded.plan);
+        }
+        return currentPlan;
+      }
       currentPlan = saveLocalPlan(accountId, cloud.plan);
       return currentPlan;
     }
