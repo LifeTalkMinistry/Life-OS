@@ -6,7 +6,7 @@ const MENU_ITEMS = [
   },
   {
     id: 'recovery',
-    label: 'Recovery Plan',
+    label: 'Sleep Routine',
     icon: 'recovery'
   },
   {
