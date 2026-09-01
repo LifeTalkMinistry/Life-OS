@@ -54,6 +54,13 @@ function ensurePauseOrbMenuStyles() {
       animation: pause-menu-in 180ms ease both;
     }
 
+    /* While a pointer hold is active the orb itself carries the instructions.
+       Hide the older persistent-menu footer copy so it cannot contradict the gesture. */
+    .is-pause-menu > .pause-hint {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
     .pause-menu-node {
       appearance: none;
       position: absolute;
@@ -198,7 +205,7 @@ export function PauseOrbMenu({ active = false, onSelect }) {
   ensurePauseOrbMenuStyles();
   const nav = document.createElement('nav');
   nav.className = 'pause-orb-menu';
-  nav.setAttribute('aria-label', 'PAUSE menu');
+  nav.setAttribute('aria-label', 'PAUSE radial menu');
 
   getPauseMenuItems({ active }).forEach((item, index) => {
     const button = document.createElement('button');
