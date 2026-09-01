@@ -169,10 +169,10 @@ export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
   orb.setAttribute('aria-label', mode === 'resting'
     ? state.active?.timerExpiredAt
       ? `Timer done for ${state.active?.label || 'Rest'}. Rest is still running. End rest when you are ready.`
-      : `Resting: ${state.active?.label || 'Rest'}. End rest when you are ready.`
+      : `Resting: ${state.active?.label || 'Rest'}. End rest when you are ready. Press and hold for more options.`
     : mode === 'menu'
       ? 'PAUSE menu. Tap to close.'
-      : 'Pause now. Tap to begin immediately. Press and hold to set a timer.');
+      : 'Pause now. Tap to begin immediately. Press and hold for more options.');
 
   if (mode === 'resting') orb.innerHTML = restingContent(state);
   else if (mode === 'completed') orb.innerHTML = completedContent();
