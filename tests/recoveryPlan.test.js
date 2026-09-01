@@ -4,7 +4,8 @@ import {
   createEmptyRecoveryPlan,
   deriveNudgeMoments,
   deriveRecoveryTimeline,
-  normalizeRecoveryPlan
+  normalizeRecoveryPlan,
+  sleepRoutineMinutesBetween
 } from '../src/recoveryPlan.js';
 
 test('recovery plan defaults support a quiet night-shift routine', () => {
@@ -24,6 +25,13 @@ test('recovery plan defaults support a quiet night-shift routine', () => {
     recoveryStart: false,
     wakeTarget: false
   });
+});
+
+test('sleep routine clock times translate into the same stored durations', () => {
+  assert.equal(sleepRoutineMinutesBetween('08:00', '08:45'), 45);
+  assert.equal(sleepRoutineMinutesBetween('08:45', '09:15'), 30);
+  assert.equal(sleepRoutineMinutesBetween('09:15', '16:15'), 420);
+  assert.equal(sleepRoutineMinutesBetween('22:30', '06:30'), 480);
 });
 
 test('recovery timeline derives home, sleep, and wake anchors from the user plan', () => {
