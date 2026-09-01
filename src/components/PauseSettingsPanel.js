@@ -80,7 +80,6 @@ function ensurePauseSettingsPanelStyles() {
     }
 
     .pause-settings-row {
-      appearance: none;
       width: 100%;
       min-height: 64px;
       display: grid;
@@ -93,13 +92,22 @@ function ensurePauseSettingsPanelStyles() {
       background: rgba(58, 36, 92, .055);
       color: #ece6f2;
       text-align: left;
+    }
+
+    button.pause-settings-row {
+      appearance: none;
       cursor: pointer;
     }
 
-    .pause-settings-row:is(:hover, :focus-visible) {
+    button.pause-settings-row:is(:hover, :focus-visible) {
       border-color: rgba(185, 142, 245, .34);
       background: rgba(91, 55, 147, .12);
       outline: none;
+    }
+
+    button.pause-settings-row:disabled {
+      cursor: default;
+      opacity: .82;
     }
 
     .pause-settings-icon {
@@ -141,10 +149,36 @@ function ensurePauseSettingsPanelStyles() {
       line-height: 1.35;
     }
 
+    .pause-settings-value {
+      max-width: 112px;
+      color: #9d8eab;
+      font-size: .6rem;
+      font-weight: 620;
+      text-align: right;
+      line-height: 1.25;
+    }
+
+    .pause-settings-value.is-on { color: #c9a8f5; }
+    .pause-settings-value.is-blocked { color: #aa8999; }
+
     .pause-settings-chevron {
       color: #695f73;
       font-size: 1rem;
     }
+
+    .pause-settings-privacy-copy {
+      display: none;
+      margin: 8px 2px 0;
+      padding: 13px 14px;
+      border: 1px solid rgba(159, 119, 217, .1);
+      border-radius: 13px;
+      background: rgba(52, 32, 82, .05);
+      color: #8f8498;
+      font-size: .63rem;
+      line-height: 1.55;
+    }
+
+    .pause-settings-privacy-copy.is-visible { display: block; }
 
     .pause-settings-account {
       margin-top: 8px;
@@ -196,26 +230,48 @@ function ensurePauseSettingsPanelStyles() {
   document.head.appendChild(style);
 }
 
-function icon(name) {
-  if (name === 'recovery') return '<svg viewBox="0 0 24 24"><path d="M5 16c2-6 5-9 10-10-1 5-4 8-10 10Z"/><path d="M6 17c3-1 6-3 9-7"/><path d="M5 17v3"/></svg>';
-  if (name === 'nudges') return '<svg viewBox="0 0 24 24"><path d="M7 16h10l-1.3-2.2V10a3.7 3.7 0 0 0-7.4 0v3.8L7 16Z"/><path d="M10 19h4"/></svg>';
-  return '<svg viewBox="0 0 24 24"><path d="M5 18V9M10 18V5M15 18v-6M20 18V8"/></svg>';
+function escapeSettingsHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
-function settingsRow(id, title, detail, iconName) {
-  return `
-    <button type="button" class="pause-settings-row" data-pause-setting="${id}">
-      <span class="pause-settings-icon" aria-hidden="true">${icon(iconName)}</span>
-      <span class="pause-settings-copy">
-        <strong>${title}</strong>
-        <small>${detail}</small>
-      </span>
-      <span class="pause-settings-chevron" aria-hidden="true">›</span>
-    </button>
-  `;
+function settingsIcon(name) {
+  if (name === 'notifications') return '<svg viewBox="0 0 24 24"><path d="M7 16h10l-1.3-2.2V10a3.7 3.7 0 0 0-7.4 0v3.8L7 16Z"/><path d="M10 19h4"/></svg>';
+  if (name === 'privacy') return '<svg viewBox="0 0 24 24"><path d="M12 3 5.5 6v5c0 4.2 2.6 7.4 6.5 9 3.9-1.6 6.5-4.8 6.5-9V6L12 3Z"/><path d="m9.5 12 1.7 1.7 3.5-4"/></svg>';
+  return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8h.01"/></svg>';
 }
 
-export function PauseSettingsPanel({ email = '', onClose, onSelect, onSignOut }) {
+function notificationState() {
+  if (typeof Notification === 'undefined') {
+    return { label: 'Unavailable', className: 'is-blocked', canRequest: false };
+  }
+  if (Notification.permission === 'granted') {
+    return { label: 'Allowed', className: 'is-on', canRequest: false };
+  }
+  if (Notification.permission === 'denied') {
+    return { label: 'Blocked', className: 'is-blocked', canRequest: false };
+  }
+  return { label: 'Not allowed yet', className: '', canRequest: true };
+}
+
+function updateNotificationRow(panel) {
+  const button = panel.querySelector('[data-settings-notifications]');
+  const value = panel.querySelector('[data-settings-notification-value]');
+  if (!button || !value) return;
+  const state = notificationState();
+  value.textContent = state.label;
+  value.className = `pause-settings-value ${state.className}`.trim();
+  button.disabled = !state.canRequest;
+  button.setAttribute('aria-label', state.canRequest
+    ? 'Allow PAUSE device notifications'
+    : `PAUSE device notifications: ${state.label}`);
+}
+
+export function PauseSettingsPanel({ email = '', onClose, onSignOut }) {
   ensurePauseSettingsPanelStyles();
   const backdrop = document.createElement('div');
   backdrop.className = 'pause-settings-backdrop';
@@ -229,36 +285,81 @@ export function PauseSettingsPanel({ email = '', onClose, onSelect, onSignOut })
     <div class="pause-settings-header">
       <div>
         <p>PAUSE SETTINGS</p>
-        <h2>How PAUSE works for you</h2>
+        <h2>App & account</h2>
       </div>
       <button type="button" class="pause-settings-close" data-settings-close aria-label="Close settings">×</button>
     </div>
 
-    <p class="pause-settings-section-label">RECOVERY</p>
+    <p class="pause-settings-section-label">APP</p>
     <div class="pause-settings-list">
-      ${settingsRow('recovery', 'Recovery Plan', 'Change work days, shift, commute, wind-down, or protected recovery.', 'recovery')}
-      ${settingsRow('nudges', 'Nudge Preferences', 'Choose exactly when PAUSE is allowed to interrupt you.', 'nudges')}
-      ${settingsRow('insights', 'Rest Insights', 'Review your recorded rest patterns and history.', 'insights')}
+      <button type="button" class="pause-settings-row" data-settings-notifications>
+        <span class="pause-settings-icon" aria-hidden="true">${settingsIcon('notifications')}</span>
+        <span class="pause-settings-copy">
+          <strong>Device Notifications</strong>
+          <small>Permission for PAUSE alerts on this device.</small>
+        </span>
+        <span class="pause-settings-value" data-settings-notification-value></span>
+      </button>
     </div>
 
     <p class="pause-settings-section-label">ACCOUNT</p>
     <div class="pause-settings-account">
       <small>Signed in as</small>
-      <strong>${email || 'PAUSE account'}</strong>
+      <strong>${escapeSettingsHtml(email || 'PAUSE account')}</strong>
       <button type="button" class="pause-settings-signout" data-settings-signout>Sign out</button>
+    </div>
+
+    <p class="pause-settings-section-label">ABOUT</p>
+    <div class="pause-settings-list">
+      <button type="button" class="pause-settings-row" data-settings-privacy aria-expanded="false">
+        <span class="pause-settings-icon" aria-hidden="true">${settingsIcon('privacy')}</span>
+        <span class="pause-settings-copy">
+          <strong>Privacy & Data</strong>
+          <small>See what PAUSE stores and what it does not track.</small>
+        </span>
+        <span class="pause-settings-chevron" aria-hidden="true">›</span>
+      </button>
+      <div class="pause-settings-privacy-copy" data-settings-privacy-copy>
+        PAUSE stores your rest records and preferences under your PAUSE account and syncs them when cloud sync is available. Your Recovery Plan uses the schedule and commute estimates you enter. PAUSE does not use Recovery Plan to track your live location.
+      </div>
+      <div class="pause-settings-row">
+        <span class="pause-settings-icon" aria-hidden="true">${settingsIcon('about')}</span>
+        <span class="pause-settings-copy">
+          <strong>PAUSE Version</strong>
+          <small>Current app release.</small>
+        </span>
+        <span class="pause-settings-value">0.1.0</span>
+      </div>
     </div>
   `;
 
   panel.querySelector('[data-settings-close]')?.addEventListener('click', () => onClose?.());
-  panel.querySelectorAll('[data-pause-setting]').forEach((button) => {
-    button.addEventListener('click', () => onSelect?.(button.dataset.pauseSetting));
-  });
   panel.querySelector('[data-settings-signout]')?.addEventListener('click', () => onSignOut?.());
+
+  const notificationButton = panel.querySelector('[data-settings-notifications]');
+  notificationButton?.addEventListener('click', async () => {
+    const state = notificationState();
+    if (!state.canRequest || typeof Notification === 'undefined') return;
+    try {
+      await Notification.requestPermission();
+    } catch {}
+    updateNotificationRow(panel);
+  });
+
+  const privacyButton = panel.querySelector('[data-settings-privacy]');
+  const privacyCopy = panel.querySelector('[data-settings-privacy-copy]');
+  privacyButton?.addEventListener('click', () => {
+    const isVisible = privacyCopy?.classList.toggle('is-visible') === true;
+    privacyButton.setAttribute('aria-expanded', isVisible ? 'true' : 'false');
+    const chevron = privacyButton.querySelector('.pause-settings-chevron');
+    if (chevron) chevron.textContent = isVisible ? '⌄' : '›';
+  });
 
   backdrop.addEventListener('pointerdown', (event) => {
     if (event.target === backdrop) onClose?.();
   });
 
+  updateNotificationRow(panel);
   backdrop.appendChild(panel);
   return backdrop;
 }
