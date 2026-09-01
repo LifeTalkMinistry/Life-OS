@@ -1,0 +1,283 @@
+.recovery-plan-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+  overflow: auto;
+  background: rgba(3, 3, 7, .94);
+  backdrop-filter: blur(22px);
+}
+
+.recovery-plan-card {
+  width: min(100%, 430px);
+  overflow: hidden;
+  border: 1px solid rgba(174, 126, 255, .22);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% -15%, rgba(132, 76, 215, .2), transparent 42%),
+    linear-gradient(180deg, rgba(20, 13, 34, .98), rgba(8, 6, 15, .99));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, .58);
+}
+
+.recovery-plan-progress {
+  height: 3px;
+  background: rgba(176, 132, 240, .08);
+}
+
+.recovery-plan-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7967ff, #cd62df);
+  transition: width .22s ease;
+}
+
+.recovery-plan-content {
+  padding: 28px 24px 24px;
+}
+
+.recovery-plan-eyebrow {
+  margin: 0 0 12px;
+  color: #a792c0;
+  font-size: .67rem;
+  font-weight: 750;
+  letter-spacing: .17em;
+}
+
+.recovery-plan-content h1 {
+  margin: 0;
+  color: #f4eef9;
+  font-size: clamp(1.65rem, 7vw, 2.15rem);
+  font-weight: 420;
+  letter-spacing: -.035em;
+  line-height: 1.08;
+}
+
+.recovery-plan-copy,
+.recovery-plan-note {
+  margin: 15px 0 0;
+  color: #948a9e;
+  font-size: .78rem;
+  line-height: 1.6;
+}
+
+.recovery-plan-note {
+  color: #776e80;
+  font-size: .69rem;
+}
+
+.recovery-plan-primary,
+.recovery-plan-continue {
+  appearance: none;
+  min-height: 48px;
+  border: 1px solid rgba(187, 143, 249, .3);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(116, 72, 194, .34), rgba(77, 47, 135, .27));
+  color: #f5eefb;
+  font: inherit;
+  font-size: .76rem;
+  font-weight: 720;
+  letter-spacing: .045em;
+  cursor: pointer;
+}
+
+.recovery-plan-primary {
+  width: 100%;
+  margin-top: 26px;
+}
+
+.recovery-plan-primary:hover,
+.recovery-plan-primary:focus-visible,
+.recovery-plan-continue:hover,
+.recovery-plan-continue:focus-visible {
+  border-color: rgba(201, 164, 255, .52);
+  background: linear-gradient(180deg, rgba(132, 81, 221, .46), rgba(85, 52, 149, .34));
+  outline: none;
+}
+
+.recovery-plan-continue:disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+.recovery-plan-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 25px;
+}
+
+.recovery-plan-day {
+  aspect-ratio: 1;
+  border: 1px solid rgba(169, 128, 229, .16);
+  border-radius: 12px;
+  background: rgba(76, 48, 122, .07);
+  color: #89808f;
+  font: inherit;
+  font-size: .69rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.recovery-plan-day.is-selected,
+.recovery-plan-day:hover,
+.recovery-plan-day:focus-visible {
+  border-color: rgba(185, 140, 246, .42);
+  background: rgba(106, 65, 178, .22);
+  color: #efe7f7;
+  outline: none;
+}
+
+.recovery-plan-time-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.recovery-plan-time-grid label,
+.recovery-plan-custom {
+  display: grid;
+  gap: 7px;
+}
+
+.recovery-plan-time-grid label span,
+.recovery-plan-custom span {
+  color: #857b8d;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.recovery-plan-time-grid input,
+.recovery-plan-custom input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 47px;
+  padding: 0 12px;
+  border: 1px solid rgba(170, 129, 231, .2);
+  border-radius: 13px;
+  background: rgba(10, 7, 18, .75);
+  color: #eee7f4;
+  color-scheme: dark;
+  font: inherit;
+  font-size: .82rem;
+  outline: none;
+}
+
+.recovery-plan-time-grid input:focus,
+.recovery-plan-custom input:focus {
+  border-color: rgba(193, 153, 248, .45);
+}
+
+.recovery-plan-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.recovery-plan-options-wide {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.recovery-plan-option {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid rgba(169, 128, 229, .16);
+  border-radius: 12px;
+  background: rgba(76, 48, 122, .07);
+  color: #968b9f;
+  font: inherit;
+  font-size: .71rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.recovery-plan-option.is-selected,
+.recovery-plan-option:hover,
+.recovery-plan-option:focus-visible {
+  border-color: rgba(185, 140, 246, .42);
+  background: rgba(106, 65, 178, .22);
+  color: #efe7f7;
+  outline: none;
+}
+
+.recovery-plan-custom {
+  margin-top: 13px;
+}
+
+.recovery-plan-summary {
+  display: grid;
+  gap: 9px;
+  margin-top: 23px;
+}
+
+.recovery-plan-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 13px 14px;
+  border: 1px solid rgba(161, 120, 221, .13);
+  border-radius: 13px;
+  background: rgba(68, 42, 110, .06);
+}
+
+.recovery-plan-summary > div.is-protected {
+  border-color: rgba(184, 132, 255, .32);
+  background: linear-gradient(180deg, rgba(104, 58, 175, .19), rgba(70, 42, 119, .1));
+}
+
+.recovery-plan-summary span {
+  color: #786f81;
+  font-size: .57rem;
+  font-weight: 720;
+  letter-spacing: .1em;
+}
+
+.recovery-plan-summary strong {
+  color: #eee7f4;
+  font-size: .82rem;
+  font-weight: 560;
+}
+
+.recovery-plan-summary small {
+  color: #a58fb9;
+  font-size: .65rem;
+}
+
+.recovery-plan-nav {
+  display: grid;
+  grid-template-columns: auto minmax(128px, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-top: 27px;
+}
+
+.recovery-plan-back {
+  appearance: none;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: #84798d;
+  font: inherit;
+  font-size: .72rem;
+  cursor: pointer;
+}
+
+.recovery-plan-back:hover,
+.recovery-plan-back:focus-visible {
+  color: #d9cfdf;
+  outline: none;
+}
+
+@media (max-width: 390px) {
+  .recovery-plan-overlay { padding-inline: 12px; }
+  .recovery-plan-content { padding: 25px 19px 20px; }
+  .recovery-plan-days { gap: 5px; }
+  .recovery-plan-time-grid { grid-template-columns: 1fr; }
+  .recovery-plan-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
