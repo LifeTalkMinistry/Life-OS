@@ -1,0 +1,80 @@
+/* Ambient PAUSE branding for the opening Sleep Routine agenda.
+   Keep the center quiet: color lives mostly at the edges and behind the copy. */
+html body .recovery-briefing-overlay {
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(72% 55% at 50% 47%, rgba(119, 72, 191, .13) 0%, rgba(58, 34, 91, .055) 43%, transparent 70%),
+    radial-gradient(66% 52% at 2% 8%, rgba(74, 91, 221, .10) 0%, transparent 66%),
+    radial-gradient(62% 48% at 98% 94%, rgba(205, 72, 191, .085) 0%, transparent 68%),
+    linear-gradient(180deg, #05040a 0%, #020207 58%, #030208 100%);
+}
+
+html body .recovery-briefing-overlay::before,
+html body .recovery-briefing-overlay::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(58px);
+}
+
+html body .recovery-briefing-overlay::before {
+  width: min(88vw, 430px);
+  aspect-ratio: 1;
+  top: 7%;
+  left: -34%;
+  background: radial-gradient(circle, rgba(83, 90, 229, .14) 0%, rgba(112, 65, 207, .085) 38%, transparent 72%);
+  opacity: .74;
+}
+
+html body .recovery-briefing-overlay::after {
+  width: min(94vw, 470px);
+  aspect-ratio: 1;
+  right: -42%;
+  bottom: 3%;
+  background: radial-gradient(circle, rgba(208, 72, 185, .12) 0%, rgba(126, 61, 203, .07) 42%, transparent 72%);
+  opacity: .68;
+}
+
+html body .recovery-briefing-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* A very soft PAUSE aura behind the agenda—not a card. */
+html body .recovery-briefing-content::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: min(78vw, 310px);
+  aspect-ratio: 1;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -49%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(129, 76, 207, .105) 0%, rgba(75, 42, 124, .045) 43%, transparent 70%);
+  box-shadow: 0 0 90px rgba(112, 68, 185, .07);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html body .recovery-briefing-overlay::before {
+    animation: pauseBriefingAmbientLeft 12s ease-in-out infinite alternate;
+  }
+
+  html body .recovery-briefing-overlay::after {
+    animation: pauseBriefingAmbientRight 14s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes pauseBriefingAmbientLeft {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(5%, 4%, 0) scale(1.06); }
+}
+
+@keyframes pauseBriefingAmbientRight {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(-5%, -3%, 0) scale(1.05); }
+}
