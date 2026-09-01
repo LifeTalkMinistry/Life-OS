@@ -19,6 +19,42 @@ function pauseSleepStreakWeekday(dateKey) {
   return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))).getUTCDay();
 }
 
+function pauseSleepStreakValidTime(value) {
+  const match = String(value || '').match(/^(\d{2}):(\d{2})$/);
+  if (!match) return false;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+}
+
+function pauseSleepStreakTimeToMinutes(value) {
+  const match = String(value || '').match(/^(\d{2}):(\d{2})$/);
+  if (!match) return 0;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function pauseSleepStreakRoutineDayOffset(plan = {}) {
+  if (!pauseSleepStreakValidTime(plan.shiftStart) || !pauseSleepStreakValidTime(plan.shiftEnd)) return 0;
+
+  const shiftStart = pauseSleepStreakTimeToMinutes(plan.shiftStart);
+  const shiftEndClock = pauseSleepStreakTimeToMinutes(plan.shiftEnd);
+  const shiftEnd = shiftEndClock <= shiftStart ? shiftEndClock + 1440 : shiftEndClock;
+  const homeAt = shiftEnd + Math.max(0, Number(plan.commuteMinutes) || 0);
+
+  const fallbackSleepClock = (
+    shiftEndClock
+    + Math.max(0, Number(plan.commuteMinutes) || 0)
+    + Math.max(0, Number(plan.windDownMinutes) || 0)
+  ) % 1440;
+  const sleepClock = pauseSleepStreakValidTime(plan.sleepStart)
+    ? pauseSleepStreakTimeToMinutes(plan.sleepStart)
+    : fallbackSleepClock;
+
+  let sleepAt = sleepClock;
+  while (sleepAt < homeAt) sleepAt += 1440;
+  return Math.max(0, Math.floor(sleepAt / 1440));
+}
+
 function pauseSleepStreakNormalizePlan(plan = {}) {
   const workDays = [...new Set((Array.isArray(plan.workDays) ? plan.workDays : [])
     .map(Number)
@@ -27,10 +63,21 @@ function pauseSleepStreakNormalizePlan(plan = {}) {
     0,
     Math.round(Number(plan.plannedMinutes ?? plan.sleepMinutes ?? plan.recoveryMinutes) || 0)
   );
-  return {
+  const normalized = {
     setupComplete: plan.setupComplete === true,
     workDays,
-    plannedMinutes
+    plannedMinutes,
+    shiftStart: pauseSleepStreakValidTime(plan.shiftStart) ? String(plan.shiftStart) : '',
+    shiftEnd: pauseSleepStreakValidTime(plan.shiftEnd) ? String(plan.shiftEnd) : '',
+    commuteMinutes: Math.max(0, Number(plan.commuteMinutes) || 0),
+    windDownMinutes: Math.max(0, Number(plan.windDownMinutes) || 0),
+    sleepStart: pauseSleepStreakValidTime(plan.sleepStart) ? String(plan.sleepStart) : ''
+  };
+  return {
+    ...normalized,
+    routineDayOffset: Number.isInteger(plan.routineDayOffset)
+      ? Math.max(0, Number(plan.routineDayOffset))
+      : pauseSleepStreakRoutineDayOffset(normalized)
   };
 }
 
@@ -70,11 +117,14 @@ export function pauseSleepStreakSleepMinutesForDay(history = [], dateKey) {
 
 export function pauseSleepStreakDayResult({ history = [], plan = {}, dateKey }) {
   const normalizedPlan = pauseSleepStreakNormalizePlan(plan);
-  const weekday = pauseSleepStreakWeekday(dateKey);
+  const routineWeekday = pauseSleepStreakWeekday(dateKey);
+  const workDayKey = addManilaDays(dateKey, -normalizedPlan.routineDayOffset);
+  const workWeekday = pauseSleepStreakWeekday(workDayKey);
   const eligible = Boolean(
     normalizedPlan.setupComplete
-    && weekday !== null
-    && normalizedPlan.workDays.includes(weekday)
+    && routineWeekday !== null
+    && workWeekday !== null
+    && normalizedPlan.workDays.includes(workWeekday)
   );
   const recordedSleepMinutes = eligible
     ? pauseSleepStreakSleepMinutesForDay(history, dateKey)
@@ -82,7 +132,10 @@ export function pauseSleepStreakDayResult({ history = [], plan = {}, dateKey }) 
   const requiredMinutes = pauseSleepStreakRequiredMinutes(normalizedPlan.plannedMinutes);
   return {
     dateKey,
-    weekday,
+    routineWeekday,
+    workDayKey,
+    workWeekday,
+    routineDayOffset: normalizedPlan.routineDayOffset,
     eligible,
     recordedSleepMinutes,
     plannedSleepMinutes: normalizedPlan.plannedMinutes,
@@ -216,9 +269,11 @@ function pauseSleepStreakRender() {
   card.className = 'pause-sleep-routine-streak';
   card.dataset.pauseSleepRoutineStreak = '';
 
-  const streakLabel = result.streak === 1
-    ? '1 routine day in a row'
-    : `${result.streak} routine days in a row`;
+  const streakLabel = result.streak === 0
+    ? 'No active streak yet'
+    : result.streak === 1
+      ? '1 routine day in a row'
+      : `${result.streak} routine days in a row`;
   card.innerHTML = `
     <small>SLEEP ROUTINE STREAK</small>
     <strong>${streakLabel}</strong>
