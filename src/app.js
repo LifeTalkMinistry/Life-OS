@@ -5,6 +5,8 @@ import { PauseScore } from './components/PauseScore.js';
 import { TodayRing } from './components/TodayRing.js';
 import { PausePanel } from './components/PausePanel.js';
 import { PauseTimerPicker } from './components/PauseTimerPicker.js';
+import { PauseOrbMenu } from './components/PauseOrbMenu.js';
+import { PauseSettingsPanel } from './components/PauseSettingsPanel.js';
 import { AuthCheckingScreen, LoginScreen } from './auth/LoginScreen.js';
 import {
   createPauseBackendAccount,
@@ -286,6 +288,29 @@ function openTimerPicker() {
   render();
 }
 
+function openSettings() {
+  menuOpen = false;
+  panelView = 'settings';
+  render();
+}
+
+function openRecoveryPlan(section = 'plan') {
+  menuOpen = false;
+  panelView = null;
+  render();
+
+  const launch = () => {
+    const recovery = window.__PAUSE_RECOVERY_PLAN__;
+    if (!recovery) return false;
+    if (section === 'nudges' && typeof recovery.openNudges === 'function') {
+      return recovery.openNudges();
+    }
+    return recovery.openSetup?.() || false;
+  };
+
+  if (!launch()) setTimeout(launch, 100);
+}
+
 function closePanel() {
   panelView = null;
   render();
@@ -319,7 +344,17 @@ function beginTimedRest(minutes) {
 }
 
 function handleMenuSelect(item) {
-  if (item === 'insights') openInsights();
+  if (item === 'timer') return openTimerPicker();
+  if (item === 'recovery') return openRecoveryPlan('plan');
+  if (item === 'nudges') return openRecoveryPlan('nudges');
+  if (item === 'insights') return openInsights();
+  if (item === 'settings') return openSettings();
+}
+
+function handleSettingsSelect(item) {
+  if (item === 'recovery') return openRecoveryPlan('plan');
+  if (item === 'nudges') return openRecoveryPlan('nudges');
+  if (item === 'insights') return openInsights();
 }
 
 function handleOrbAction(action) {
@@ -333,6 +368,13 @@ function handleOrbAction(action) {
   }
 }
 
+function openOrbMenu() {
+  menuOpen = true;
+  panelView = null;
+  completionVisible = false;
+  render();
+}
+
 function getGestureHandlers() {
   gestureController?.destroy();
   gestureController = createOrbGestureController({
@@ -342,15 +384,7 @@ function getGestureHandlers() {
     onDoubleTap: () => {
       if (!pauseState.active) beginImmediateRest();
     },
-    onHoldStart: () => {
-      if (pauseState.active) {
-        menuOpen = true;
-        panelView = null;
-        render();
-        return;
-      }
-      openTimerPicker();
-    },
+    onHoldStart: openOrbMenu,
     onHoldEnd: () => {}
   });
   return {
@@ -360,9 +394,7 @@ function getGestureHandlers() {
     keyboardTap: () => {
       if (!pauseState.active) beginImmediateRest();
     },
-    keyboardHold: () => {
-      if (!pauseState.active) openTimerPicker();
-    }
+    keyboardHold: openOrbMenu
   };
 }
 
@@ -385,11 +417,11 @@ function LaunchScreen() {
 function MainScreen() {
   checkExpired();
 
-  const showHomeControls = !pauseState.active && !completionVisible && !panelView;
-  const showInsightsLink = menuOpen || showHomeControls;
+  const showHomeControls = !menuOpen && !pauseState.active && !completionVisible && !panelView;
+  const showInsightsLink = !menuOpen && showHomeControls;
 
   const view = document.createElement('section');
-  view.className = `screen main-screen pause-main-screen${showInsightsLink ? ' has-pause-menu' : ''}${pauseState.active ? ' is-resting' : ''}`;
+  view.className = `screen main-screen pause-main-screen${showInsightsLink ? ' has-pause-menu' : ''}${menuOpen ? ' is-today is-pause-menu' : ''}${pauseState.active ? ' is-resting' : ''}`;
   view.appendChild(Brand());
 
   if (showHomeControls) {
@@ -405,10 +437,16 @@ function MainScreen() {
   stage.className = 'orb-stage';
 
   if (showInsightsLink) stage.appendChild(TodayRing(handleMenuSelect));
+  if (menuOpen) {
+    stage.appendChild(PauseOrbMenu({
+      active: Boolean(pauseState.active),
+      onSelect: handleMenuSelect
+    }));
+  }
 
   const mode = completionVisible
     ? 'completed'
-    : menuOpen && pauseState.active
+    : menuOpen
       ? 'menu'
       : pauseState.active
         ? 'resting'
@@ -426,12 +464,12 @@ function MainScreen() {
   const hint = document.createElement('p');
   hint.className = 'gesture-hint is-visible pause-hint';
   hint.textContent = menuOpen
-    ? 'Rest Insights · Tap orb to return'
+    ? 'Choose an option · Tap orb to return'
     : pauseState.active?.timerExpiredAt
       ? 'Timer done · Rest continues until you end it'
       : pauseState.active
-        ? 'Resting now · End when you’re ready'
-        : 'Tap to pause · Hold for timer';
+        ? 'Resting now · Hold for more'
+        : 'Tap to pause · Hold for more';
   view.appendChild(hint);
 
   if (panelView === 'insights') {
@@ -448,6 +486,15 @@ function MainScreen() {
         else beginImmediateRest();
       },
       onClose: closePanel
+    }));
+  }
+
+  if (panelView === 'settings') {
+    view.appendChild(PauseSettingsPanel({
+      email: authState.session?.user?.email || '',
+      onClose: closePanel,
+      onSelect: handleSettingsSelect,
+      onSignOut: signOut
     }));
   }
 
@@ -680,6 +727,8 @@ window.__PAUSE__ = {
   }),
   openInsights,
   openTimerPicker,
+  openSettings,
+  openMenu: openOrbMenu,
   takeRest: () => beginImmediateRest(),
   takeTimedRest: (minutes) => beginTimedRest(Number(minutes)),
   syncNow,
