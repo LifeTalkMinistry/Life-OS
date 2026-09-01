@@ -1,7 +1,7 @@
-let insightsObserver = null;
-let scanQueued = false;
+let restInsightsInfoObserver = null;
+let restInsightsInfoScanQueued = false;
 
-function ensureStyles() {
+function restInsightsInfoEnsureStyles() {
   if (document.querySelector('#pause-rest-insights-info-style')) return;
 
   const style = document.createElement('style');
@@ -112,12 +112,12 @@ function ensureStyles() {
   document.head.appendChild(style);
 }
 
-function closeInfoPopover() {
+function restInsightsInfoClosePopover() {
   document.querySelector('[data-pause-info-popover-layer]')?.remove();
 }
 
-function showInfoPopover(title, copy) {
-  closeInfoPopover();
+function restInsightsInfoShowPopover(title, copy) {
+  restInsightsInfoClosePopover();
 
   const layer = document.createElement('div');
   layer.className = 'pause-info-popover-layer';
@@ -153,32 +153,32 @@ function showInfoPopover(title, copy) {
   const onKeyDown = (event) => {
     if (event.key !== 'Escape') return;
     document.removeEventListener('keydown', onKeyDown);
-    closeInfoPopover();
+    restInsightsInfoClosePopover();
   };
 
   close.addEventListener('click', () => {
     document.removeEventListener('keydown', onKeyDown);
-    closeInfoPopover();
+    restInsightsInfoClosePopover();
   });
 
   layer.addEventListener('click', (event) => {
     if (event.target !== layer) return;
     document.removeEventListener('keydown', onKeyDown);
-    closeInfoPopover();
+    restInsightsInfoClosePopover();
   });
 
   document.addEventListener('keydown', onKeyDown);
   close.focus();
 }
 
-function normalizedCopy(parts) {
+function restInsightsInfoNormalizedCopy(parts) {
   return parts
     .map((part) => String(part || '').trim())
     .filter(Boolean)
     .join('\n\n');
 }
 
-function addInfoButton(anchor, title, copy) {
+function restInsightsInfoAddButton(anchor, title, copy) {
   if (!anchor || !copy || anchor.querySelector(':scope > .pause-inline-info')) return;
 
   const button = document.createElement('button');
@@ -189,12 +189,12 @@ function addInfoButton(anchor, title, copy) {
   button.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    showInfoPopover(title, copy);
+    restInsightsInfoShowPopover(title, copy);
   });
   anchor.appendChild(button);
 }
 
-function cleanOverviewPanel(panel) {
+function restInsightsInfoCleanOverviewPanel(panel) {
   const hasOverview = Boolean(panel.querySelector('.pause-recovery-status-card, .pause-rhythm-hero'));
   const isDayAudit = Boolean(panel.querySelector('.pause-audit-score'));
   if (!hasOverview || isDayAudit) return;
@@ -202,14 +202,14 @@ function cleanOverviewPanel(panel) {
   const intro = panel.querySelector(':scope > .system-panel-intro');
   const liveNote = panel.querySelector(':scope > .pause-live-data-note');
   const footerNote = panel.querySelector(':scope > .pause-insight-note');
-  const headerCopy = normalizedCopy([
+  const headerCopy = restInsightsInfoNormalizedCopy([
     intro?.textContent,
     liveNote?.textContent,
     footerNote?.textContent
   ]);
 
   const headerTitle = panel.querySelector('.system-panel-header h2');
-  addInfoButton(headerTitle, 'Rest Insights', headerCopy);
+  restInsightsInfoAddButton(headerTitle, 'Rest Insights', headerCopy);
   intro?.remove();
   liveNote?.remove();
   footerNote?.remove();
@@ -218,7 +218,11 @@ function cleanOverviewPanel(panel) {
   if (recoveryCard) {
     const recoveryCopy = recoveryCard.querySelector('.pause-recovery-status-copy');
     const kicker = recoveryCard.querySelector('.pause-recovery-status-kicker');
-    addInfoButton(kicker, 'Recovery Status', recoveryCopy?.textContent || 'Recovery Status compares your completed rest with the recovery target for the selected timeframe.');
+    restInsightsInfoAddButton(
+      kicker,
+      'Recovery Status',
+      recoveryCopy?.textContent || 'Recovery Status compares your completed rest with the recovery target for the selected timeframe.'
+    );
     recoveryCopy?.remove();
   }
 
@@ -226,32 +230,32 @@ function cleanOverviewPanel(panel) {
     const title = section.querySelector(':scope > .pause-insight-section-title');
     const copy = section.querySelector(':scope > .pause-insight-section-copy');
     if (!title || !copy) return;
-    addInfoButton(title, title.childNodes[0]?.textContent?.trim() || 'Section information', copy.textContent);
+    restInsightsInfoAddButton(title, title.childNodes[0]?.textContent?.trim() || 'Section information', copy.textContent);
     copy.remove();
   });
 }
 
-function scan() {
+function restInsightsInfoScan() {
   const panels = document.querySelectorAll('.pause-view-insights');
-  if (!panels.length) closeInfoPopover();
-  panels.forEach(cleanOverviewPanel);
+  if (!panels.length) restInsightsInfoClosePopover();
+  panels.forEach(restInsightsInfoCleanOverviewPanel);
 }
 
-function queueScan() {
-  if (scanQueued) return;
-  scanQueued = true;
+function restInsightsInfoQueueScan() {
+  if (restInsightsInfoScanQueued) return;
+  restInsightsInfoScanQueued = true;
   queueMicrotask(() => {
-    scanQueued = false;
-    scan();
+    restInsightsInfoScanQueued = false;
+    restInsightsInfoScan();
   });
 }
 
 export function initializeRestInsightsInfo() {
-  if (typeof document === 'undefined' || insightsObserver) return;
-  ensureStyles();
-  insightsObserver = new MutationObserver(queueScan);
-  insightsObserver.observe(document.documentElement, { childList: true, subtree: true });
-  queueScan();
+  if (typeof document === 'undefined' || restInsightsInfoObserver) return;
+  restInsightsInfoEnsureStyles();
+  restInsightsInfoObserver = new MutationObserver(restInsightsInfoQueueScan);
+  restInsightsInfoObserver.observe(document.documentElement, { childList: true, subtree: true });
+  restInsightsInfoQueueScan();
 }
 
 if (typeof document !== 'undefined') initializeRestInsightsInfo();
