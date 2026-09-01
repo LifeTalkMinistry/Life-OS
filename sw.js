@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pause-shell-v41';
+const CACHE_NAME = 'pause-shell-v42';
 const BASE_URL = new URL('./', self.location.href);
 
 const toUrl = (path) => new URL(path, BASE_URL).href;
@@ -51,4 +51,52 @@ self.addEventListener('fetch', (event) => {
       return response;
     }))
   );
+});
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data?.json?.() || {};
+  } catch {
+    payload = { body: event.data?.text?.() || '' };
+  }
+
+  const title = String(payload.title || 'PAUSE');
+  const body = String(payload.body || '');
+  const targetUrl = new URL(String(payload.url || './'), BASE_URL).href;
+  const options = {
+    body,
+    icon: toUrl('./pwa/icon-192.png'),
+    badge: toUrl('./pwa/icon-192.png'),
+    tag: String(payload.tag || payload.eventType || 'pause-recovery-nudge'),
+    renotify: false,
+    data: {
+      url: targetUrl,
+      eventType: String(payload.eventType || ''),
+      dedupeKey: String(payload.dedupeKey || '')
+    }
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification?.data?.url || BASE_URL.href;
+
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const target = new URL(targetUrl);
+    for (const client of windows) {
+      try {
+        const clientUrl = new URL(client.url);
+        if (clientUrl.origin === target.origin && clientUrl.pathname.startsWith(BASE_URL.pathname)) {
+          await client.focus();
+          if (client.url !== targetUrl && 'navigate' in client) await client.navigate(targetUrl);
+          return;
+        }
+      } catch {}
+    }
+    await self.clients.openWindow(targetUrl);
+  })());
 });
