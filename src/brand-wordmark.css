@@ -1,6 +1,6 @@
-/* PAUSE wordmark concept
- * Keep PAUSE readable first, then reveal the secondary U / USE meaning:
- * U = YOU, while USE is gently framed as a single visual unit.
+/* PAUSE wordmark
+ * Keep the wordmark clean and premium.
+ * U = YOU and carries the violet glow; S and E remain unframed.
  */
 .pause-brand-title {
   display: flex;
@@ -19,24 +19,9 @@
 }
 
 .pause-brand-title .pause-brand-use {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: clamp(12px, 4.3vw, 18px);
-  height: 1.05em;
-  padding: 0 0.06em 0 0.22em;
-  margin-left: -0.08em;
-  border: 1px solid rgba(181, 139, 255, 0.46);
-  border-radius: 0.24em;
-  background:
-    linear-gradient(135deg, rgba(122, 72, 255, 0.09), rgba(255, 92, 182, 0.035));
-  box-shadow:
-    0 0 18px rgba(126, 75, 255, 0.12),
-    inset 0 0 16px rgba(157, 103, 255, 0.045);
-}
-
-.pause-brand-title .pause-brand-use > span {
-  transform: translateY(0.015em);
 }
 
 .pause-brand-title .pause-brand-you {
@@ -47,15 +32,10 @@
     0 0 20px rgba(132, 77, 255, 0.46);
 }
 
-/* Preserve the same optical balance on narrower phones. */
+/* Preserve the same optical spacing on narrower phones. */
 @media (max-width: 360px) {
   .pause-brand-title,
   .pause-brand-title .pause-brand-use {
     gap: 11px;
-  }
-
-  .pause-brand-title .pause-brand-use {
-    padding-left: 0.20em;
-    padding-right: 0.05em;
   }
 }
