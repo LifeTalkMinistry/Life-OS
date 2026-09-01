@@ -119,10 +119,10 @@ function idleContent() {
 function menuContent() {
   return `
     <div class="orb-content orb-now-content pause-menu-content">
-      <p class="orb-kicker">PAUSE</p>
-      <h1 class="orb-title">PAUSE<br>MENU</h1>
+      <p class="orb-kicker">KEEP HOLDING</p>
+      <h1 class="orb-title">DRAG<br>TO CHOOSE</h1>
       <span class="orb-divider" aria-hidden="true"><i></i></span>
-      <p class="orb-until">Choose an action</p>
+      <p class="orb-until">Release on an option</p>
     </div>
   `;
 }
@@ -169,10 +169,10 @@ export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
   orb.setAttribute('aria-label', mode === 'resting'
     ? state.active?.timerExpiredAt
       ? `Timer done for ${state.active?.label || 'Rest'}. Rest is still running. End rest when you are ready.`
-      : `Resting: ${state.active?.label || 'Rest'}. End rest when you are ready. Press and hold for more options.`
+      : `Resting: ${state.active?.label || 'Rest'}. End rest when you are ready. Press and hold, drag to an option, then release to choose it.`
     : mode === 'menu'
-      ? 'PAUSE menu. Tap to close.'
-      : 'Pause now. Tap to begin immediately. Press and hold for more options.');
+      ? 'PAUSE radial menu. Keep holding, drag to an option, and release to select. Release elsewhere to cancel.'
+      : 'Pause now. Tap to begin immediately. Press and hold, drag to an option, then release to choose it.');
 
   if (mode === 'resting') orb.innerHTML = restingContent(state);
   else if (mode === 'completed') orb.innerHTML = completedContent();
@@ -203,6 +203,8 @@ export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
     });
   }
 
+  // This click remains as a keyboard/mouse accessibility escape. Pointer holds
+  // normally close automatically on release when no radial option is chosen.
   if (mode === 'menu') {
     orb.addEventListener('click', () => onAction?.('close-menu'));
   }
