@@ -313,7 +313,7 @@ export function PauseSettingsPanel({ email = '', onClose, onSignOut }) {
         <span class="pause-settings-icon" aria-hidden="true">${settingsIcon('notifications')}</span>
         <span class="pause-settings-copy">
           <strong>Device Notifications</strong>
-          <small>Connect this device to the nudges you chose in Recovery Plan.</small>
+          <small>Connect this device to the nudges you chose in Sleep Routine.</small>
         </span>
         <span class="pause-settings-value" data-settings-notification-value>Checking…</span>
       </button>
@@ -338,7 +338,7 @@ export function PauseSettingsPanel({ email = '', onClose, onSignOut }) {
         <span class="pause-settings-chevron" aria-hidden="true">›</span>
       </button>
       <div class="pause-settings-privacy-copy" data-settings-privacy-copy>
-        PAUSE stores your rest records and preferences under your PAUSE account and syncs them when cloud sync is available. Your Recovery Plan uses the schedule and commute estimates you enter. PAUSE does not use Recovery Plan to track your live location.
+        PAUSE stores your rest records and preferences under your PAUSE account and syncs them when cloud sync is available. Your Sleep Routine uses the schedule and commute estimates you enter. PAUSE does not use Sleep Routine to track your live location.
       </div>
       <div class="pause-settings-row">
         <span class="pause-settings-icon" aria-hidden="true">${settingsIcon('about')}</span>
