@@ -42,7 +42,8 @@ const cssFiles = [
   'src/pause.css',
   'src/brand-wordmark.css',
   'src/auth/auth.css',
-  'src/recovery-plan.css'
+  'src/recovery-plan.css',
+  'src/recovery-briefing-brand.css'
 ];
 
 const css = cssFiles.map((file) => readFileSync(file, 'utf8')).join('\n\n');
