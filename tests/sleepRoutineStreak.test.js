@@ -168,3 +168,37 @@ test('historical Sleep corrections automatically recalculate the derived streak'
 
   assert.equal(afterCorrection.streak, 2);
 });
+
+test('night-shift workdays map to the following Sleep Routine calendar day', () => {
+  const nightPlan = plan({
+    shiftStart: '22:00',
+    shiftEnd: '08:00',
+    commuteMinutes: 60,
+    windDownMinutes: 60,
+    sleepStart: '10:00'
+  });
+
+  const tuesdaySleep = pauseSleepStreakDayResult({
+    history: [session('2026-09-08', 600, 390)],
+    plan: nightPlan,
+    dateKey: '2026-09-08'
+  });
+  const mondayCalendarDay = pauseSleepStreakDayResult({
+    history: [session('2026-09-07', 600, 390)],
+    plan: nightPlan,
+    dateKey: '2026-09-07'
+  });
+  const saturdaySleep = pauseSleepStreakDayResult({
+    history: [session('2026-09-12', 600, 390)],
+    plan: nightPlan,
+    dateKey: '2026-09-12'
+  });
+
+  assert.equal(tuesdaySleep.routineDayOffset, 1);
+  assert.equal(tuesdaySleep.workWeekday, 1); // Monday workday
+  assert.equal(tuesdaySleep.eligible, true);
+  assert.equal(tuesdaySleep.qualifies, true);
+  assert.equal(mondayCalendarDay.eligible, false); // Sunday workday would be required
+  assert.equal(saturdaySleep.workWeekday, 5); // Friday workday
+  assert.equal(saturdaySleep.eligible, true);
+});
