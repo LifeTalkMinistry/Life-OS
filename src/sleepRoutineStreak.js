@@ -23,7 +23,10 @@ function pauseSleepStreakNormalizePlan(plan = {}) {
   const workDays = [...new Set((Array.isArray(plan.workDays) ? plan.workDays : [])
     .map(Number)
     .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
-  const plannedMinutes = Math.max(0, Math.round(Number(plan.sleepMinutes ?? plan.recoveryMinutes) || 0));
+  const plannedMinutes = Math.max(
+    0,
+    Math.round(Number(plan.plannedMinutes ?? plan.sleepMinutes ?? plan.recoveryMinutes) || 0)
+  );
   return {
     setupComplete: plan.setupComplete === true,
     workDays,
@@ -108,8 +111,8 @@ export function derivePauseSleepRoutineStreak({ pauseState = {}, plan = {}, now 
     evaluated.push(today);
     cursorKey = addManilaDays(cursorKey, -1);
   } else {
-    // An eligible routine day is not judged as missed while that Manila calendar day is still open.
-    // If it has not qualified yet, the active streak remains whatever was earned on prior routine days.
+    // The current routine day stays open until the Manila calendar day is complete.
+    // A prior eligible routine day without enough Recorded Sleep resets the streak.
     cursorKey = addManilaDays(cursorKey, -1);
   }
 
@@ -244,7 +247,6 @@ export function initializePauseSleepRoutineStreak() {
   const observer = new MutationObserver(pauseSleepStreakQueueRender);
   observer.observe(document.documentElement, { childList: true, subtree: true });
   window.addEventListener('pause:state-changed', pauseSleepStreakQueueRender);
-  window.addEventListener('pause:recovery-plan-changed', pauseSleepStreakQueueRender);
   window.addEventListener('focus', pauseSleepStreakQueueRender);
   pauseSleepStreakQueueRender();
 }
