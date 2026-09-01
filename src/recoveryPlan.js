@@ -20,6 +20,7 @@ let currentStep = 'intro';
 let overlay = null;
 let hydrationPromise = null;
 let editRequested = false;
+let editBaselinePlan = null;
 
 function apiUrl() {
   const configured = typeof window !== 'undefined'
@@ -248,6 +249,10 @@ function nextStep() {
 }
 
 function previousStep() {
+  if (editRequested && currentStep === 'days') {
+    cancelRecoveryPlanEdit();
+    return;
+  }
   currentStep = STEPS[Math.max(0, stepIndex(currentStep) - 1)];
   renderOverlay();
 }
@@ -278,10 +283,10 @@ function optionButton(value, current, label, attr = 'data-plan-value') {
   return `<button type="button" class="recovery-plan-option${Number(current) === Number(value) ? ' is-selected' : ''}" ${attr}="${value}">${label}</button>`;
 }
 
-function navigation({ back = true, continueLabel = 'Continue', continueDisabled = false, action = 'continue' } = {}) {
+function navigation({ back = true, backLabel = 'Back', continueLabel = 'Continue', continueDisabled = false, action = 'continue' } = {}) {
   return `
     <div class="recovery-plan-nav">
-      ${back ? '<button type="button" class="recovery-plan-back" data-plan-action="back">Back</button>' : '<span></span>'}
+      ${back ? `<button type="button" class="recovery-plan-back" data-plan-action="back">${backLabel}</button>` : '<span></span>'}
       <button type="button" class="recovery-plan-continue" data-plan-action="${action}" ${continueDisabled ? 'disabled' : ''}>${continueLabel}</button>
     </div>
   `;
@@ -321,7 +326,7 @@ function contentForStep() {
       <div class="recovery-plan-days" aria-label="Work days">
         ${DAY_OPTIONS.map((day) => `<button type="button" class="recovery-plan-day${plan.workDays.includes(day.id) ? ' is-selected' : ''}" data-plan-day="${day.id}" aria-label="${day.label}">${day.short}</button>`).join('')}
       </div>
-      ${navigation({ continueDisabled: !plan.workDays.length })}
+      ${navigation({ backLabel: editRequested ? 'Back to PAUSE' : 'Back', continueDisabled: !plan.workDays.length })}
     `;
   }
 
@@ -488,6 +493,15 @@ function hideOverlay() {
   overlay = null;
 }
 
+function cancelRecoveryPlanEdit() {
+  if (editRequested && editBaselinePlan) {
+    currentPlan = normalizeRecoveryPlan(editBaselinePlan);
+  }
+  editRequested = false;
+  editBaselinePlan = null;
+  hideOverlay();
+}
+
 async function saveCompletedPlan(button) {
   if (!currentAccountId) return;
   if (button) {
@@ -502,6 +516,7 @@ async function saveCompletedPlan(button) {
   });
   currentPlan = saveLocalPlan(currentAccountId, completed);
   editRequested = false;
+  editBaselinePlan = null;
   hideOverlay();
 
   try {
@@ -553,6 +568,7 @@ async function reconcileRecoveryPlan() {
     currentPlan = null;
     hydrationPromise = null;
     editRequested = false;
+    editBaselinePlan = null;
     return;
   }
 
@@ -560,6 +576,7 @@ async function reconcileRecoveryPlan() {
   if (accountId !== currentAccountId) {
     currentAccountId = accountId;
     currentStep = 'intro';
+    editBaselinePlan = null;
     hydrationPromise = hydratePlan(accountId).finally(() => {
       hydrationPromise = null;
       reconcileRecoveryPlan();
@@ -595,6 +612,7 @@ function openRecoveryPlanAt(step) {
   if (!currentAccountId) return false;
   const plan = normalizeRecoveryPlan(currentPlan || {});
   editRequested = true;
+  editBaselinePlan = normalizeRecoveryPlan(plan);
   currentStep = step === 'nudges' && plan.setupComplete ? 'nudges' : 'days';
   showOverlay();
   return true;
