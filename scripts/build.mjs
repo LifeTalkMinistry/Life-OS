@@ -21,7 +21,8 @@ const scriptOrder = [
   'src/recoveryStatusCard.js',
   'src/restInsightsInfo.js',
   'src/app.js',
-  'src/recoveryPlan.js'
+  'src/recoveryPlan.js',
+  'src/recoveryBriefing.js'
 ];
 
 function stripModuleSyntax(source) {
