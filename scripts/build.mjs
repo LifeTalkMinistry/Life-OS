@@ -23,7 +23,8 @@ const scriptOrder = [
   'src/app.js',
   'src/recoveryPlan.js',
   'src/sleepRoutineSchedule.js',
-  'src/recoveryBriefing.js'
+  'src/recoveryBriefing.js',
+  'src/recoveryThiefLog.js'
 ];
 
 function stripModuleSyntax(source) {
