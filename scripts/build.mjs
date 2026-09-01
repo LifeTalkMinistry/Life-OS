@@ -12,6 +12,8 @@ const scriptOrder = [
   'src/components/TodayRing.js',
   'src/components/PausePanel.js',
   'src/components/PauseTimerPicker.js',
+  'src/components/PauseOrbMenu.js',
+  'src/components/PauseSettingsPanel.js',
   'src/auth/backendClient.js',
   'src/sync/pauseSyncClient.js',
   'src/auth/LoginScreen.js',
