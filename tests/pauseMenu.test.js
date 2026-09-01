@@ -10,6 +10,7 @@ test('PAUSE orb menu exposes the intended control-center actions in order', () =
     'insights',
     'settings'
   ]);
+  assert.equal(items.find((item) => item.id === 'recovery')?.label, 'Sleep Routine');
   assert.equal(items.every((item) => item.disabled === false), true);
   assert.equal(items.some((item) => item.id === 'nudges'), false);
 });
