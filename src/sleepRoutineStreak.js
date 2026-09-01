@@ -89,12 +89,6 @@ export function pauseSleepStreakRequiredMinutes(plannedMinutes) {
   );
 }
 
-export function pauseSleepStreakIsSleepEntry(entry = {}) {
-  const explicitType = String(entry.sessionType ?? entry.type ?? entry.kind ?? '').trim().toLowerCase();
-  if (explicitType) return explicitType === 'sleep';
-  return String(entry.label || '').trim().toLowerCase() === 'sleep';
-}
-
 function pauseSleepStreakEntryWindow(entry = {}) {
   const startAt = pauseSleepStreakFinite(entry.startAt ?? entry.endedAt);
   if (startAt === null) return null;
@@ -105,15 +99,18 @@ function pauseSleepStreakEntryWindow(entry = {}) {
   return { startAt, endedAt, durationMs: Math.max(0, endedAt - startAt) };
 }
 
-export function pauseSleepStreakSleepMinutesForDay(history = [], dateKey) {
+export function pauseSleepStreakTrackedMinutesForDay(history = [], dateKey) {
   return Math.round((Array.isArray(history) ? history : []).reduce((totalMs, entry) => {
-    if (!pauseSleepStreakIsSleepEntry(entry)) return totalMs;
     const window = pauseSleepStreakEntryWindow(entry);
     if (!window) return totalMs;
     if (manilaDateKey(window.startAt) !== dateKey) return totalMs;
     return totalMs + window.durationMs;
   }, 0) / 60_000);
 }
+
+// Kept as an alias so older callers continue to work. The streak now intentionally
+// trusts every ORB-tracked session rather than requiring a separate Sleep label.
+export const pauseSleepStreakSleepMinutesForDay = pauseSleepStreakTrackedMinutesForDay;
 
 export function pauseSleepStreakDayResult({ history = [], plan = {}, dateKey }) {
   const normalizedPlan = pauseSleepStreakNormalizePlan(plan);
@@ -126,8 +123,8 @@ export function pauseSleepStreakDayResult({ history = [], plan = {}, dateKey }) 
     && workWeekday !== null
     && normalizedPlan.workDays.includes(workWeekday)
   );
-  const recordedSleepMinutes = eligible
-    ? pauseSleepStreakSleepMinutesForDay(history, dateKey)
+  const trackedMinutes = eligible
+    ? pauseSleepStreakTrackedMinutesForDay(history, dateKey)
     : 0;
   const requiredMinutes = pauseSleepStreakRequiredMinutes(normalizedPlan.plannedMinutes);
   return {
@@ -137,12 +134,13 @@ export function pauseSleepStreakDayResult({ history = [], plan = {}, dateKey }) 
     workWeekday,
     routineDayOffset: normalizedPlan.routineDayOffset,
     eligible,
-    recordedSleepMinutes,
+    trackedMinutes,
+    recordedSleepMinutes: trackedMinutes,
     plannedSleepMinutes: normalizedPlan.plannedMinutes,
     requiredMinutes,
     qualifies: eligible
       && normalizedPlan.plannedMinutes > 0
-      && recordedSleepMinutes >= requiredMinutes
+      && trackedMinutes >= requiredMinutes
   };
 }
 
@@ -165,7 +163,7 @@ export function derivePauseSleepRoutineStreak({ pauseState = {}, plan = {}, now 
     cursorKey = addManilaDays(cursorKey, -1);
   } else {
     // The current routine day stays open until the Manila calendar day is complete.
-    // A prior eligible routine day without enough Recorded Sleep resets the streak.
+    // A prior eligible routine day without enough ORB-tracked time resets the streak.
     cursorKey = addManilaDays(cursorKey, -1);
   }
 
@@ -277,7 +275,7 @@ function pauseSleepStreakRender() {
   card.innerHTML = `
     <small>SLEEP ROUTINE STREAK</small>
     <strong>${streakLabel}</strong>
-    <p>Recorded Sleep only · ${pauseSleepStreakFormatMinutes(PAUSE_SLEEP_STREAK_MIN_MINUTES)} minimum · 90% of Planned Sleep</p>
+    <p>ORB-tracked time · ${pauseSleepStreakFormatMinutes(PAUSE_SLEEP_STREAK_MIN_MINUTES)} minimum · 90% of Planned Sleep</p>
   `;
 
   if (!existing) {
