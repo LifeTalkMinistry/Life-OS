@@ -36,29 +36,39 @@ function ensurePauseOrbMenuStyles() {
   const style = document.createElement('style');
   style.id = 'pause-orb-menu-style';
   style.textContent = `
+    /*
+     * PAUSE's orb-stage is intentionally a zero-size physical center anchor.
+     * The menu therefore owns a real canvas around that anchor instead of
+     * positioning percentages against the zero-size stage.
+     */
     .pause-orb-menu {
       position: absolute;
-      inset: 0;
+      left: 0;
+      top: 0;
+      width: min(92vw, 430px);
+      height: min(60svh, 500px);
+      min-height: 360px;
       z-index: 6;
       pointer-events: none;
+      transform: translate(-50%, -50%);
       animation: pause-menu-in 180ms ease both;
     }
 
     .pause-menu-node {
       appearance: none;
       position: absolute;
-      width: clamp(96px, 27vw, 122px);
-      min-height: 58px;
-      padding: 9px 9px 8px;
-      border: 1px solid rgba(173, 130, 235, .2);
+      width: clamp(104px, 28vw, 124px);
+      min-height: 60px;
+      padding: 9px 10px;
+      border: 1px solid rgba(173, 130, 235, .22);
       border-radius: 15px;
-      background: linear-gradient(180deg, rgba(21, 13, 37, .9), rgba(9, 7, 17, .94));
+      background: linear-gradient(180deg, rgba(21, 13, 37, .92), rgba(9, 7, 17, .96));
       color: #eee8f5;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, .26), inset 0 0 22px rgba(105, 62, 176, .06);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .28), inset 0 0 22px rgba(105, 62, 176, .06);
       display: grid;
       grid-template-columns: 28px 1fr;
       align-items: center;
-      gap: 7px;
+      gap: 8px;
       text-align: left;
       pointer-events: auto;
       cursor: pointer;
@@ -66,11 +76,12 @@ function ensurePauseOrbMenuStyles() {
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, opacity 140ms ease;
     }
 
-    .pause-menu-node[data-menu-position="0"] { left: 0; top: 16%; }
-    .pause-menu-node[data-menu-position="1"] { right: 0; top: 16%; }
-    .pause-menu-node[data-menu-position="2"] { left: 0; bottom: 17%; }
-    .pause-menu-node[data-menu-position="3"] { right: 0; bottom: 17%; }
-    .pause-menu-node[data-menu-position="4"] { left: 50%; bottom: 0; transform: translateX(-50%); }
+    /* Five clearly separated anchors around the ORB. */
+    .pause-menu-node[data-menu-position="0"] { right: 0; bottom: 7%; }
+    .pause-menu-node[data-menu-position="1"] { left: 0; bottom: 7%; }
+    .pause-menu-node[data-menu-position="2"] { right: 0; top: 26%; }
+    .pause-menu-node[data-menu-position="3"] { left: 0; top: 26%; }
+    .pause-menu-node[data-menu-position="4"] { left: 50%; top: 0; transform: translateX(-50%); }
 
     .pause-menu-node:is(:hover, :focus-visible, .is-drag-target) {
       border-color: rgba(198, 157, 255, .52);
@@ -130,30 +141,34 @@ function ensurePauseOrbMenuStyles() {
       line-height: 1.25;
     }
 
-    .is-pause-menu .orb-stage {
-      min-height: min(66svh, 590px);
-    }
-
     @keyframes pause-menu-in {
-      from { opacity: 0; transform: scale(.97); }
-      to { opacity: 1; transform: scale(1); }
+      from { opacity: 0; transform: translate(-50%, -50%) scale(.97); }
+      to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     }
 
     @media (max-width: 380px), (max-height: 650px) {
+      .pause-orb-menu {
+        width: min(94vw, 360px);
+        height: min(58svh, 410px);
+        min-height: 330px;
+      }
+
       .pause-menu-node {
-        width: clamp(88px, 26vw, 104px);
+        width: clamp(92px, 27vw, 106px);
         min-height: 52px;
         padding: 7px;
         grid-template-columns: 24px 1fr;
-        gap: 5px;
+        gap: 6px;
       }
+
       .pause-menu-node-icon { width: 24px; height: 24px; }
       .pause-menu-node-icon svg { width: 13px; height: 13px; }
       .pause-menu-node-copy small { display: none; }
+
       .pause-menu-node[data-menu-position="0"],
-      .pause-menu-node[data-menu-position="1"] { top: 13%; }
+      .pause-menu-node[data-menu-position="1"] { bottom: 5%; }
       .pause-menu-node[data-menu-position="2"],
-      .pause-menu-node[data-menu-position="3"] { bottom: 15%; }
+      .pause-menu-node[data-menu-position="3"] { top: 28%; }
     }
 
     @media (prefers-reduced-motion: reduce) {
