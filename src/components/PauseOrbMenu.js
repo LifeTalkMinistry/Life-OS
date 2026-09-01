@@ -2,31 +2,26 @@ const MENU_ITEMS = [
   {
     id: 'timer',
     label: 'Timer',
-    detail: 'Choose a pause duration',
     icon: 'timer'
   },
   {
     id: 'recovery',
     label: 'Recovery Plan',
-    detail: 'Edit your recovery routine',
     icon: 'recovery'
   },
   {
     id: 'nudges',
     label: 'Nudges',
-    detail: 'Choose when PAUSE may interrupt',
     icon: 'nudges'
   },
   {
     id: 'insights',
     label: 'Rest Insights',
-    detail: 'Understand your rest patterns',
     icon: 'insights'
   },
   {
     id: 'settings',
     label: 'Settings',
-    detail: 'Manage PAUSE preferences',
     icon: 'settings'
   }
 ];
@@ -65,7 +60,7 @@ function ensurePauseOrbMenuStyles() {
       appearance: none;
       position: absolute;
       width: clamp(104px, 28vw, 124px);
-      min-height: 60px;
+      min-height: 52px;
       padding: 9px 10px;
       border: 1px solid rgba(173, 130, 235, .22);
       border-radius: 15px;
@@ -133,19 +128,13 @@ function ensurePauseOrbMenuStyles() {
     .pause-menu-node-copy {
       min-width: 0;
       display: grid;
-      gap: 2px;
+      align-items: center;
     }
 
     .pause-menu-node-copy strong {
       font-size: clamp(.68rem, 2.8vw, .78rem);
       font-weight: 590;
       line-height: 1.15;
-    }
-
-    .pause-menu-node-copy small {
-      color: #837a8d;
-      font-size: clamp(.5rem, 2vw, .57rem);
-      line-height: 1.25;
     }
 
     @keyframes pause-menu-in {
@@ -162,7 +151,7 @@ function ensurePauseOrbMenuStyles() {
 
       .pause-menu-node {
         width: clamp(92px, 27vw, 106px);
-        min-height: 52px;
+        min-height: 48px;
         padding: 7px;
         grid-template-columns: 24px 1fr;
         gap: 6px;
@@ -170,7 +159,6 @@ function ensurePauseOrbMenuStyles() {
 
       .pause-menu-node-icon { width: 24px; height: 24px; }
       .pause-menu-node-icon svg { width: 13px; height: 13px; }
-      .pause-menu-node-copy small { display: none; }
 
       .pause-menu-node[data-menu-position="0"],
       .pause-menu-node[data-menu-position="1"] { bottom: 5%; }
@@ -219,7 +207,6 @@ export function PauseOrbMenu({ active = false, onSelect }) {
       <span class="pause-menu-node-icon" aria-hidden="true">${iconSvg(item.icon)}</span>
       <span class="pause-menu-node-copy">
         <strong>${item.label}</strong>
-        <small>${item.disabled ? 'Available after rest ends' : item.detail}</small>
       </span>
     `;
     button.addEventListener('click', (event) => {
