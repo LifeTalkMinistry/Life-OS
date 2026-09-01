@@ -31,7 +31,9 @@ export function createOrbGestureController({
   const dragTargetAt = (event) => {
     if (!holding || typeof document === 'undefined' || !event) return null;
     const element = document.elementFromPoint(event.clientX, event.clientY);
-    return element?.closest?.('.pause-menu-node, .today-system-button') ?? null;
+    const candidate = element?.closest?.('.pause-menu-node, .today-system-button') ?? null;
+    if (candidate?.disabled || candidate?.getAttribute?.('aria-disabled') === 'true') return null;
+    return candidate;
   };
 
   const handleGlobalMove = (event) => {
@@ -63,12 +65,14 @@ export function createOrbGestureController({
     clearSingleTimer();
     detachReleaseListeners();
     clearDragTarget();
-    onHoldEnd?.();
 
-    // PAUSE keeps the main menu open after the user releases the hold.
-    // If they dragged onto a menu item, activate that item immediately.
-    // Otherwise the menu remains visible so it can be tapped normally.
-    if (selected?.isConnected) selected.click();
+    // A hold is a temporary radial gesture. Releasing over a target selects it.
+    // Releasing anywhere else simply ends the hold and lets PAUSE return to the orb.
+    if (selected) selected.click();
+    onHoldEnd?.({
+      selected: Boolean(selected),
+      target: selected || null
+    });
 
     return true;
   };
