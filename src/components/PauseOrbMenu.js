@@ -10,11 +10,6 @@ const MENU_ITEMS = [
     icon: 'recovery'
   },
   {
-    id: 'nudges',
-    label: 'Nudges',
-    icon: 'nudges'
-  },
-  {
     id: 'insights',
     label: 'Rest Insights',
     icon: 'insights'
@@ -31,26 +26,21 @@ function ensurePauseOrbMenuStyles() {
   const style = document.createElement('style');
   style.id = 'pause-orb-menu-style';
   style.textContent = `
-    /*
-     * PAUSE's orb-stage is intentionally a zero-size physical center anchor.
-     * The menu therefore owns a real canvas around that anchor instead of
-     * positioning percentages against the zero-size stage.
-     */
+    /* PAUSE's orb-stage is a zero-size center anchor, so the radial menu owns
+       its own canvas around that anchor. */
     .pause-orb-menu {
       position: absolute;
       left: 0;
       top: 0;
       width: min(92vw, 430px);
-      height: min(60svh, 500px);
-      min-height: 360px;
+      height: min(56svh, 460px);
+      min-height: 340px;
       z-index: 6;
       pointer-events: none;
       transform: translate(-50%, -50%);
       animation: pause-menu-in 180ms ease both;
     }
 
-    /* While a pointer hold is active the orb itself carries the instructions.
-       Hide the older persistent-menu footer copy so it cannot contradict the gesture. */
     .is-pause-menu > .pause-hint {
       opacity: 0 !important;
       pointer-events: none !important;
@@ -78,24 +68,16 @@ function ensurePauseOrbMenuStyles() {
       transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, opacity 140ms ease;
     }
 
-    /* Five clearly separated anchors around the ORB. */
-    .pause-menu-node[data-menu-position="0"] { right: 0; bottom: 7%; }
-    .pause-menu-node[data-menu-position="1"] { left: 0; bottom: 7%; }
-    .pause-menu-node[data-menu-position="2"] { right: 0; top: 26%; }
-    .pause-menu-node[data-menu-position="3"] { left: 0; top: 26%; }
-    .pause-menu-node[data-menu-position="4"] { left: 50%; top: 0; transform: translateX(-50%); }
+    /* Four destinations: clear quadrants around the ORB. */
+    .pause-menu-node[data-menu-position="0"] { right: 0; bottom: 9%; }
+    .pause-menu-node[data-menu-position="1"] { left: 0; bottom: 9%; }
+    .pause-menu-node[data-menu-position="2"] { left: 0; top: 9%; }
+    .pause-menu-node[data-menu-position="3"] { right: 0; top: 9%; }
 
     .pause-menu-node:is(:hover, :focus-visible, .is-drag-target) {
       border-color: rgba(198, 157, 255, .52);
       background: linear-gradient(180deg, rgba(64, 38, 105, .92), rgba(17, 10, 31, .96));
       outline: none;
-    }
-
-    .pause-menu-node[data-menu-position="4"]:is(:hover, :focus-visible, .is-drag-target) {
-      transform: translateX(-50%) scale(1.035);
-    }
-
-    .pause-menu-node:not([data-menu-position="4"]):is(:hover, :focus-visible, .is-drag-target) {
       transform: scale(1.035);
     }
 
@@ -145,8 +127,8 @@ function ensurePauseOrbMenuStyles() {
     @media (max-width: 380px), (max-height: 650px) {
       .pause-orb-menu {
         width: min(94vw, 360px);
-        height: min(58svh, 410px);
-        min-height: 330px;
+        height: min(54svh, 390px);
+        min-height: 320px;
       }
 
       .pause-menu-node {
@@ -159,11 +141,6 @@ function ensurePauseOrbMenuStyles() {
 
       .pause-menu-node-icon { width: 24px; height: 24px; }
       .pause-menu-node-icon svg { width: 13px; height: 13px; }
-
-      .pause-menu-node[data-menu-position="0"],
-      .pause-menu-node[data-menu-position="1"] { bottom: 5%; }
-      .pause-menu-node[data-menu-position="2"],
-      .pause-menu-node[data-menu-position="3"] { top: 28%; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -177,7 +154,6 @@ function ensurePauseOrbMenuStyles() {
 function iconSvg(name) {
   if (name === 'timer') return '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M9 3h6M12 6v2M17 8l2-2M12 13l3-2"/></svg>';
   if (name === 'recovery') return '<svg viewBox="0 0 24 24"><path d="M5 16c2-6 5-9 10-10-1 5-4 8-10 10Z"/><path d="M6 17c3-1 6-3 9-7"/><path d="M5 17v3"/></svg>';
-  if (name === 'nudges') return '<svg viewBox="0 0 24 24"><path d="M7 16h10l-1.3-2.2V10a3.7 3.7 0 0 0-7.4 0v3.8L7 16Z"/><path d="M10 19h4"/></svg>';
   if (name === 'insights') return '<svg viewBox="0 0 24 24"><path d="M5 18V9M10 18V5M15 18v-6M20 18V8"/></svg>';
   return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg>';
 }
@@ -205,9 +181,7 @@ export function PauseOrbMenu({ active = false, onSelect }) {
     button.setAttribute('aria-label', item.disabled ? `${item.label}. Unavailable while resting.` : item.label);
     button.innerHTML = `
       <span class="pause-menu-node-icon" aria-hidden="true">${iconSvg(item.icon)}</span>
-      <span class="pause-menu-node-copy">
-        <strong>${item.label}</strong>
-      </span>
+      <span class="pause-menu-node-copy"><strong>${item.label}</strong></span>
     `;
     button.addEventListener('click', (event) => {
       event.stopPropagation();
