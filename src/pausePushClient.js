@@ -20,6 +20,14 @@ function pausePushSupported() {
   );
 }
 
+function pausePushTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Manila';
+  } catch {
+    return 'Asia/Manila';
+  }
+}
+
 function pauseBase64UrlToBytes(value) {
   const padding = '='.repeat((4 - (String(value).length % 4)) % 4);
   const base64 = String(value).replace(/-/g, '+').replace(/_/g, '/') + padding;
@@ -96,7 +104,8 @@ async function pauseRegisterSubscriptionWithServer(subscription) {
     body: {
       subscription: serialized,
       deviceLabel: 'PAUSE PWA',
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : ''
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      timezone: pausePushTimezone()
     }
   });
 }
