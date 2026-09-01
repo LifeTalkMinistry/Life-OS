@@ -591,12 +591,21 @@ async function reconcileRecoveryPlan() {
   if (plan.setupComplete && plan.nudgeConsentComplete && !editRequested) hideOverlay();
 }
 
-export function openRecoveryPlanSetup() {
+function openRecoveryPlanAt(step) {
   if (!currentAccountId) return false;
+  const plan = normalizeRecoveryPlan(currentPlan || {});
   editRequested = true;
-  currentStep = 'days';
+  currentStep = step === 'nudges' && plan.setupComplete ? 'nudges' : 'days';
   showOverlay();
   return true;
+}
+
+export function openRecoveryPlanSetup() {
+  return openRecoveryPlanAt('days');
+}
+
+export function openRecoveryNudgeSettings() {
+  return openRecoveryPlanAt('nudges');
 }
 
 export function getRecoveryPlan() {
@@ -607,6 +616,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   window.__PAUSE_RECOVERY_PLAN__ = {
     getPlan: getRecoveryPlan,
     openSetup: openRecoveryPlanSetup,
+    openNudges: openRecoveryNudgeSettings,
     deriveTimeline: () => currentPlan ? deriveRecoveryTimeline(currentPlan) : null,
     deriveNudgeMoments: () => currentPlan ? deriveNudgeMoments(currentPlan) : null
   };
