@@ -54,6 +54,12 @@ export function createOrbGestureController({
     releaseListenersAttached = false;
   };
 
+  const closeTemporaryHoldMenu = () => {
+    if (typeof document === 'undefined') return;
+    const menuOrb = document.querySelector('.orb-mode-menu .orb');
+    if (menuOrb?.isConnected) menuOrb.click();
+  };
+
   const finishHold = (event, allowSelection = true) => {
     if (!holding) return false;
 
@@ -67,8 +73,10 @@ export function createOrbGestureController({
     clearDragTarget();
 
     // A hold is a temporary radial gesture. Releasing over a target selects it.
-    // Releasing anywhere else simply ends the hold and lets PAUSE return to the orb.
+    // Releasing anywhere else closes the temporary menu and returns to the orb.
     if (selected) selected.click();
+    else closeTemporaryHoldMenu();
+
     onHoldEnd?.({
       selected: Boolean(selected),
       target: selected || null
