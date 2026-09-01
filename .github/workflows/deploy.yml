@@ -28,8 +28,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Test PAUSE calendar, recovery, sleep schedule, briefing, orb menu, and hold-drag gesture
-        run: node --test tests/pauseCalendar.test.js tests/recoveryStatus.test.js tests/recoveryPlan.test.js tests/sleepRoutineSchedule.test.js tests/recoveryBriefing.test.js tests/pauseMenu.test.js tests/orbGestures.test.js
+      - name: Test PAUSE calendar, recovery, sleep schedule, briefing, sleep delay log, orb menu, and hold-drag gesture
+        run: node --test tests/pauseCalendar.test.js tests/recoveryStatus.test.js tests/recoveryPlan.test.js tests/sleepRoutineSchedule.test.js tests/recoveryBriefing.test.js tests/recoveryThiefLog.test.js tests/pauseMenu.test.js tests/orbGestures.test.js
 
       - name: Build PAUSE
         run: npm run build
