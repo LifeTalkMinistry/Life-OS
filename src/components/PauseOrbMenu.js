@@ -31,7 +31,7 @@ const MENU_ITEMS = [
   }
 ];
 
-function ensureStyles() {
+function ensurePauseOrbMenuStyles() {
   if (document.querySelector('#pause-orb-menu-style')) return;
   const style = document.createElement('style');
   style.id = 'pause-orb-menu-style';
@@ -180,7 +180,7 @@ export function getPauseMenuItems({ active = false } = {}) {
 }
 
 export function PauseOrbMenu({ active = false, onSelect }) {
-  ensureStyles();
+  ensurePauseOrbMenuStyles();
   const nav = document.createElement('nav');
   nav.className = 'pause-orb-menu';
   nav.setAttribute('aria-label', 'PAUSE menu');
