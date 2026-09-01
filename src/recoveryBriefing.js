@@ -120,6 +120,20 @@ function briefingFormatRemaining(ms) {
   return `${hours}h ${minutes}m`;
 }
 
+function briefingNextAgenda(plan, cycle, phase) {
+  if (phase === 'work') {
+    if (plan.commuteMinutes > 0) return { label: 'Commute', at: cycle.shiftEndAt };
+    if (plan.windDownMinutes > 0) return { label: 'Wind-down', at: cycle.shiftEndAt };
+    return { label: 'Sleep Routine', at: cycle.shiftEndAt };
+  }
+  if (phase === 'commute') {
+    if (plan.windDownMinutes > 0) return { label: 'Wind-down', at: cycle.commuteEndAt };
+    return { label: 'Sleep Routine', at: cycle.commuteEndAt };
+  }
+  if (phase === 'winddown') return { label: 'Sleep Routine', at: cycle.recoveryStartAt };
+  return { label: 'Wake', at: cycle.wakeTargetAt };
+}
+
 export function deriveRecoveryBriefingStatus(rawPlan, nowValue = new Date()) {
   const plan = briefingPlan(rawPlan);
   const now = nowValue instanceof Date ? new Date(nowValue.getTime()) : new Date(nowValue);
@@ -135,52 +149,29 @@ export function deriveRecoveryBriefingStatus(rawPlan, nowValue = new Date()) {
   const active = activeCycles[0] || null;
   if (active) {
     const { cycle, phase } = active;
-    if (phase === 'work') {
-      return {
-        phase,
-        phaseKey: `${cycle.key}:work`,
-        title: 'Your shift is in progress.',
-        value: briefingFormatRemaining(cycle.recoveryStartAt.getTime() - nowMs),
-        label: 'UNTIL PROTECTED RECOVERY',
-        detail: `Shift ends at ${briefingFormatClock(cycle.shiftEndAt)}. Protected recovery is planned for ${briefingFormatClock(cycle.recoveryStartAt)}.`,
-        targetAt: cycle.recoveryStartAt.getTime()
-      };
-    }
-
-    if (phase === 'commute') {
-      return {
-        phase,
-        phaseKey: `${cycle.key}:commute`,
-        title: 'You’re in your commute window.',
-        value: briefingFormatRemaining(cycle.commuteEndAt.getTime() - nowMs),
-        label: 'LEFT IN COMMUTE WINDOW',
-        detail: plan.windDownMinutes > 0
-          ? `Wind-down starts around ${briefingFormatClock(cycle.commuteEndAt)}. Protected recovery at ${briefingFormatClock(cycle.recoveryStartAt)}.`
-          : `Protected recovery is planned for ${briefingFormatClock(cycle.recoveryStartAt)}.`,
-        targetAt: cycle.commuteEndAt.getTime()
-      };
-    }
-
-    if (phase === 'winddown') {
-      return {
-        phase,
-        phaseKey: `${cycle.key}:winddown`,
-        title: 'You’re in wind-down now.',
-        value: briefingFormatRemaining(cycle.recoveryStartAt.getTime() - nowMs),
-        label: 'UNTIL PROTECTED RECOVERY',
-        detail: `Protected recovery begins at ${briefingFormatClock(cycle.recoveryStartAt)}.`,
-        targetAt: cycle.recoveryStartAt.getTime()
-      };
-    }
+    const next = briefingNextAgenda(plan, cycle, phase);
+    const phaseEndAt = phase === 'work'
+      ? cycle.shiftEndAt
+      : phase === 'commute'
+        ? cycle.commuteEndAt
+        : phase === 'winddown'
+          ? cycle.recoveryStartAt
+          : cycle.wakeTargetAt;
 
     return {
-      phase: 'recovery',
-      phaseKey: `${cycle.key}:recovery`,
-      title: 'Protected recovery is active.',
-      value: briefingFormatRemaining(cycle.wakeTargetAt.getTime() - nowMs),
-      label: 'LEFT IN PROTECTED RECOVERY',
-      detail: `Wake target: ${briefingFormatClock(cycle.wakeTargetAt)}.`,
-      targetAt: cycle.wakeTargetAt.getTime()
+      phase,
+      phaseKey: `${cycle.key}:${phase}`,
+      agenda: phase === 'work'
+        ? 'WORK'
+        : phase === 'commute'
+          ? 'COMMUTE'
+          : phase === 'winddown'
+            ? 'WIND-DOWN'
+            : 'SLEEP ROUTINE',
+      value: briefingFormatRemaining(phaseEndAt.getTime() - nowMs),
+      suffix: 'left',
+      next: `Next · ${next.label} — ${briefingFormatClock(next.at)}`,
+      targetAt: phaseEndAt.getTime()
     };
   }
 
@@ -189,10 +180,10 @@ export function deriveRecoveryBriefingStatus(rawPlan, nowValue = new Date()) {
   return {
     phase: 'next',
     phaseKey: `${nextCycle.key}:next`,
-    title: 'Your next recovery is planned.',
-    value: briefingFormatFutureClock(nextCycle.recoveryStartAt, now),
-    label: 'NEXT PROTECTED RECOVERY',
-    detail: `Your next shift starts ${briefingFormatFutureClock(nextCycle.shiftStartAt, now)}.`,
+    agenda: 'NEXT SLEEP ROUTINE',
+    value: briefingFormatRemaining(nextCycle.recoveryStartAt.getTime() - nowMs),
+    suffix: 'away',
+    next: `Starts · ${briefingFormatFutureClock(nextCycle.recoveryStartAt, now)}`,
     targetAt: nextCycle.recoveryStartAt.getTime()
   };
 }
@@ -209,108 +200,79 @@ function ensureRecoveryBriefingStyles() {
       display: grid;
       place-items: center;
       padding: max(28px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
-      background:
-        radial-gradient(circle at 50% 40%, rgba(105, 62, 172, .13), transparent 34%),
-        linear-gradient(180deg, rgba(5, 4, 10, .995), rgba(2, 2, 6, .995));
-      animation: recoveryBriefingIn .24s ease-out both;
+      background: linear-gradient(180deg, rgba(5, 4, 10, .995), rgba(2, 2, 6, .995));
+      animation: recoveryBriefingIn .2s ease-out both;
     }
 
     .recovery-briefing-content {
-      width: min(100%, 390px);
+      width: min(100%, 360px);
       display: grid;
       justify-items: center;
       text-align: center;
     }
 
-    .recovery-briefing-mark {
-      width: 54px;
-      height: 54px;
-      margin-bottom: 27px;
-      border: 1px solid rgba(180, 137, 244, .24);
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(143, 92, 224, .25), rgba(73, 42, 121, .06) 62%, transparent 64%);
-      box-shadow: 0 0 34px rgba(124, 73, 207, .12);
-    }
-
-    .recovery-briefing-eyebrow {
-      margin: 0 0 12px;
-      color: #8f819d;
-      font-size: .58rem;
+    .recovery-briefing-agenda {
+      margin: 0;
+      color: #b99adc;
+      font-size: .72rem;
       font-weight: 760;
       letter-spacing: .18em;
     }
 
-    .recovery-briefing-content h1 {
-      max-width: 330px;
-      margin: 0;
-      color: #f1eaf6;
-      font-size: clamp(1.55rem, 7vw, 2rem);
-      font-weight: 430;
-      line-height: 1.16;
-      letter-spacing: -.025em;
+    .recovery-briefing-time-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 24px;
     }
 
     .recovery-briefing-value {
-      margin-top: 33px;
       color: #f5eff9;
-      font-size: clamp(2.7rem, 14vw, 4rem);
+      font-size: clamp(3rem, 15vw, 4.4rem);
       font-weight: 300;
       font-variant-numeric: tabular-nums;
-      letter-spacing: -.045em;
+      letter-spacing: -.05em;
       line-height: .98;
     }
 
-    .recovery-briefing-label {
-      margin-top: 9px;
-      color: #b494d7;
-      font-size: .58rem;
-      font-weight: 760;
-      letter-spacing: .16em;
+    .recovery-briefing-suffix {
+      color: #84798c;
+      font-size: .74rem;
+      font-weight: 560;
     }
 
-    .recovery-briefing-detail {
-      max-width: 310px;
-      margin: 23px 0 0;
-      color: #8c8294;
-      font-size: .72rem;
-      line-height: 1.58;
-    }
-
-    .recovery-briefing-note {
-      margin: 11px 0 0;
-      color: #625b68;
-      font-size: .58rem;
+    .recovery-briefing-next {
+      margin: 24px 0 0;
+      color: #91879b;
+      font-size: .78rem;
       line-height: 1.45;
     }
 
     .recovery-briefing-continue {
       appearance: none;
-      width: min(100%, 290px);
-      min-height: 49px;
-      margin-top: 36px;
-      border: 1px solid rgba(180, 138, 242, .25);
-      border-radius: 14px;
-      background: rgba(91, 54, 145, .13);
-      color: #e8def1;
+      margin-top: 42px;
+      padding: 10px 18px;
+      border: 0;
+      background: transparent;
+      color: #a99bb5;
       font-size: .72rem;
-      font-weight: 650;
-      letter-spacing: .02em;
+      font-weight: 620;
       cursor: pointer;
     }
 
     .recovery-briefing-continue:is(:hover, :focus-visible) {
-      border-color: rgba(194, 153, 250, .46);
-      background: rgba(111, 68, 177, .2);
+      color: #eee6f4;
       outline: none;
     }
 
     .recovery-briefing-overlay.is-leaving {
-      animation: recoveryBriefingOut .18s ease-in both;
+      animation: recoveryBriefingOut .16s ease-in both;
     }
 
     @keyframes recoveryBriefingIn {
-      from { opacity: 0; transform: scale(1.01); }
-      to { opacity: 1; transform: scale(1); }
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     @keyframes recoveryBriefingOut {
@@ -331,7 +293,7 @@ function closeRecoveryBriefing() {
   const closing = recoveryBriefingOverlay;
   recoveryBriefingOverlay = null;
   closing.classList.add('is-leaving');
-  setTimeout(() => closing.remove(), 180);
+  setTimeout(() => closing.remove(), 160);
 }
 
 function showRecoveryBriefing(status, accountId) {
@@ -341,17 +303,16 @@ function showRecoveryBriefing(status, accountId) {
   overlay.className = 'recovery-briefing-overlay';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-label', 'PAUSE recovery briefing');
+  overlay.setAttribute('aria-label', 'PAUSE routine agenda');
   overlay.innerHTML = `
     <section class="recovery-briefing-content">
-      <div class="recovery-briefing-mark" aria-hidden="true"></div>
-      <p class="recovery-briefing-eyebrow">RECOVERY BRIEFING</p>
-      <h1>${status.title}</h1>
-      <div class="recovery-briefing-value">${status.value}</div>
-      <div class="recovery-briefing-label">${status.label}</div>
-      <p class="recovery-briefing-detail">${status.detail}</p>
-      <p class="recovery-briefing-note">Based on your Recovery Plan, not live location tracking.</p>
-      <button type="button" class="recovery-briefing-continue" data-recovery-briefing-close>Continue to PAUSE</button>
+      <p class="recovery-briefing-agenda">${status.agenda}</p>
+      <div class="recovery-briefing-time-row">
+        <span class="recovery-briefing-value">${status.value}</span>
+        <span class="recovery-briefing-suffix">${status.suffix}</span>
+      </div>
+      <p class="recovery-briefing-next">${status.next}</p>
+      <button type="button" class="recovery-briefing-continue" data-recovery-briefing-close>Continue</button>
     </section>
   `;
   recoveryBriefingLastKey = `${String(accountId)}:${status.phaseKey}`;
