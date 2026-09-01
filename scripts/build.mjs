@@ -26,7 +26,8 @@ const scriptOrder = [
   'src/recoveryPlanPickerStability.js',
   'src/recoveryBriefing.js',
   'src/recoveryThiefLog.js',
-  'src/weeklyReport.js'
+  'src/weeklyReport.js',
+  'src/sleepRoutineStreak.js'
 ];
 
 function stripModuleSyntax(source) {
