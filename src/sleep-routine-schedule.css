@@ -1,0 +1,8 @@
+.recovery-plan-time-grid.recovery-plan-time-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.recovery-plan-copy strong {
+  color: #ded1eb;
+  font-weight: 650;
+}
