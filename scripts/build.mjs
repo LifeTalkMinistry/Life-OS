@@ -67,7 +67,7 @@ function applyRuntimeGuards(file, source) {
       )
       .replace(
         `view.appendChild(PausePanel({\n      state: pauseState,\n      onClose: closePanel\n    }));`,
-        `view.appendChild(RestInsightsSafePanel({\n      onClose: closePanel\n    }));`
+        `view.appendChild(RestInsightsSafePanel({\n      state: pauseState,\n      onClose: closePanel\n    }));`
       );
   }
 
