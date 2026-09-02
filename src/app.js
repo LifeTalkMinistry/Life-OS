@@ -16,6 +16,7 @@ import {
   signOutFromPauseBackend
 } from './auth/backendClient.js';
 import { pullPauseCloudState, pushPauseCloudState } from './sync/pauseSyncClient.js';
+import { reconcilePauseStates } from './sync/pauseSyncReconcile.js';
 import { createOrbGestureController } from './gestures/orbGestures.js';
 import { manilaDateKey } from './manilaTime.js';
 import { playPauseAlarm, primePauseAlarm } from './pauseAlarm.js';
@@ -36,6 +37,7 @@ import {
 const SCORE_PREFERENCE_KEY = 'pause-score-preference-v1';
 const SCORE_PREFERENCE_VERSION = 2;
 const LEGACY_OWNER_KEY = 'pause-legacy-owner-v1';
+const SYNC_META_KEY = 'pause-sync-meta-v1';
 const app = document.querySelector('#app');
 let pauseState = loadPauseState();
 let authState = {
@@ -54,9 +56,11 @@ let tickTimer = null;
 let gestureController = null;
 let syncPushTimer = null;
 let syncPollTimer = null;
-let syncPushInFlight = null;
-let syncPullInFlight = null;
+let syncCycleInFlight = null;
 let syncDirty = false;
+let syncDirtyState = false;
+let syncDirtyPreference = false;
+let dirtyBaseRevision = null;
 let applyingCloudSnapshot = false;
 let lastCloudRevision = 0;
 let renderedManilaDayKey = manilaDateKey();
@@ -64,6 +68,63 @@ let renderedManilaDayKey = manilaDateKey();
 function scorePreferenceStorageKey(accountId = authState.session?.user?.id) {
   const clean = String(accountId ?? '').trim();
   return clean ? `${SCORE_PREFERENCE_KEY}:account:${clean}` : SCORE_PREFERENCE_KEY;
+}
+
+function syncMetaStorageKey(accountId = authState.session?.user?.id) {
+  const clean = String(accountId ?? '').trim();
+  return clean ? `${SYNC_META_KEY}:account:${clean}` : null;
+}
+
+function loadSyncMeta(accountId) {
+  const key = syncMetaStorageKey(accountId);
+  if (!key) return { revision: 0, dirty: false, dirtyState: false, dirtyPreference: false, baseRevision: null };
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || '{}');
+    const revision = Math.max(0, Math.trunc(Number(parsed.revision) || 0));
+    const dirty = Boolean(parsed.dirty);
+    return {
+      revision,
+      dirty,
+      dirtyState: dirty && parsed.dirtyState !== false,
+      dirtyPreference: dirty && Boolean(parsed.dirtyPreference),
+      baseRevision: dirty
+        ? Math.max(0, Math.trunc(Number(parsed.baseRevision) || 0))
+        : null
+    };
+  } catch {
+    return { revision: 0, dirty: false, dirtyState: false, dirtyPreference: false, baseRevision: null };
+  }
+}
+
+function persistSyncMeta() {
+  const key = syncMetaStorageKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      revision: Math.max(0, Math.trunc(Number(lastCloudRevision) || 0)),
+      dirty: syncDirty,
+      dirtyState: syncDirtyState,
+      dirtyPreference: syncDirtyPreference,
+      baseRevision: syncDirty ? Math.max(0, Math.trunc(Number(dirtyBaseRevision) || 0)) : null
+    }));
+  } catch {}
+}
+
+function markSyncClean(revision = lastCloudRevision) {
+  lastCloudRevision = Math.max(0, Math.trunc(Number(revision) || 0));
+  syncDirty = false;
+  syncDirtyState = false;
+  syncDirtyPreference = false;
+  dirtyBaseRevision = null;
+  persistSyncMeta();
+}
+
+function markSyncDirty(kind = 'state') {
+  if (!syncDirty) dirtyBaseRevision = lastCloudRevision;
+  syncDirty = true;
+  if (kind === 'preference') syncDirtyPreference = true;
+  else syncDirtyState = true;
+  persistSyncMeta();
 }
 
 function shouldAdoptLegacy(accountId) {
@@ -117,7 +178,11 @@ function saveScorePreference(next, { notify = true } = {}) {
   try {
     localStorage.setItem(scorePreferenceStorageKey(), JSON.stringify(scorePreference));
   } catch {}
-  if (notify) queueCloudPush();
+  if (notify) queueCloudPush('preference');
+}
+
+function preferencesEqual(left, right) {
+  return JSON.stringify(normalizeScorePreference(left || {})) === JSON.stringify(normalizeScorePreference(right || {}));
 }
 
 function applyCloudSnapshot(snapshot) {
@@ -126,83 +191,151 @@ function applyCloudSnapshot(snapshot) {
   try {
     pauseState = savePauseState(snapshot.state, { notify: false });
     saveScorePreference(snapshot.scorePreference || {}, { notify: false });
-    lastCloudRevision = Math.max(lastCloudRevision, Number(snapshot.revision || 0));
-    syncDirty = false;
+    markSyncClean(snapshot.revision);
   } finally {
     applyingCloudSnapshot = false;
   }
   return true;
 }
 
-async function pushCloudNow() {
-  if (authState.status !== 'authenticated' || !authState.session?.token || applyingCloudSnapshot) return null;
-  if (syncPushInFlight) return syncPushInFlight;
+function reconcileWithCloudSnapshot(snapshot) {
+  if (!snapshot?.exists || !snapshot.state) return false;
+  const remoteRevision = Math.max(0, Math.trunc(Number(snapshot.revision) || 0));
+  const baseRevision = dirtyBaseRevision ?? lastCloudRevision;
+  const remotePreference = normalizeScorePreference(snapshot.scorePreference || {});
+  const reconciliation = syncDirtyState
+    ? reconcilePauseStates(pauseState, snapshot.state, { baseRevision, remoteRevision })
+    : { state: snapshot.state, differsFromRemote: false };
+  const nextPreference = syncDirtyPreference ? scorePreference : remotePreference;
+  const stateNeedsPush = syncDirtyState && reconciliation.differsFromRemote;
+  const preferenceNeedsPush = syncDirtyPreference && !preferencesEqual(nextPreference, remotePreference);
 
-  clearTimeout(syncPushTimer);
-  syncPushTimer = null;
-  const token = authState.session.token;
-  const stateToSend = pauseState;
-  const preferenceToSend = scorePreference;
+  applyingCloudSnapshot = true;
+  try {
+    pauseState = savePauseState(reconciliation.state, { notify: false });
+    saveScorePreference(nextPreference, { notify: false });
+    lastCloudRevision = remoteRevision;
+    syncDirtyState = stateNeedsPush;
+    syncDirtyPreference = preferenceNeedsPush;
+    syncDirty = stateNeedsPush || preferenceNeedsPush;
+    dirtyBaseRevision = syncDirty ? remoteRevision : null;
+    persistSyncMeta();
+  } finally {
+    applyingCloudSnapshot = false;
+  }
 
-  syncPushInFlight = pushPauseCloudState(token, {
-    state: stateToSend,
-    scorePreference: preferenceToSend
-  })
-    .then((snapshot) => {
-      lastCloudRevision = Math.max(lastCloudRevision, Number(snapshot?.revision || 0));
-      syncDirty = false;
-      return snapshot;
-    })
-    .catch((error) => {
-      syncDirty = true;
-      if (error?.status === 401 || error?.status === 403) return null;
-      return null;
-    })
-    .finally(() => {
-      syncPushInFlight = null;
-    });
-
-  return syncPushInFlight;
+  return syncDirty;
 }
 
-function queueCloudPush() {
-  if (authState.status !== 'authenticated' || applyingCloudSnapshot) return;
-  syncDirty = true;
-  clearTimeout(syncPushTimer);
-  syncPushTimer = setTimeout(() => {
-    pushCloudNow();
-  }, 500);
+async function pushCurrentSnapshot(baseRevision = lastCloudRevision) {
+  return pushPauseCloudState(authState.session.token, {
+    state: pauseState,
+    scorePreference,
+    baseRevision
+  });
 }
 
-async function pullCloudNow({ force = false } = {}) {
-  if (authState.status !== 'authenticated' || !authState.session?.token) return null;
-  if (!force && (syncDirty || syncPushInFlight)) return null;
-  if (syncPullInFlight) return syncPullInFlight;
-
-  const token = authState.session.token;
-  syncPullInFlight = pullPauseCloudState(token)
-    .then((snapshot) => {
-      const revision = Number(snapshot?.revision || 0);
-      if (snapshot?.exists && (force || revision > lastCloudRevision)) {
-        applyCloudSnapshot(snapshot);
-        if (screen === 'main') {
-          checkExpired();
-          render();
-        }
-      }
-      return snapshot;
-    })
-    .catch(() => null)
-    .finally(() => {
-      syncPullInFlight = null;
-    });
-
-  return syncPullInFlight;
+function renderAfterSync() {
+  if (screen === 'main') {
+    checkExpired();
+    render();
+  }
 }
 
 async function syncNow() {
-  if (syncDirty) await pushCloudNow();
-  if (!syncDirty) await pullCloudNow();
+  if (authState.status !== 'authenticated' || !authState.session?.token || applyingCloudSnapshot) return null;
+  if (syncCycleInFlight) return syncCycleInFlight;
+
+  clearTimeout(syncPushTimer);
+  syncPushTimer = null;
+
+  syncCycleInFlight = (async () => {
+    let snapshot;
+    try {
+      // Reconnect rule: always read the account authority before any write.
+      snapshot = await pullPauseCloudState(authState.session.token);
+    } catch {
+      return null;
+    }
+
+    if (snapshot?.exists) {
+      if (syncDirty) {
+        reconcileWithCloudSnapshot(snapshot);
+      } else {
+        const remoteRevision = Math.max(0, Math.trunc(Number(snapshot.revision) || 0));
+        if (remoteRevision > lastCloudRevision || lastCloudRevision === 0) {
+          applyCloudSnapshot(snapshot);
+          renderAfterSync();
+        }
+        return snapshot;
+      }
+    } else {
+      lastCloudRevision = 0;
+      if (!syncDirty) {
+        syncDirty = true;
+        syncDirtyState = true;
+        syncDirtyPreference = true;
+      }
+      dirtyBaseRevision = 0;
+      persistSyncMeta();
+    }
+
+    if (!syncDirty) {
+      renderAfterSync();
+      return snapshot;
+    }
+
+    try {
+      const saved = await pushCurrentSnapshot(lastCloudRevision);
+      applyCloudSnapshot(saved);
+      renderAfterSync();
+      return saved;
+    } catch (error) {
+      if (error?.status !== 409 || error?.code !== 'PAUSE_SYNC_CONFLICT') {
+        persistSyncMeta();
+        return null;
+      }
+
+      let conflictSnapshot = error?.details?.snapshot || null;
+      if (!conflictSnapshot?.exists) {
+        try {
+          conflictSnapshot = await pullPauseCloudState(authState.session.token);
+        } catch {
+          return null;
+        }
+      }
+
+      if (!conflictSnapshot?.exists) return null;
+      reconcileWithCloudSnapshot(conflictSnapshot);
+      if (!syncDirty) {
+        renderAfterSync();
+        return conflictSnapshot;
+      }
+
+      try {
+        const retrySaved = await pushCurrentSnapshot(lastCloudRevision);
+        applyCloudSnapshot(retrySaved);
+        renderAfterSync();
+        return retrySaved;
+      } catch {
+        persistSyncMeta();
+        return null;
+      }
+    }
+  })().finally(() => {
+    syncCycleInFlight = null;
+  });
+
+  return syncCycleInFlight;
+}
+
+function queueCloudPush(kind = 'state') {
+  if (authState.status !== 'authenticated' || applyingCloudSnapshot) return;
+  markSyncDirty(kind);
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(() => {
+    syncNow();
+  }, 500);
 }
 
 function startSyncPolling() {
@@ -218,9 +351,11 @@ function stopSyncPolling() {
   clearInterval(syncPollTimer);
   syncPushTimer = null;
   syncPollTimer = null;
+  syncCycleInFlight = null;
   syncDirty = false;
-  syncPushInFlight = null;
-  syncPullInFlight = null;
+  syncDirtyState = false;
+  syncDirtyPreference = false;
+  dirtyBaseRevision = null;
   lastCloudRevision = 0;
 }
 
@@ -233,6 +368,13 @@ async function hydrateAccountState(session) {
   pauseState = loadPauseState({ fallbackToLegacy });
   scorePreference = loadScorePreference({ fallbackToLegacy });
 
+  const syncMeta = loadSyncMeta(accountId);
+  lastCloudRevision = syncMeta.revision;
+  syncDirty = syncMeta.dirty;
+  syncDirtyState = syncMeta.dirtyState;
+  syncDirtyPreference = syncMeta.dirtyPreference;
+  dirtyBaseRevision = syncMeta.baseRevision;
+
   if (session.offline) {
     if (fallbackToLegacy) markLegacyOwner(accountId);
     return;
@@ -241,14 +383,20 @@ async function hydrateAccountState(session) {
   try {
     const snapshot = await pullPauseCloudState(session.token);
     if (snapshot?.exists) {
-      applyCloudSnapshot(snapshot);
+      if (syncDirty) {
+        reconcileWithCloudSnapshot(snapshot);
+        if (syncDirty) await syncNow();
+      } else {
+        applyCloudSnapshot(snapshot);
+      }
     } else {
-      const saved = await pushPauseCloudState(session.token, {
-        state: pauseState,
-        scorePreference
-      });
-      lastCloudRevision = Number(saved?.revision || 0);
-      syncDirty = false;
+      syncDirty = true;
+      syncDirtyState = true;
+      syncDirtyPreference = true;
+      dirtyBaseRevision = 0;
+      lastCloudRevision = 0;
+      persistSyncMeta();
+      await syncNow();
     }
     if (fallbackToLegacy) markLegacyOwner(accountId);
   } catch {
@@ -567,7 +715,7 @@ function changeAuthMode(nextMode) {
 
 async function signOut() {
   clearTimeout(launchTimer);
-  if (syncDirty) await pushCloudNow();
+  if (syncDirty) await syncNow();
   stopSyncPolling();
   signOutFromPauseBackend();
   setPauseStorageAccount(null);
@@ -674,7 +822,7 @@ async function bootstrapAuth() {
 document.addEventListener('keydown', onKeydown);
 window.addEventListener('pause:state-changed', (event) => {
   if (event.detail) pauseState = event.detail;
-  queueCloudPush();
+  queueCloudPush('state');
 });
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && authState.status === 'authenticated' && screen === 'main') {
@@ -722,7 +870,8 @@ window.__PAUSE__ = {
     scorePreference,
     sync: {
       dirty: syncDirty,
-      revision: lastCloudRevision
+      revision: lastCloudRevision,
+      baseRevision: dirtyBaseRevision
     }
   }),
   openInsights,
