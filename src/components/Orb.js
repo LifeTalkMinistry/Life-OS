@@ -13,6 +13,13 @@ function ensurePauseSymbolStyles() {
       gap: 16px;
     }
 
+    .orb-mode-idle .orb,
+    .orb-mode-resting .orb {
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
     .pause-symbol {
       display: flex;
       align-items: center;
@@ -189,7 +196,10 @@ export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
       event.preventDefault();
       gestureHandlers.pointerUp(event);
     });
-    orb.addEventListener('pointercancel', () => gestureHandlers.cancel());
+    orb.addEventListener('pointercancel', (event) => {
+      event.preventDefault();
+      gestureHandlers.pointerCancel?.(event) ?? gestureHandlers.cancel();
+    });
     orb.addEventListener('contextmenu', (event) => event.preventDefault());
     orb.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -200,8 +210,6 @@ export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
     });
   }
 
-  // This click remains as a keyboard/mouse accessibility escape. Pointer holds
-  // normally close automatically on release when no radial option is chosen.
   if (mode === 'menu') {
     orb.addEventListener('click', () => onAction?.('close-menu'));
   }
