@@ -12,6 +12,7 @@ const scriptOrder = [
   'src/components/PauseScore.js',
   'src/components/TodayRing.js',
   'src/components/PausePanel.js',
+  'src/components/RestInsightsSafePanel.js',
   'src/components/PauseTimerPicker.js',
   'src/components/PauseOrbMenu.js',
   'src/auth/backendClient.js',
@@ -63,6 +64,10 @@ function applyRuntimeGuards(file, source) {
       .replace(
         'cancel: () => gestureController.cancel(),',
         'pointerCancel: (event) => gestureController.pointerCancel?.(event),\n    cancel: () => gestureController.cancel(),'
+      )
+      .replace(
+        `view.appendChild(PausePanel({\n      state: pauseState,\n      onClose: closePanel\n    }));`,
+        `view.appendChild(RestInsightsSafePanel({\n      onClose: closePanel\n    }));`
       );
   }
 
