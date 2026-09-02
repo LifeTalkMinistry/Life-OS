@@ -38,6 +38,29 @@ function stripModuleSyntax(source) {
     .replace(/\bexport\s+(?=(?:async\s+)?(?:const|let|var|function|class)\b)/g, '');
 }
 
+function applyRuntimeGuards(file, source) {
+  if (file === 'src/components/PausePanel.js') {
+    source = source.replace(
+      "const historyRows = state.history.slice(0, 20).map((entry) => {",
+      "const historyRows = (Array.isArray(state?.history) ? state.history : [])\n    .filter((entry) => entry && typeof entry === 'object' && Number.isFinite(Number(entry.startAt ?? entry.endedAt)))\n    .slice(0, 20)\n    .map((entry) => {"
+    );
+  }
+
+  if (file === 'src/app.js') {
+    source = source
+      .replace(
+        'pointerUp: () => gestureController.pointerUp(),',
+        'pointerUp: (event) => gestureController.pointerUp(event),'
+      )
+      .replace(
+        'cancel: () => gestureController.cancel(),',
+        'pointerCancel: (event) => gestureController.pointerCancel?.(event),\n    cancel: () => gestureController.cancel(),'
+      );
+  }
+
+  return source;
+}
+
 const cssFiles = [
   'src/styles.css',
   'src/refinements.css',
@@ -54,7 +77,10 @@ const cssFiles = [
 
 const css = cssFiles.map((file) => readFileSync(file, 'utf8')).join('\n\n');
 const js = scriptOrder
-  .map((file) => `// ${file}\n${stripModuleSyntax(readFileSync(file, 'utf8'))}`)
+  .map((file) => {
+    const source = applyRuntimeGuards(file, readFileSync(file, 'utf8'));
+    return `// ${file}\n${stripModuleSyntax(source)}`;
+  })
   .join('\n\n');
 
 const html = `<!doctype html>
