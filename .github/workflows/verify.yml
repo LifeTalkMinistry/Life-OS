@@ -26,3 +26,6 @@ jobs:
 
       - name: Build PAUSE
         run: npm run build
+
+      - name: Verify recovered Rest Insights bundle
+        run: node scripts/verify-rest-insights-build.mjs
