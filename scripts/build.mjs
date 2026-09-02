@@ -19,8 +19,6 @@ const scriptOrder = [
   'src/components/PauseSettingsPanel.js',
   'src/sync/pauseSyncClient.js',
   'src/auth/LoginScreen.js',
-  'src/recoveryStatusCard.js',
-  'src/restInsightsInfo.js',
   'src/app.js',
   'src/recoveryPlan.js',
   'src/sleepRoutineSchedule.js',
