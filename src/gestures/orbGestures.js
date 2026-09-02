@@ -49,8 +49,8 @@ export function createOrbGestureController({
     if (!releaseListenersAttached || typeof window === 'undefined') return;
     window.removeEventListener('pointermove', handleGlobalMove);
     window.removeEventListener('pointerup', handleGlobalRelease);
-    window.removeEventListener('pointercancel', handleGlobalCancel);
-    window.removeEventListener('blur', handleGlobalCancel);
+    window.removeEventListener('pointercancel', handleGlobalPointerCancel);
+    window.removeEventListener('blur', handleGlobalBlur);
     releaseListenersAttached = false;
   };
 
@@ -60,12 +60,15 @@ export function createOrbGestureController({
     if (menuOrb?.isConnected) menuOrb.click();
   };
 
-  const finishHold = (event, allowSelection = true) => {
+  const finishHold = (event, allowSelection = true, fallbackToHighlighted = false) => {
     if (!holding) return false;
 
-    // The release position is authoritative. If the finger leaves a highlighted
-    // option and comes back to the center before release, the gesture cancels.
-    const selected = allowSelection ? dragTargetAt(event) : null;
+    // Prefer the exact release position. On mobile, pointer capture / browser
+    // cancellation can make the final event coordinates unreliable, so the last
+    // visibly highlighted target is a safe fallback when the gesture is ending.
+    const selected = allowSelection
+      ? dragTargetAt(event) || (fallbackToHighlighted ? activeDragTarget : null)
+      : null;
 
     holding = false;
     lastTapAt = 0;
@@ -74,8 +77,6 @@ export function createOrbGestureController({
     detachReleaseListeners();
     clearDragTarget();
 
-    // A hold is a temporary radial gesture. Releasing over a target selects it.
-    // Releasing anywhere else closes the temporary menu and returns to the orb.
     if (selected) selected.click();
     else closeTemporaryHoldMenu();
 
@@ -88,22 +89,26 @@ export function createOrbGestureController({
   };
 
   function handleGlobalRelease(event) {
-    finishHold(event, true);
+    finishHold(event, true, true);
   }
 
-  function handleGlobalCancel(event) {
-    finishHold(event, false);
+  function handleGlobalPointerCancel(event) {
+    // Android browsers may emit pointercancel during a long-press/drag even when
+    // the user is simply releasing. If an option is already highlighted, honor it.
+    finishHold(event, true, true);
+  }
+
+  function handleGlobalBlur(event) {
+    finishHold(event, false, false);
   }
 
   const attachReleaseListeners = () => {
     if (releaseListenersAttached || typeof window === 'undefined') return;
     releaseListenersAttached = true;
-    // The hold view replaces the original orb while the pointer is still down,
-    // so movement and release must be tracked globally.
     window.addEventListener('pointermove', handleGlobalMove, { passive: true });
     window.addEventListener('pointerup', handleGlobalRelease);
-    window.addEventListener('pointercancel', handleGlobalCancel);
-    window.addEventListener('blur', handleGlobalCancel);
+    window.addEventListener('pointercancel', handleGlobalPointerCancel);
+    window.addEventListener('blur', handleGlobalBlur);
   };
 
   return {
@@ -122,12 +127,8 @@ export function createOrbGestureController({
     pointerUp(event) {
       clearHoldTimer();
 
-      // Pointer capture can deliver pointerup back to the original orb even
-      // after the hold view has rendered. If a hold is active, treat that local
-      // pointerup exactly like the global release so the selected radial target
-      // opens instead of being cancelled before the window listener can run.
       if (holding) {
-        finishHold(event, true);
+        finishHold(event, true, true);
         return;
       }
 
@@ -145,6 +146,16 @@ export function createOrbGestureController({
         lastTapAt = 0;
         onSingleTap?.();
       }, doubleTapDelay);
+    },
+
+    pointerCancel(event) {
+      clearHoldTimer();
+      if (holding) {
+        finishHold(event, true, true);
+        return;
+      }
+      clearSingleTimer();
+      lastTapAt = 0;
     },
 
     cancel() {
