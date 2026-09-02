@@ -174,6 +174,39 @@ test('hold, drag over an option, and release selects that option', { concurrency
   }
 });
 
+test('captured local pointerup after a hold still selects the dragged option', { concurrency: false }, async () => {
+  const env = installPointerEnvironment();
+  const menu = createMenuTarget('insights');
+  const events = [];
+  const controller = createOrbGestureController({
+    onHoldStart: () => events.push('hold-start'),
+    onHoldEnd: ({ selected }) => events.push(selected ? 'selected' : 'cancelled'),
+    holdDelay: 18
+  });
+
+  try {
+    controller.pointerDown();
+    await wait(26);
+
+    env.setPointTarget(menu.target);
+    env.listeners.get('pointermove')?.({ clientX: 160, clientY: 210 });
+    assert.equal(menu.classes.has('is-drag-target'), true);
+
+    // Mobile pointer capture can deliver pointerup to the original orb before
+    // the bubbling window pointerup handler. The local release must select too.
+    controller.pointerUp({ clientX: 160, clientY: 210 });
+
+    assert.equal(menu.clicks(), 1);
+    assert.equal(env.getMenuCloseClicks(), 0);
+    assert.equal(menu.classes.has('is-drag-target'), false);
+    assert.deepEqual(events, ['hold-start', 'selected']);
+    assert.equal(env.listeners.has('pointerup'), false);
+  } finally {
+    controller.destroy();
+    env.restore();
+  }
+});
+
 test('dragging over an option then back to empty center before release cancels', { concurrency: false }, async () => {
   const env = installPointerEnvironment();
   const menu = createMenuTarget('settings');
