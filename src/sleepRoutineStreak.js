@@ -278,9 +278,19 @@ function pauseSleepStreakRender() {
     <p>ORB-tracked time · ${pauseSleepStreakFormatMinutes(PAUSE_SLEEP_STREAK_MIN_MINUTES)} minimum · 90% of Planned Sleep</p>
   `;
 
-  if (!existing) {
+  // Rest Insights is fundamentally a rolling 7-day view. Keep that original hierarchy
+  // intact and treat the streak as an additional insight rather than placing it above it.
+  const sevenDayTitle = [...panel.querySelectorAll('.pause-insight-section-title')]
+    .find((node) => String(node.textContent || '').trim() === 'YOUR 7-DAY RHYTHM');
+  const sevenDaySection = sevenDayTitle?.closest('.pause-insight-section');
+
+  if (sevenDaySection) {
+    if (card.previousElementSibling !== sevenDaySection) {
+      sevenDaySection.insertAdjacentElement('afterend', card);
+    }
+  } else if (!existing) {
     const anchor = panel.querySelector('.pause-rhythm-hero');
-    if (anchor) anchor.insertAdjacentElement('beforebegin', card);
+    if (anchor) anchor.insertAdjacentElement('afterend', card);
     else panel.querySelector('.system-panel-header')?.insertAdjacentElement('afterend', card);
   }
 }
