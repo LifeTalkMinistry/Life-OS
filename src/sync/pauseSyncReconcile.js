@@ -83,11 +83,21 @@ function latestHistoryActivity(history = []) {
   return history.reduce((latest, entry) => Math.max(latest, entryMutationAt(entry)), 0);
 }
 
+function latestCompletedAt(history = []) {
+  return history.reduce((latest, entry) => Math.max(latest, finiteTimestamp(entry?.endedAt)), 0);
+}
+
+function invalidateActiveBehindCompletedHistory(active, history) {
+  if (!active) return null;
+  return latestCompletedAt(history) > finiteTimestamp(active.startAt) ? null : active;
+}
+
 function resolveActive(local, remote, mergedHistory, { baseRevision = 0, remoteRevision = 0 } = {}) {
   const localActive = local.active;
   const remoteActive = remote.active;
   const remoteAdvanced = Number(remoteRevision || 0) > Number(baseRevision || 0);
   const latestRemoteHistoryAt = latestHistoryActivity(remote.history);
+  let resolved = null;
 
   if (!localActive && !remoteActive) return null;
 
@@ -100,7 +110,8 @@ function resolveActive(local, remote, mergedHistory, { baseRevision = 0, remoteR
   }
 
   if (localActive && remoteActive && String(localActive.id) === String(remoteActive.id)) {
-    return { ...remoteActive };
+    resolved = { ...remoteActive };
+    return invalidateActiveBehindCompletedHistory(resolved, mergedHistory);
   }
 
   if (localActive && !remoteActive) {
@@ -108,11 +119,13 @@ function resolveActive(local, remote, mergedHistory, { baseRevision = 0, remoteR
     if (remoteAdvanced && latestRemoteHistoryAt >= localStartedAt) {
       return null;
     }
-    return { ...localActive };
+    resolved = { ...localActive };
+    return invalidateActiveBehindCompletedHistory(resolved, mergedHistory);
   }
 
   if (!localActive && remoteActive) {
-    return { ...remoteActive };
+    resolved = { ...remoteActive };
+    return invalidateActiveBehindCompletedHistory(resolved, mergedHistory);
   }
 
   const localStartedAt = finiteTimestamp(localActive?.startAt);
@@ -120,11 +133,12 @@ function resolveActive(local, remote, mergedHistory, { baseRevision = 0, remoteR
   const remoteActivityAt = Math.max(remoteStartedAt, latestRemoteHistoryAt);
 
   if (localStartedAt > remoteActivityAt) {
-    return { ...localActive };
+    resolved = { ...localActive };
+  } else {
+    resolved = { ...remoteActive };
   }
 
-  if (hasHistoryId(mergedHistory, localActive?.id)) return { ...remoteActive };
-  return { ...remoteActive };
+  return invalidateActiveBehindCompletedHistory(resolved, mergedHistory);
 }
 
 export function reconcilePauseStates(localState, remoteState, options = {}) {
