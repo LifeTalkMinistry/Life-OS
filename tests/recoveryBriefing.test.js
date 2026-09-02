@@ -67,6 +67,39 @@ test('routine agenda names the sleep block without protected-recovery language',
   assert.equal(JSON.stringify(status).includes('Protected'), false);
 });
 
+test('sleep routine changes to remaining sleep opportunity when Sleep has not started', () => {
+  const status = deriveRecoveryBriefingStatus(
+    nightShiftPlan({ workDays: [1] }),
+    new Date(2026, 8, 1, 10, 0, 0),
+    { active: null, history: [] }
+  );
+
+  assert.equal(status.phase, 'recovery');
+  assert.equal(status.agenda, 'NOT SLEEPING YET');
+  assert.equal(status.value, '7h 45m');
+  assert.equal(status.message, 'available if you sleep now');
+  assert.equal(status.next, 'Wake Target · 5:45 PM');
+  assert.equal(status.action, 'start-sleep');
+  assert.equal(status.actionLabel, 'Start Sleep');
+});
+
+test('active Sleep keeps the normal Sleep Routine state', () => {
+  const status = deriveRecoveryBriefingStatus(
+    nightShiftPlan({ workDays: [1] }),
+    new Date(2026, 8, 1, 10, 0, 0),
+    {
+      active: {
+        label: 'Sleep',
+        startAt: new Date(2026, 8, 1, 9, 50, 0).getTime()
+      },
+      history: []
+    }
+  );
+
+  assert.equal(status.agenda, 'SLEEP ROUTINE');
+  assert.equal(status.actionLabel, 'Continue');
+});
+
 test('declared sleep start stays fixed even when commute plus wind-down would end earlier', () => {
   const plan = nightShiftPlan({
     workDays: [1],
