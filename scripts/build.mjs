@@ -45,6 +45,10 @@ function applyRuntimeSafety(file, source) {
         '  const insights = buildBoundedRestInsights(state);'
       )
       .replace(
+        '  const audit = restAuditForDay(state, dayKey);',
+        '  const audit = buildBoundedRestAuditForDay(state, dayKey);'
+      )
+      .replace(
         'const historyRows = state.history.slice(0, 20).map((entry) => {',
         "const historyRows = (Array.isArray(state?.history) ? state.history : [])\n    .filter((entry) => entry && typeof entry === 'object' && Number.isFinite(Number(entry.startAt ?? entry.endedAt)))\n    .slice(0, 20)\n    .map((entry) => {"
       )
@@ -67,10 +71,12 @@ function applyRuntimeSafety(file, source) {
   }
 
   if (file === 'src/weeklyReport.js') {
-    source = source.replace(
-      /  const pauseWeeklyObserver = new MutationObserver\(pauseWeeklyReconcile\);\n  pauseWeeklyObserver\.observe\(document\.documentElement, \{ childList: true, subtree: true \}\);\n  const pauseWeeklyInterval = setInterval\(pauseWeeklyReconcile, 1200\);\n  pauseWeeklyInterval\.unref\?\.\(\);/,
-      "  window.addEventListener('pause:insights-opened', pauseWeeklyReconcile);"
-    );
+    source = source
+      .replace(
+        /  const pauseWeeklyObserver = new MutationObserver\(pauseWeeklyReconcile\);\n  pauseWeeklyObserver\.observe\(document\.documentElement, \{ childList: true, subtree: true \}\);\n  const pauseWeeklyInterval = setInterval\(pauseWeeklyReconcile, 1200\);\n  pauseWeeklyInterval\.unref\?\.\(\);/,
+        "  window.addEventListener('pause:insights-opened', pauseWeeklyReconcile);"
+      )
+      .replace('Your Monday–Sunday recovery report is ready.', 'Your Monday–Sunday Weekly Report is ready.');
   }
 
   if (file === 'src/sleepRoutineStreak.js') {
