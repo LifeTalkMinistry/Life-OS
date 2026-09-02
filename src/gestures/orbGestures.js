@@ -119,9 +119,17 @@ export function createOrbGestureController({
       }, holdDelay);
     },
 
-    pointerUp() {
+    pointerUp(event) {
       clearHoldTimer();
-      if (finishHold(null, false)) return;
+
+      // Pointer capture can deliver pointerup back to the original orb even
+      // after the hold view has rendered. If a hold is active, treat that local
+      // pointerup exactly like the global release so the selected radial target
+      // opens instead of being cancelled before the window listener can run.
+      if (holding) {
+        finishHold(event, true);
+        return;
+      }
 
       const now = Date.now();
       if (lastTapAt && now - lastTapAt <= doubleTapDelay) {
