@@ -6,6 +6,7 @@ const scriptOrder = [
   'src/manilaTime.js',
   'src/pauseAlarm.js',
   'src/restState.js',
+  'src/components/RestInsightsAsyncRuntime.js',
   'src/components/Brand.js',
   'src/components/Orb.js',
   'src/components/PauseScore.js',
@@ -46,8 +47,12 @@ function applyRuntimeGuards(file, source) {
         "const historyRows = (Array.isArray(state?.history) ? state.history : [])\n    .filter((entry) => entry && typeof entry === 'object' && Number.isFinite(Number(entry.startAt ?? entry.endedAt)))\n    .slice(0, 20)\n    .map((entry) => {"
       )
       .replace(
+        '  const insights = restInsights(state);',
+        '  const insights = buildBoundedRestInsights(state);'
+      )
+      .replace(
         '  renderContent();\n\n  panel.addEventListener',
-        `  try {\n    renderContent();\n    if (typeof window !== 'undefined') window.__PAUSE_INSIGHTS_ERROR__ = null;\n  } catch (error) {\n    const message = String(error?.stack || error?.message || error || 'Unknown Rest Insights error');\n    if (typeof window !== 'undefined') window.__PAUSE_INSIGHTS_ERROR__ = message;\n    panel.innerHTML = \`\n      \${panelHeader('Rest Insights')}\n      <p class="system-panel-intro">Rest Insights opened, but PAUSE hit a runtime error while calculating your data.</p>\n      <div class="pause-audit-empty" style="text-align:left;word-break:break-word">\n        <strong style="display:block;margin-bottom:8px;color:#d8c7ef">DIAGNOSTIC ERROR</strong>\n        <span data-pause-insights-error>\${escapeHtml(message)}</span>\n      </div>\n      <p class="pause-insight-note">Take a screenshot of this message so the exact failing line can be fixed.</p>\n    \`;\n  }\n\n  panel.addEventListener`
+        `  panel.innerHTML = \`\n    \${panelHeader('Rest Insights')}\n    <p class="system-panel-intro">Loading your recorded rest data…</p>\n    <p class="pause-live-data-note">Preparing Rest Insights</p>\n    <div class="pause-audit-empty">PAUSE is opening Rest Insights without blocking the app.</div>\n  \`;\n\n  setTimeout(() => {\n    try {\n      renderContent();\n      if (typeof window !== 'undefined') window.__PAUSE_INSIGHTS_ERROR__ = null;\n    } catch (error) {\n      const message = String(error?.stack || error?.message || error || 'Unknown Rest Insights error');\n      if (typeof window !== 'undefined') window.__PAUSE_INSIGHTS_ERROR__ = message;\n      panel.innerHTML = \`\n        \${panelHeader('Rest Insights')}\n        <p class="system-panel-intro">Rest Insights opened, but PAUSE hit a runtime error while preparing your data.</p>\n        <div class="pause-audit-empty" style="text-align:left;word-break:break-word">\n          <strong style="display:block;margin-bottom:8px;color:#d8c7ef">DIAGNOSTIC ERROR</strong>\n          <span data-pause-insights-error>\${escapeHtml(message)}</span>\n        </div>\n      \`;\n    }\n  }, 80);\n\n  panel.addEventListener`
       );
   }
 
