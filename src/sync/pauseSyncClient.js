@@ -21,6 +21,7 @@ async function parseSyncResponse(response) {
     const error = new Error(payload?.message || `PAUSE sync failed with status ${response.status}.`);
     error.status = response.status;
     error.code = payload?.code || null;
+    error.details = payload?.details || null;
     throw error;
   }
   return payload;
@@ -52,8 +53,12 @@ export async function pullPauseCloudState(token) {
   return syncRequest('GET', token);
 }
 
-export async function pushPauseCloudState(token, { state, scorePreference }) {
-  return syncRequest('PUT', token, { state, scorePreference });
+export async function pushPauseCloudState(token, { state, scorePreference, baseRevision = 0 }) {
+  return syncRequest('PUT', token, {
+    state,
+    scorePreference,
+    baseRevision: Math.max(0, Math.trunc(Number(baseRevision) || 0))
+  });
 }
 
 export { PAUSE_SYNC_PATH };
