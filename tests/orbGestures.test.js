@@ -192,8 +192,6 @@ test('captured local pointerup after a hold still selects the dragged option', {
     env.listeners.get('pointermove')?.({ clientX: 160, clientY: 210 });
     assert.equal(menu.classes.has('is-drag-target'), true);
 
-    // Mobile pointer capture can deliver pointerup to the original orb before
-    // the bubbling window pointerup handler. The local release must select too.
     controller.pointerUp({ clientX: 160, clientY: 210 });
 
     assert.equal(menu.clicks(), 1);
@@ -201,6 +199,39 @@ test('captured local pointerup after a hold still selects the dragged option', {
     assert.equal(menu.classes.has('is-drag-target'), false);
     assert.deepEqual(events, ['hold-start', 'selected']);
     assert.equal(env.listeners.has('pointerup'), false);
+  } finally {
+    controller.destroy();
+    env.restore();
+  }
+});
+
+test('mobile pointercancel selects the last highlighted option', { concurrency: false }, async () => {
+  const env = installPointerEnvironment();
+  const menu = createMenuTarget('settings');
+  const events = [];
+  const controller = createOrbGestureController({
+    onHoldStart: () => events.push('hold-start'),
+    onHoldEnd: ({ selected }) => events.push(selected ? 'selected' : 'cancelled'),
+    holdDelay: 18
+  });
+
+  try {
+    controller.pointerDown();
+    await wait(26);
+
+    env.setPointTarget(menu.target);
+    env.listeners.get('pointermove')?.({ clientX: 110, clientY: 170 });
+    assert.equal(menu.classes.has('is-drag-target'), true);
+
+    // Simulate Android cancelling the pointer sequence while the option remains
+    // visibly highlighted. The user's selection should still be honored.
+    env.setPointTarget(null);
+    env.listeners.get('pointercancel')?.({ clientX: 0, clientY: 0 });
+
+    assert.equal(menu.clicks(), 1);
+    assert.equal(env.getMenuCloseClicks(), 0);
+    assert.equal(menu.classes.has('is-drag-target'), false);
+    assert.deepEqual(events, ['hold-start', 'selected']);
   } finally {
     controller.destroy();
     env.restore();
