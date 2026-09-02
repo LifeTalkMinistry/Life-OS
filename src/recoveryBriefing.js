@@ -1,3 +1,5 @@
+import { loadPauseState, startRest } from './restState.js';
+
 const RECOVERY_BRIEFING_POLL_MS = 500;
 const RECOVERY_BRIEFING_LOOKAHEAD_DAYS = 8;
 let recoveryBriefingOverlay = null;
@@ -166,7 +168,48 @@ function briefingNextAgenda(plan, cycle, phase) {
   return { label: 'Wake', at: cycle.wakeTargetAt };
 }
 
-export function deriveRecoveryBriefingStatus(rawPlan, nowValue = new Date()) {
+function briefingIsSleep(entry) {
+  return String(entry?.label || '').trim().toLowerCase() === 'sleep';
+}
+
+function briefingSessionWindow(entry) {
+  const startAt = Number(entry?.startAt);
+  if (!Number.isFinite(startAt)) return null;
+  const explicitEndAt = Number(entry?.endedAt ?? entry?.endAt);
+  const endedAt = Number.isFinite(explicitEndAt) && explicitEndAt >= startAt
+    ? explicitEndAt
+    : null;
+  return { startAt, endedAt };
+}
+
+function briefingSleepContext(restState, cycle) {
+  if (!restState || typeof restState !== 'object') return null;
+
+  const cycleStart = cycle.recoveryStartAt.getTime();
+  const cycleEnd = cycle.wakeTargetAt.getTime();
+  const active = restState.active || null;
+  const activeWindow = briefingSessionWindow(active);
+  const activeSleep = briefingIsSleep(active)
+    && activeWindow
+    && activeWindow.startAt < cycleEnd
+    && (activeWindow.endedAt == null || activeWindow.endedAt > cycleStart);
+
+  const recordedSleep = (Array.isArray(restState.history) ? restState.history : []).some((entry) => {
+    if (!briefingIsSleep(entry)) return false;
+    const window = briefingSessionWindow(entry);
+    if (!window) return false;
+    const endedAt = window.endedAt ?? window.startAt;
+    return window.startAt < cycleEnd && endedAt > cycleStart;
+  });
+
+  return {
+    activeSleep: Boolean(activeSleep),
+    sleepStarted: Boolean(activeSleep || recordedSleep),
+    canStartSleep: !active
+  };
+}
+
+export function deriveRecoveryBriefingStatus(rawPlan, nowValue = new Date(), restState = undefined) {
   const plan = briefingPlan(rawPlan);
   const now = nowValue instanceof Date ? new Date(nowValue.getTime()) : new Date(nowValue);
   if (!plan.setupComplete || !plan.workDays.length || Number.isNaN(now.getTime())) return null;
@@ -192,6 +235,22 @@ export function deriveRecoveryBriefingStatus(rawPlan, nowValue = new Date()) {
             ? cycle.recoveryStartAt
             : cycle.wakeTargetAt;
 
+    const sleepContext = phase === 'recovery' ? briefingSleepContext(restState, cycle) : null;
+    if (phase === 'recovery' && sleepContext && !sleepContext.sleepStarted) {
+      return {
+        phase,
+        phaseKey: `${cycle.key}:${phase}:not-started`,
+        agenda: 'NOT SLEEPING YET',
+        value: briefingFormatRemaining(cycle.wakeTargetAt.getTime() - nowMs),
+        suffix: '',
+        message: 'available if you sleep now',
+        next: `Wake Target · ${briefingFormatClock(cycle.wakeTargetAt)}`,
+        targetAt: cycle.wakeTargetAt.getTime(),
+        action: sleepContext.canStartSleep ? 'start-sleep' : 'continue',
+        actionLabel: sleepContext.canStartSleep ? 'Start Sleep' : 'Continue'
+      };
+    }
+
     return {
       phase,
       phaseKey: `${cycle.key}:${phase}`,
@@ -206,8 +265,11 @@ export function deriveRecoveryBriefingStatus(rawPlan, nowValue = new Date()) {
               : 'SLEEP ROUTINE',
       value: briefingFormatRemaining(phaseEndAt.getTime() - nowMs),
       suffix: 'left',
+      message: '',
       next: `Next · ${next.label} — ${briefingFormatClock(next.at)}`,
-      targetAt: phaseEndAt.getTime()
+      targetAt: phaseEndAt.getTime(),
+      action: 'continue',
+      actionLabel: 'Continue'
     };
   }
 
@@ -219,8 +281,11 @@ export function deriveRecoveryBriefingStatus(rawPlan, nowValue = new Date()) {
     agenda: 'NEXT SLEEP ROUTINE',
     value: briefingFormatRemaining(nextCycle.recoveryStartAt.getTime() - nowMs),
     suffix: 'away',
+    message: '',
     next: `Starts · ${briefingFormatFutureClock(nextCycle.recoveryStartAt, now)}`,
-    targetAt: nextCycle.recoveryStartAt.getTime()
+    targetAt: nextCycle.recoveryStartAt.getTime(),
+    action: 'continue',
+    actionLabel: 'Continue'
   };
 }
 
@@ -278,11 +343,22 @@ function ensureRecoveryBriefingStyles() {
       font-weight: 560;
     }
 
+    .recovery-briefing-message {
+      margin: 14px 0 0;
+      color: #b8adc0;
+      font-size: .78rem;
+      line-height: 1.45;
+    }
+
     .recovery-briefing-next {
       margin: 24px 0 0;
       color: #91879b;
       font-size: .78rem;
       line-height: 1.45;
+    }
+
+    .recovery-briefing-message + .recovery-briefing-next {
+      margin-top: 8px;
     }
 
     .recovery-briefing-continue {
@@ -295,6 +371,11 @@ function ensureRecoveryBriefingStyles() {
       font-size: .72rem;
       font-weight: 620;
       cursor: pointer;
+    }
+
+    .recovery-briefing-continue[data-briefing-action="start-sleep"] {
+      color: #eee6f4;
+      font-weight: 700;
     }
 
     .recovery-briefing-continue:is(:hover, :focus-visible) {
@@ -332,6 +413,16 @@ function closeRecoveryBriefing() {
   setTimeout(() => closing.remove(), 160);
 }
 
+function startSleepFromBriefing() {
+  const state = loadPauseState();
+  if (state.active) {
+    closeRecoveryBriefing();
+    return;
+  }
+  startRest(state, 'Sleep');
+  closeRecoveryBriefing();
+}
+
 function showRecoveryBriefing(status, accountId) {
   if (!status || recoveryBriefingOverlay) return;
   ensureRecoveryBriefingStyles();
@@ -340,20 +431,29 @@ function showRecoveryBriefing(status, accountId) {
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-label', 'PAUSE routine agenda');
+  const message = status.message
+    ? `<p class="recovery-briefing-message">${status.message}</p>`
+    : '';
+  const action = status.action || 'continue';
+  const actionLabel = status.actionLabel || 'Continue';
   overlay.innerHTML = `
     <section class="recovery-briefing-content">
       <p class="recovery-briefing-agenda">${status.agenda}</p>
       <div class="recovery-briefing-time-row">
         <span class="recovery-briefing-value">${status.value}</span>
-        <span class="recovery-briefing-suffix">${status.suffix}</span>
+        ${status.suffix ? `<span class="recovery-briefing-suffix">${status.suffix}</span>` : ''}
       </div>
+      ${message}
       <p class="recovery-briefing-next">${status.next}</p>
-      <button type="button" class="recovery-briefing-continue" data-recovery-briefing-close>Continue</button>
+      <button type="button" class="recovery-briefing-continue" data-recovery-briefing-close data-briefing-action="${action}">${actionLabel}</button>
     </section>
   `;
   recoveryBriefingLastKey = `${String(accountId)}:${status.phaseKey}`;
   recoveryBriefingResumePending = false;
-  overlay.querySelector('[data-recovery-briefing-close]')?.addEventListener('click', closeRecoveryBriefing);
+  overlay.querySelector('[data-recovery-briefing-close]')?.addEventListener('click', () => {
+    if (action === 'start-sleep') startSleepFromBriefing();
+    else closeRecoveryBriefing();
+  });
   recoveryBriefingOverlay = overlay;
   document.body.appendChild(overlay);
   overlay.querySelector('[data-recovery-briefing-close]')?.focus({ preventScroll: true });
@@ -370,7 +470,8 @@ function reconcileRecoveryBriefing() {
   const plan = window.__PAUSE_RECOVERY_PLAN__?.getPlan?.();
   if (!plan || plan.setupComplete !== true || plan.nudgeConsentComplete !== true) return;
 
-  const status = deriveRecoveryBriefingStatus(plan, new Date());
+  const restState = pause.pauseState || loadPauseState();
+  const status = deriveRecoveryBriefingStatus(plan, new Date(), restState);
   if (!status) {
     recoveryBriefingResumePending = false;
     return;
