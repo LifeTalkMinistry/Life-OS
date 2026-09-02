@@ -187,7 +187,7 @@ export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
     orb.addEventListener('pointerup', (event) => {
       if (event.target.closest('button')) return;
       event.preventDefault();
-      gestureHandlers.pointerUp();
+      gestureHandlers.pointerUp(event);
     });
     orb.addEventListener('pointercancel', () => gestureHandlers.cancel());
     orb.addEventListener('contextmenu', (event) => event.preventDefault());
