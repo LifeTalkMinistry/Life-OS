@@ -12,7 +12,6 @@ const scriptOrder = [
   'src/components/PauseScore.js',
   'src/components/TodayRing.js',
   'src/components/PausePanel.js',
-  'src/components/RestInsightsSafePanel.js',
   'src/components/PauseTimerPicker.js',
   'src/components/PauseOrbMenu.js',
   'src/auth/backendClient.js',
@@ -38,20 +37,20 @@ function stripModuleSyntax(source) {
     .replace(/\bexport\s+(?=(?:async\s+)?(?:const|let|var|function|class)\b)/g, '');
 }
 
-function applyRuntimeGuards(file, source) {
+function applyRuntimeSafety(file, source) {
   if (file === 'src/components/PausePanel.js') {
     source = source
-      .replace(
-        "const historyRows = state.history.slice(0, 20).map((entry) => {",
-        "const historyRows = (Array.isArray(state?.history) ? state.history : [])\n    .filter((entry) => entry && typeof entry === 'object' && Number.isFinite(Number(entry.startAt ?? entry.endedAt)))\n    .slice(0, 20)\n    .map((entry) => {"
-      )
       .replace(
         '  const insights = restInsights(state);',
         '  const insights = buildBoundedRestInsights(state);'
       )
       .replace(
-        '  renderContent();\n\n  panel.addEventListener',
-        `  panel.innerHTML = \`\n    \${panelHeader('Rest Insights')}\n    <p class="system-panel-intro">Loading your recorded rest data…</p>\n    <p class="pause-live-data-note">Preparing Rest Insights</p>\n    <div class="pause-audit-empty">PAUSE is opening Rest Insights without blocking the app.</div>\n  \`;\n\n  setTimeout(() => {\n    try {\n      renderContent();\n      if (typeof window !== 'undefined') window.__PAUSE_INSIGHTS_ERROR__ = null;\n    } catch (error) {\n      const message = String(error?.stack || error?.message || error || 'Unknown Rest Insights error');\n      if (typeof window !== 'undefined') window.__PAUSE_INSIGHTS_ERROR__ = message;\n      panel.innerHTML = \`\n        \${panelHeader('Rest Insights')}\n        <p class="system-panel-intro">Rest Insights opened, but PAUSE hit a runtime error while preparing your data.</p>\n        <div class="pause-audit-empty" style="text-align:left;word-break:break-word">\n          <strong style="display:block;margin-bottom:8px;color:#d8c7ef">DIAGNOSTIC ERROR</strong>\n          <span data-pause-insights-error>\${escapeHtml(message)}</span>\n        </div>\n      \`;\n    }\n  }, 80);\n\n  panel.addEventListener`
+        'const historyRows = state.history.slice(0, 20).map((entry) => {',
+        "const historyRows = (Array.isArray(state?.history) ? state.history : [])\n    .filter((entry) => entry && typeof entry === 'object' && Number.isFinite(Number(entry.startAt ?? entry.endedAt)))\n    .slice(0, 20)\n    .map((entry) => {"
+      )
+      .replace(
+        '    panel.scrollTop = resetScroll ? 0 : previousScrollTop;\n  };',
+        "    panel.scrollTop = resetScroll ? 0 : previousScrollTop;\n    if (!selectedDayKey) queueMicrotask(() => window.dispatchEvent(new CustomEvent('pause:insights-opened')));\n  };"
       );
   }
 
@@ -64,11 +63,21 @@ function applyRuntimeGuards(file, source) {
       .replace(
         'cancel: () => gestureController.cancel(),',
         'pointerCancel: (event) => gestureController.pointerCancel?.(event),\n    cancel: () => gestureController.cancel(),'
-      )
-      .replace(
-        `view.appendChild(PausePanel({\n      state: pauseState,\n      onClose: closePanel\n    }));`,
-        `view.appendChild(RestInsightsSafePanel({\n      state: pauseState,\n      onClose: closePanel\n    }));`
       );
+  }
+
+  if (file === 'src/weeklyReport.js') {
+    source = source.replace(
+      /  const pauseWeeklyObserver = new MutationObserver\(pauseWeeklyReconcile\);\n  pauseWeeklyObserver\.observe\(document\.documentElement, \{ childList: true, subtree: true \}\);\n  const pauseWeeklyInterval = setInterval\(pauseWeeklyReconcile, 1200\);\n  pauseWeeklyInterval\.unref\?\.\(\);/,
+      "  window.addEventListener('pause:insights-opened', pauseWeeklyReconcile);"
+    );
+  }
+
+  if (file === 'src/sleepRoutineStreak.js') {
+    source = source.replace(
+      /  const observer = new MutationObserver\(pauseSleepStreakQueueRender\);\n  observer\.observe\(document\.documentElement, \{ childList: true, subtree: true \}\);/,
+      "  window.addEventListener('pause:insights-opened', pauseSleepStreakQueueRender);"
+    );
   }
 
   return source;
@@ -91,7 +100,7 @@ const cssFiles = [
 const css = cssFiles.map((file) => readFileSync(file, 'utf8')).join('\n\n');
 const js = scriptOrder
   .map((file) => {
-    const source = applyRuntimeGuards(file, readFileSync(file, 'utf8'));
+    const source = applyRuntimeSafety(file, readFileSync(file, 'utf8'));
     return `// ${file}\n${stripModuleSyntax(source)}`;
   })
   .join('\n\n');
