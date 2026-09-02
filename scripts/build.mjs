@@ -20,6 +20,7 @@ const scriptOrder = [
   'src/sync/pauseSyncClient.js',
   'src/sync/pauseSyncReconcile.js',
   'src/auth/LoginScreen.js',
+  'src/recoveryStatusCard.js',
   'src/app.js',
   'src/recoveryPlan.js',
   'src/sleepRoutineSchedule.js',
@@ -69,6 +70,13 @@ function applyRuntimeSafety(file, source) {
         'cancel: () => gestureController.cancel(),',
         'pointerCancel: (event) => gestureController.pointerCancel?.(event),\n    cancel: () => gestureController.cancel(),'
       );
+  }
+
+  if (file === 'src/recoveryStatusCard.js') {
+    source = source.replace(
+      /export function initializeRecoveryStatusCard\(\) \{\n  if \(typeof document === 'undefined' \|\| recoveryObserver\) return;\n  ensureRecoveryStyles\(\);\n  recoveryObserver = new MutationObserver\(queueRecoveryScan\);\n  recoveryObserver\.observe\(document\.documentElement, \{ childList: true, subtree: true \}\);\n  queueRecoveryScan\(\);\n\}/,
+      "export function initializeRecoveryStatusCard() {\n  if (typeof document === 'undefined' || recoveryObserver) return;\n  ensureRecoveryStyles();\n  recoveryObserver = { disconnect() {} };\n  window.addEventListener('pause:insights-opened', queueRecoveryScan);\n  window.addEventListener('pause:state-changed', queueRecoveryScan);\n  window.addEventListener('focus', queueRecoveryScan);\n  queueRecoveryScan();\n}"
+    );
   }
 
   if (file === 'src/weeklyReport.js') {
