@@ -6,3 +6,11 @@
   color: #ded1eb;
   font-weight: 650;
 }
+
+/* Rest Insights surface cleanup: keep the feature intact, remove only the
+   redundant eyebrow and explanatory copy from the visible panel. */
+.pause-view-insights .system-panel-eyebrow,
+.pause-view-insights > .system-panel-intro,
+.pause-view-insights > .pause-live-data-note {
+  display: none !important;
+}
