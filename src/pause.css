@@ -67,6 +67,13 @@
   transform: translateX(-50%) !important;
 }
 
+/* Keep Rest Insights fully available through Hold for More, but remove the
+ * redundant direct shortcut from the idle home screen. This is presentation
+ * only: the component, panel, data, and menu routing remain untouched. */
+.pause-main-screen > .orb-stage > .pause-menu-carousel {
+  display: none !important;
+}
+
 .pause-main-screen .orb-content {
   width: 100%;
   text-align: center;
