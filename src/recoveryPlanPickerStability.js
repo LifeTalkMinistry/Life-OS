@@ -212,3 +212,166 @@ if (typeof window !== 'undefined' && pauseDayOffBaseNormalize && pauseDayOffBase
   }
   renderOverlay?.();
 }
+
+const pauseRecoveryInfoObservedCards = new WeakSet();
+
+function pauseInstallRecoveryInfoStyles() {
+  if (document.querySelector('#pause-recovery-info-style')) return;
+  const style = document.createElement('style');
+  style.id = 'pause-recovery-info-style';
+  style.textContent = `
+    .pause-recovery-status-label-row {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 18px;
+    }
+
+    .pause-recovery-info-button {
+      appearance: none;
+      width: 17px;
+      height: 17px;
+      padding: 0;
+      border: 1px solid rgba(185, 154, 220, .38);
+      border-radius: 50%;
+      background: rgba(111, 72, 168, .08);
+      color: #a997b9;
+      display: inline-grid;
+      place-items: center;
+      font-size: .62rem;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .pause-recovery-info-button:hover,
+    .pause-recovery-info-button:focus-visible,
+    .pause-recovery-info-button[aria-expanded='true'] {
+      border-color: rgba(199, 166, 245, .62);
+      color: #e4d8f0;
+      background: rgba(112, 70, 184, .18);
+      outline: none;
+    }
+
+    .pause-recovery-info-popover {
+      max-width: 270px;
+      margin: 8px auto 0;
+      padding: 10px 12px;
+      border: 1px solid rgba(166, 127, 224, .18);
+      border-radius: 11px;
+      background: rgba(12, 8, 24, .92);
+      color: #91879c;
+      font-size: .67rem;
+      line-height: 1.5;
+      text-align: center;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, .22);
+    }
+
+    .pause-recovery-info-popover strong {
+      color: #c8b9d5;
+      font-weight: 620;
+    }
+
+    .pause-recovery-info-popover[hidden] { display: none; }
+  `;
+  document.head.appendChild(style);
+}
+
+function pauseCloseRecoveryInfo(card) {
+  const button = card?.querySelector('[data-recovery-info-button]');
+  const popover = card?.querySelector('[data-recovery-info-popover]');
+  if (!button || !popover) return;
+  button.setAttribute('aria-expanded', 'false');
+  popover.hidden = true;
+}
+
+function pauseEnhanceRecoveryStatusInfo(card) {
+  if (!card || card.dataset.recoveryInfoEnhanced === 'true') return;
+  const copy = card.querySelector('.pause-recovery-status-copy');
+  const value = card.querySelector('.pause-recovery-status-value');
+  if (!copy || !value) return;
+
+  const explanation = copy.innerHTML;
+  const label = card.querySelector('.pause-recovery-status-label');
+  const row = document.createElement('span');
+  row.className = 'pause-recovery-status-label-row';
+
+  if (label) {
+    label.replaceWith(row);
+    row.appendChild(label);
+  } else {
+    value.insertAdjacentElement('afterend', row);
+  }
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'pause-recovery-info-button';
+  button.dataset.recoveryInfoButton = 'true';
+  button.setAttribute('aria-label', 'Why this rest status?');
+  button.setAttribute('aria-expanded', 'false');
+  button.textContent = 'i';
+
+  const popover = document.createElement('div');
+  popover.className = 'pause-recovery-info-popover';
+  popover.dataset.recoveryInfoPopover = 'true';
+  popover.hidden = true;
+  popover.innerHTML = explanation;
+
+  row.appendChild(button);
+  row.insertAdjacentElement('afterend', popover);
+  copy.remove();
+  card.dataset.recoveryInfoEnhanced = 'true';
+
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const shouldOpen = popover.hidden;
+    document.querySelectorAll('[data-recovery-info-popover]:not([hidden])').forEach((openPopover) => {
+      const openCard = openPopover.closest('.pause-recovery-status-card');
+      if (openCard && openCard !== card) pauseCloseRecoveryInfo(openCard);
+    });
+    popover.hidden = !shouldOpen;
+    button.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+  });
+}
+
+function pauseWatchRecoveryStatusCard(card) {
+  if (!card) return;
+  pauseEnhanceRecoveryStatusInfo(card);
+  if (pauseRecoveryInfoObservedCards.has(card)) return;
+  pauseRecoveryInfoObservedCards.add(card);
+
+  const observer = new MutationObserver(() => {
+    if (!card.isConnected) {
+      observer.disconnect();
+      return;
+    }
+    if (!card.querySelector('[data-recovery-info-button]')) {
+      card.dataset.recoveryInfoEnhanced = 'false';
+      queueMicrotask(() => pauseEnhanceRecoveryStatusInfo(card));
+    }
+  });
+  observer.observe(card, { childList: true, subtree: true });
+}
+
+function pauseScanRecoveryStatusInfo() {
+  document.querySelectorAll('.pause-recovery-status-card').forEach(pauseWatchRecoveryStatusCard);
+}
+
+if (typeof document !== 'undefined') {
+  pauseInstallRecoveryInfoStyles();
+  queueMicrotask(pauseScanRecoveryStatusInfo);
+  window.addEventListener('pause:insights-opened', () => queueMicrotask(pauseScanRecoveryStatusInfo));
+
+  document.addEventListener('click', (event) => {
+    document.querySelectorAll('.pause-recovery-status-card').forEach((card) => {
+      if (!card.contains(event.target)) pauseCloseRecoveryInfo(card);
+    });
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('.pause-recovery-status-card').forEach(pauseCloseRecoveryInfo);
+  });
+}
