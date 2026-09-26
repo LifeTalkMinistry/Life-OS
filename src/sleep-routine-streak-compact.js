@@ -158,10 +158,13 @@ function pauseWeekdayInfoEnsureStyles() {
   style.id = 'pause-weekday-info-style';
   style.textContent = `
     .pause-weekday-title-row {
-      display: inline-flex;
+      display: flex;
       align-items: center;
+      justify-content: center;
       gap: 7px;
       position: relative;
+      width: 100%;
+      text-align: center;
     }
 
     .pause-weekday-info-button {
