@@ -32,6 +32,64 @@
   margin-top: 4px;
 }
 
+/* Center the three primary Rest Insights labels while preserving the controls
+ * pinned to their original edges. Presentation only; no navigation changes. */
+.pause-view-insights .system-panel-header {
+  position: relative;
+  align-items: center;
+  justify-content: center;
+}
+
+.pause-view-insights .system-panel-header .pause-panel-heading {
+  box-sizing: border-box;
+  width: 100%;
+  justify-content: center;
+  padding-inline: 42px;
+  text-align: center;
+}
+
+.pause-view-insights .system-panel-header .pause-panel-heading > div {
+  width: 100%;
+  text-align: center;
+}
+
+.pause-view-insights .system-panel-header .system-panel-close {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.pause-view-insights .system-panel-header .pause-audit-back {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+}
+
+.pause-view-insights .pause-weekly-archive-link {
+  position: relative;
+  justify-content: center !important;
+  text-align: center !important;
+}
+
+.pause-view-insights .pause-weekly-archive-link span:first-child {
+  width: 100%;
+  text-align: center;
+}
+
+.pause-view-insights .pause-weekly-archive-link span:last-child {
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  transform: translateY(-50%);
+}
+
+.pause-view-insights .pause-weekly-archive-link + .pause-insight-section > .pause-insight-section-title,
+.pause-view-insights .pause-insight-section:has(> .pause-rhythm-days) > .pause-insight-section-title {
+  text-align: center;
+}
+
 @media (max-width: 390px) {
   .pause-view-insights .pause-weekly-archive-link + .pause-insight-section,
   .pause-view-insights .pause-insight-section:has(> .pause-rhythm-days) {
