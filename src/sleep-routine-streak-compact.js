@@ -16,13 +16,17 @@ function pauseSleepStreakCompactEnsureStyles() {
     .pause-sleep-streak-summary {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
+      width: 100%;
       min-width: 0;
+      text-align: center;
     }
 
     .pause-sleep-routine-streak.is-compact .pause-sleep-streak-summary > strong {
       display: block;
       margin: 0;
+      text-align: center;
     }
 
     .pause-sleep-streak-info-button {
