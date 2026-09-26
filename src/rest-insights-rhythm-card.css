@@ -20,6 +20,13 @@
   margin-top: 0;
 }
 
+/* Keep the 7-day rhythm self-explanatory and visually clean. The day rows
+ * remain tappable and still open the same daily audit; only helper copy hides. */
+.pause-view-insights .pause-weekly-archive-link + .pause-insight-section > .pause-insight-section-copy,
+.pause-view-insights .pause-insight-section:has(> .pause-rhythm-days) > .pause-insight-section-copy {
+  display: none;
+}
+
 .pause-view-insights .pause-weekly-archive-link + .pause-insight-section > .pause-rhythm-days,
 .pause-view-insights .pause-insight-section:has(> .pause-rhythm-days) > .pause-rhythm-days {
   margin-top: 4px;
