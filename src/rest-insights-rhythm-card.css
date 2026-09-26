@@ -110,6 +110,19 @@
   margin-top: 0;
 }
 
+/* Center the strongest-rest-day summary as one compact status card. */
+.pause-view-insights .pause-weekday-summary {
+  justify-items: center;
+  text-align: center;
+}
+
+.pause-view-insights .pause-weekday-summary small,
+.pause-view-insights .pause-weekday-summary strong,
+.pause-view-insights .pause-weekday-summary span {
+  width: 100%;
+  text-align: center;
+}
+
 .pause-view-insights .pause-insight-section:has(.pause-weekday-summary) + .pause-insight-section,
 .pause-view-insights .pause-insight-section:has(.pause-weekday-learning) + .pause-insight-section {
   box-sizing: border-box;
