@@ -106,6 +106,7 @@ const cssFiles = [
   'src/system-controls.css',
   'src/layout-invariant.css',
   'src/pause.css',
+  'src/rest-insights-rhythm-card.css',
   'src/brand-wordmark.css',
   'src/auth/auth.css',
   'src/recovery-plan.css',
