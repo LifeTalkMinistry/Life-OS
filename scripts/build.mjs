@@ -61,6 +61,16 @@ function applyRuntimeSafety(file, source) {
         ''
       )
       .replace(
+        `
+    <section class="pause-insight-section">
+      <p class="pause-insight-section-title">RECENT RESTS</p>
+      <p class="pause-insight-section-copy">Edit a rest if the recorded start or end time does not match what actually happened.</p>
+      <div class="pause-history-list">\${historyRows || '<p class="pause-empty">No rests yet. Tap the ORB when you decide to stop.</p>'}</div>
+    </section>
+`,
+        '\n'
+      )
+      .replace(
         '    panel.scrollTop = resetScroll ? 0 : previousScrollTop;\n  };',
         "    panel.scrollTop = resetScroll ? 0 : previousScrollTop;\n    if (!selectedDayKey) queueMicrotask(() => window.dispatchEvent(new CustomEvent('pause:insights-opened')));\n  };"
       );
