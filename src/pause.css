@@ -380,3 +380,34 @@
   .pause-duration-grid { grid-template-columns: repeat(3, 1fr); }
   .pause-insight-grid { grid-template-columns: 1fr; }
 }
+
+/* Weekly Reports is a separate destination inside Rest Insights, so present
+ * the existing archive link as its own card without changing its behavior. */
+.pause-view-insights .pause-weekly-archive-link {
+  box-sizing: border-box;
+  min-height: 62px;
+  margin: 4px 0 20px !important;
+  padding: 16px 18px !important;
+  border: 1px solid rgba(174, 126, 255, .18) !important;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(42, 25, 70, .38), rgba(14, 10, 28, .5)) !important;
+  color: #c9bfd3;
+  box-shadow: inset 0 0 24px rgba(105, 62, 176, .035);
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.pause-view-insights .pause-weekly-archive-link:hover,
+.pause-view-insights .pause-weekly-archive-link:focus-visible {
+  border-color: rgba(190, 146, 255, .34) !important;
+  background: linear-gradient(180deg, rgba(54, 32, 89, .48), rgba(17, 11, 34, .58)) !important;
+  color: #eee7f5;
+  outline: none;
+}
+
+.pause-view-insights .pause-weekly-archive-link:active {
+  transform: scale(.992);
+}
+
+.pause-view-insights .pause-weekly-archive-link span:last-child {
+  color: #9c83bf;
+}
