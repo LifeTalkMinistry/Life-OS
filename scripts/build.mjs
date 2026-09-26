@@ -56,6 +56,10 @@ function applyRuntimeSafety(file, source) {
         "const historyRows = (Array.isArray(state?.history) ? state.history : [])\n    .filter((entry) => entry && typeof entry === 'object' && Number.isFinite(Number(entry.startAt ?? entry.endedAt)))\n    .slice(0, 20)\n    .map((entry) => {"
       )
       .replace(
+        '      <p class="pause-insight-section-copy">Tap any day to audit the exact rests credited to that Manila calendar date.</p>\n',
+        ''
+      )
+      .replace(
         '    panel.scrollTop = resetScroll ? 0 : previousScrollTop;\n  };',
         "    panel.scrollTop = resetScroll ? 0 : previousScrollTop;\n    if (!selectedDayKey) queueMicrotask(() => window.dispatchEvent(new CustomEvent('pause:insights-opened')));\n  };"
       );
