@@ -29,7 +29,8 @@ const scriptOrder = [
   'src/recoveryBriefing.js',
   'src/recoveryThiefLog.js',
   'src/weeklyReport.js',
-  'src/sleepRoutineStreak.js'
+  'src/sleepRoutineStreak.js',
+  'src/sleep-routine-streak-compact.js'
 ];
 
 function stripModuleSyntax(source) {
