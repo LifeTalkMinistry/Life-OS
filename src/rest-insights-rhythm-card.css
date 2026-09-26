@@ -1,25 +1,33 @@
 /* Rest Insights: make the 7-day rhythm read as its own feature card.
  * Presentation only — day audit behavior and data remain unchanged.
+ * The Weekly Reports button is injected immediately before the rhythm section,
+ * so use that stable DOM relationship instead of relying on :has().
  */
+.pause-view-insights .pause-weekly-archive-link + .pause-insight-section,
 .pause-view-insights .pause-insight-section:has(> .pause-rhythm-days) {
-  margin-top: 18px;
-  padding: 17px 14px 12px;
-  border: 1px solid rgba(174, 126, 255, .16);
+  box-sizing: border-box;
+  width: 100%;
+  margin: 18px 0 20px;
+  padding: 18px 16px 14px;
+  border: 1px solid rgba(174, 126, 255, .22);
   border-radius: 16px;
-  background: linear-gradient(180deg, rgba(39, 23, 64, .34), rgba(13, 9, 27, .42));
-  box-shadow: inset 0 0 26px rgba(111, 72, 179, .025);
+  background: linear-gradient(180deg, rgba(43, 25, 72, .48), rgba(14, 9, 29, .6));
+  box-shadow: inset 0 0 30px rgba(111, 72, 179, .035);
 }
 
+.pause-view-insights .pause-weekly-archive-link + .pause-insight-section > .pause-insight-section-title,
 .pause-view-insights .pause-insight-section:has(> .pause-rhythm-days) > .pause-insight-section-title {
   margin-top: 0;
 }
 
+.pause-view-insights .pause-weekly-archive-link + .pause-insight-section > .pause-rhythm-days,
 .pause-view-insights .pause-insight-section:has(> .pause-rhythm-days) > .pause-rhythm-days {
   margin-top: 4px;
 }
 
 @media (max-width: 390px) {
+  .pause-view-insights .pause-weekly-archive-link + .pause-insight-section,
   .pause-view-insights .pause-insight-section:has(> .pause-rhythm-days) {
-    padding: 15px 12px 10px;
+    padding: 16px 13px 12px;
   }
 }
