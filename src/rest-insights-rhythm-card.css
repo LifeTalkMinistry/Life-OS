@@ -90,9 +90,31 @@
   text-align: center;
 }
 
+/* Give the weekday rest-pattern analysis the same dedicated-card treatment as
+ * the 7-day rhythm. This wraps the heading, helper text, strongest-day summary,
+ * and weekday ranking without altering any calculations or data. */
+.pause-view-insights .pause-insight-section:has(.pause-weekday-summary),
+.pause-view-insights .pause-insight-section:has(.pause-weekday-learning) {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 18px 0 20px;
+  padding: 18px 16px 16px;
+  border: 1px solid rgba(174, 126, 255, .22);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(43, 25, 72, .48), rgba(14, 9, 29, .6));
+  box-shadow: inset 0 0 30px rgba(111, 72, 179, .035);
+}
+
+.pause-view-insights .pause-insight-section:has(.pause-weekday-summary) > .pause-insight-section-title,
+.pause-view-insights .pause-insight-section:has(.pause-weekday-learning) > .pause-insight-section-title {
+  margin-top: 0;
+}
+
 @media (max-width: 390px) {
   .pause-view-insights .pause-weekly-archive-link + .pause-insight-section,
-  .pause-view-insights .pause-insight-section:has(> .pause-rhythm-days) {
+  .pause-view-insights .pause-insight-section:has(> .pause-rhythm-days),
+  .pause-view-insights .pause-insight-section:has(.pause-weekday-summary),
+  .pause-view-insights .pause-insight-section:has(.pause-weekday-learning) {
     padding: 16px 13px 12px;
   }
 }
