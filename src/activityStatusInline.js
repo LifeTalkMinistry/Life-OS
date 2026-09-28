@@ -1,9 +1,12 @@
 /* Activity status info parity.
  * The status ⓘ behaves like Rest Insights: explanation expands inside the
  * status card instead of opening a full-screen information dialog.
+ * Track-only Activities also keep the same progress-row skeleton as Rest
+ * without inventing a percentage for an unscored commitment.
  */
 (() => {
   const STYLE_ID = 'pause-activity-status-inline-style';
+  let reconcileQueued = false;
 
   function ensureStyles() {
     if (document.querySelector(`#${STYLE_ID}`)) return;
@@ -33,6 +36,14 @@
         border-color: rgba(184, 142, 248, .42);
         background: rgba(111, 69, 184, .17);
         color: #e6dcf0;
+      }
+
+      .activity-insights-progress-row.is-track-only .activity-insights-progress-track > span {
+        width: 0 !important;
+      }
+
+      .activity-insights-progress-row.is-track-only > span {
+        color: #776f80;
       }
     `;
     document.head.appendChild(style);
@@ -70,6 +81,32 @@
     button.setAttribute('aria-expanded', opening ? 'true' : 'false');
   }
 
+  function reconcileTrackOnlyProgress() {
+    document.querySelectorAll('.activity-insights-status-card .activity-insights-unscored').forEach((note) => {
+      const card = note.closest('.activity-insights-status-card');
+      if (!card || card.querySelector('[data-activity-track-only-progress]')) return;
+
+      const row = document.createElement('div');
+      row.className = 'activity-insights-progress-row is-track-only';
+      row.dataset.activityTrackOnlyProgress = '';
+      row.setAttribute('aria-label', 'Track-only activity. No score is assigned.');
+      row.innerHTML = `
+        <div class="activity-insights-progress-track" aria-hidden="true"><span style="width:0%"></span></div>
+        <span aria-hidden="true">—</span>
+      `;
+      note.replaceWith(row);
+    });
+  }
+
+  function queueReconcile() {
+    if (reconcileQueued) return;
+    reconcileQueued = true;
+    queueMicrotask(() => {
+      reconcileQueued = false;
+      reconcileTrackOnlyProgress();
+    });
+  }
+
   function onClick(event) {
     const button = statusButtonFromEvent(event);
     if (!button) return;
@@ -93,6 +130,8 @@
     ensureStyles();
     document.addEventListener('click', onClick, true);
     document.addEventListener('keydown', onKeyDown, true);
+    new MutationObserver(queueReconcile).observe(document.documentElement, { childList: true, subtree: true });
+    queueReconcile();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
