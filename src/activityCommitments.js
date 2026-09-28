@@ -206,7 +206,7 @@
 
   function init() {
     styles(); injectMenu();
-    new MutationObserver(()=>{if(overlay?.isConnected&&!document.querySelector('#app .pause-main-screen'))close();injectMenu();refreshMenu();}).observe(document.documentElement,{childList:true,subtree:true});
+    new MutationObserver(()=>{if(overlay?.isConnected&&!document.querySelector('#app .pause-main-screen'))close();injectMenu();}).observe(document.documentElement,{childList:true,subtree:true});
     window.addEventListener('pause:activities-changed',refreshMenu); window.addEventListener('storage',e=>{if(e.key?.startsWith(PREFIX)||e.key===USER_KEY){refreshMenu();if(overlay?.isConnected)render();}});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
