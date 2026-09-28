@@ -1,0 +1,9 @@
+/* Weekly Reports CTAs are intentionally removed from Rest and Activity insights.
+   Historical report data remains intact; the primary insight flow goes directly
+   from status into the 7-day rhythm. */
+[data-pause-weekly-archive],
+[data-activity-weekly],
+.pause-weekly-archive-link,
+.activity-weekly-button {
+  display: none !important;
+}
