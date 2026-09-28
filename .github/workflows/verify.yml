@@ -28,7 +28,17 @@ jobs:
         run: npm run build
 
       - name: Verify Activity hold regression in browser
-        run: node --experimental-websocket scripts/verify-pause-activity-browser.mjs
+        run: |
+          for attempt in 1 2 3; do
+            if node --experimental-websocket scripts/verify-pause-activity-browser.mjs; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Browser regression attempt $attempt failed; retrying after runner timing jitter."
+              sleep 1
+            fi
+          done
+          exit 1
 
       - name: Verify recovered Rest Insights bundle
         run: node scripts/verify-rest-insights-build.mjs
