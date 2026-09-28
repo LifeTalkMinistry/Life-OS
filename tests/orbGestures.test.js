@@ -121,7 +121,7 @@ test('double tap cancels the pending single tap', async () => {
   controller.destroy();
 });
 
-test('hold then release without dragging closes the temporary radial menu', { concurrency: false }, async () => {
+test('hold then release without dragging keeps the radial menu open', { concurrency: false }, async () => {
   const env = installPointerEnvironment();
   const events = [];
   const controller = createOrbGestureController({
@@ -137,7 +137,7 @@ test('hold then release without dragging closes the temporary radial menu', { co
     controller.pointerUp();
 
     assert.deepEqual(events, ['hold-start', 'cancelled']);
-    assert.equal(env.getMenuCloseClicks(), 1);
+    assert.equal(env.getMenuCloseClicks(), 0);
   } finally {
     controller.destroy();
     env.restore();
@@ -238,7 +238,7 @@ test('mobile pointercancel selects the last highlighted option', { concurrency: 
   }
 });
 
-test('dragging over an option then back to empty center before release cancels', { concurrency: false }, async () => {
+test('dragging away from an option before release keeps the radial menu open', { concurrency: false }, async () => {
   const env = installPointerEnvironment();
   const menu = createMenuTarget('settings');
   const events = [];
@@ -263,7 +263,7 @@ test('dragging over an option then back to empty center before release cancels',
     env.listeners.get('pointerup')?.({ clientX: 190, clientY: 320 });
 
     assert.equal(menu.clicks(), 0);
-    assert.equal(env.getMenuCloseClicks(), 1);
+    assert.equal(env.getMenuCloseClicks(), 0);
     assert.deepEqual(events, ['hold-start', 'cancelled']);
   } finally {
     controller.destroy();
