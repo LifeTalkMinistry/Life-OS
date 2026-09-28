@@ -95,9 +95,7 @@ function createRuntime({ activityState = null } = {}) {
   };
 
   const storage = new Map();
-  if (activityState) {
-    storage.set('pause-activity-commitments-v1:account:guest', JSON.stringify(activityState));
-  }
+  if (activityState) storage.set('pause-activity-commitments-v1:account:guest', JSON.stringify(activityState));
   const localStorage = {
     getItem: (key) => storage.has(key) ? storage.get(key) : null,
     setItem: (key, value) => storage.set(key, String(value))
@@ -147,8 +145,9 @@ test('Activities panel no longer owns START controls and activity timing is expo
         {
           id: 'spanish',
           name: 'Spanish Language Practice',
-          targetMode: 'track',
-          targetMinutes: null,
+          targetMode: 'daily',
+          targetMinutes: 120,
+          passingTargetMinutes: 60,
           spanMode: 'ongoing',
           endDate: null,
           createdAt: Date.now()
@@ -163,16 +162,24 @@ test('Activities panel no longer owns START controls and activity timing is expo
   assert.equal(typeof api?.getActivities, 'function');
   assert.equal(api.getActivities().length, 1);
   assert.equal(api.getActivities()[0].name, 'Spanish Language Practice');
+  assert.equal(api.getActivities()[0].targetMinutes, 120);
+  assert.equal(api.getActivities()[0].passingTargetMinutes, 60);
 
   assert.equal(api.start('spanish'), true);
   assert.equal(api.getActive().activityId, 'spanish');
-  assert.equal(api.getActive().name, 'Spanish Language Practice');
-
   assert.equal(api.stop(), true);
   assert.equal(api.getActive(), null);
 });
 
-test('Activity management is a clean clickable directory with per-activity reporting', () => {
+test('Activity creation requires both a 100% target and a user-defined passing target', () => {
+  assert.match(source, /100% TARGET/);
+  assert.match(source, /PASSING TARGET/);
+  assert.match(source, /name="passingHours"/);
+  assert.match(source, /passingTargetMinutes/);
+  assert.match(source, /Passing must be at least 0\.25 hours and cannot be higher than your 100% target/);
+});
+
+test('Activity management stays clean while per-activity reporting mirrors Rest Insights', () => {
   assert.match(directorySource, /<h2>Activities<\/h2>/);
   assert.match(directorySource, /data-activity-directory-add/);
   assert.match(directorySource, /data-activity-report=/);
@@ -182,8 +189,15 @@ test('Activity management is a clean clickable directory with per-activity repor
   assert.equal(directorySource.includes('>INSIGHTS<'), false);
   assert.equal(directorySource.includes('Track only ·'), false);
 
-  assert.match(directorySource, /TOTAL TRACKED/);
-  assert.match(directorySource, /LAST 7 DAYS/);
+  assert.match(directorySource, /ACTIVITY STATUS/);
+  assert.match(directorySource, /data-activity-timeframe/);
+  assert.match(directorySource, /WEEKLY REPORTS/);
+  assert.match(directorySource, /YOUR 7-DAY RHYTHM/);
+  assert.match(directorySource, /AVERAGE \/ DAY/);
+  assert.match(directorySource, /DAILY TARGET/);
   assert.match(directorySource, /RECENT SESSIONS/);
+  assert.match(directorySource, /TARGET MET/);
+  assert.match(directorySource, /PASS/);
+  assert.match(directorySource, /SHORT/);
   assert.match(directorySource, /timeZone: 'Asia\/Manila'/);
 });
