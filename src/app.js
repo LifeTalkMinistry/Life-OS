@@ -254,7 +254,6 @@ async function syncNow() {
   syncCycleInFlight = (async () => {
     let snapshot;
     try {
-      // Reconnect rule: always read the account authority before any write.
       snapshot = await pullPauseCloudState(authState.session.token);
     } catch {
       return null;
@@ -521,7 +520,7 @@ function beginTimedRest(minutes) {
 }
 
 function openStartChooser() {
-  if (pauseState.active || getActiveActivity()) return;
+  if (startChooserOpen || pauseState.active || getActiveActivity()) return;
   menuOpen = false;
   panelView = null;
   completionVisible = false;
@@ -595,6 +594,7 @@ function openOrbMenu() {
 function getGestureHandlers() {
   gestureController?.destroy();
   gestureController = createOrbGestureController({
+    doubleTapDelay: 0,
     onSingleTap: () => {
       if (!pauseState.active && !getActiveActivity()) openStartChooser();
     },
