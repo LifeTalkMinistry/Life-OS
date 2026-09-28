@@ -28,7 +28,7 @@ jobs:
         run: npm run build
 
       - name: Verify Activity hold regression in browser
-        run: node scripts/verify-pause-activity-browser.mjs
+        run: node --experimental-websocket scripts/verify-pause-activity-browser.mjs
 
       - name: Verify recovered Rest Insights bundle
         run: node scripts/verify-rest-insights-build.mjs
