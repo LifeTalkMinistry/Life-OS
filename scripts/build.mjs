@@ -125,6 +125,7 @@ const cssFiles = [
   'src/layout-invariant.css',
   'src/pause.css',
   'src/rest-insights-rhythm-card.css',
+  'src/weekly-report-links.css',
   'src/brand-wordmark.css',
   'src/auth/auth.css',
   'src/recovery-plan.css',
