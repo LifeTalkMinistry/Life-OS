@@ -141,6 +141,24 @@
   margin-top: 0;
 }
 
+/* Shared panel-title rule: titles must stay one line. If the available header
+ * width is exceeded, truncate with the platform-standard ellipsis instead of
+ * growing the header into another text layer. */
+.pause-view-insights .system-panel-header .pause-panel-heading > div,
+.activity-panel.activity-insights-panel .activity-insights-header {
+  min-width: 0;
+}
+
+.pause-view-insights .system-panel-header .pause-panel-heading h2,
+.activity-panel.activity-insights-panel .activity-insights-header h2 {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 390px) {
   .pause-view-insights .pause-weekly-archive-link + .pause-insight-section,
   .pause-view-insights .pause-insight-section:has(> .pause-rhythm-days),
