@@ -27,9 +27,6 @@ jobs:
       - name: Build PAUSE
         run: npm run build
 
-      - name: Diagnose normal ORB tap chooser
-        run: node --experimental-websocket scripts/diagnose-pause-start-chooser.mjs
-
       - name: Verify Activity hold regression in browser
         run: node --experimental-websocket scripts/verify-pause-activity-browser.mjs
 
