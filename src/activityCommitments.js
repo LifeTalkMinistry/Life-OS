@@ -122,7 +122,7 @@
   function injectMenu() {
     const nav=document.querySelector('.pause-orb-menu');
     if (!nav || nav.querySelector('[data-pause-activity-menu]')) return;
-    const b=document.createElement('button'); b.type='button'; b.className='pause-menu-node pause-activity-menu'; b.dataset.pauseActivitiesMenu='1';
+    const b=document.createElement('button'); b.type='button'; b.className='pause-menu-node pause-activity-menu'; b.dataset.pauseActivityMenu='1';
     b.innerHTML=`<span class="pause-menu-node-icon" aria-hidden="true">${menuIcon()}</span><span class="pause-menu-node-copy"><strong>Activity</strong><small>Track declared time</small></span>`;
     b.addEventListener('click',e=>{e.stopPropagation();open('hub');}); nav.appendChild(b); refreshMenu();
   }
