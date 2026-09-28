@@ -77,8 +77,11 @@ export function createOrbGestureController({
     detachReleaseListeners();
     clearDragTarget();
 
+    // A normal hold now opens the radial menu and leaves it open after release.
+    // Dragging to an option still acts as a fast shortcut and selects immediately.
+    // Only an explicit cancellation path (for example window blur) closes it.
     if (selected) selected.click();
-    else closeTemporaryHoldMenu();
+    else if (!allowSelection) closeTemporaryHoldMenu();
 
     onHoldEnd?.({
       selected: Boolean(selected),
@@ -95,6 +98,7 @@ export function createOrbGestureController({
   function handleGlobalPointerCancel(event) {
     // Android browsers may emit pointercancel during a long-press/drag even when
     // the user is simply releasing. If an option is already highlighted, honor it.
+    // Otherwise keep the newly opened menu visible so the gesture still succeeds.
     finishHold(event, true, true);
   }
 
