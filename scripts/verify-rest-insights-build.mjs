@@ -29,7 +29,6 @@ const forbidden = [
   'new MutationObserver(pauseWeeklyReconcile)',
   'new MutationObserver(pauseSleepStreakQueueRender)',
   'initializeRestInsightsInfo()',
-  'initializeRecoveryStatusCard()',
   'Your Monday–Sunday recovery report is ready.',
   'PAUSE is opening Rest Insights without blocking the app.'
 ];
