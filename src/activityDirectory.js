@@ -82,10 +82,11 @@
       .activity-directory-row span{flex:0 0 auto;color:#6f6578;font-size:1rem}
       .activity-directory-row:hover strong,.activity-directory-row:focus-visible strong{color:#fff}.activity-directory-row:focus-visible{outline:none}
       .activity-directory-empty{margin:0;padding:24px 2px;color:#7f7688;font-size:.73rem;line-height:1.55}
-      .activity-report-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
-      .activity-report-heading{display:flex;align-items:center;gap:10px;min-width:0}
-      .activity-report-back{appearance:none;display:grid;place-items:center;width:31px;height:31px;padding:0;border:1px solid rgba(159,121,218,.15);border-radius:50%;background:rgba(79,47,130,.08);color:#b9afc3;font-size:1rem;cursor:pointer}
+      .activity-report-top{display:grid;grid-template-columns:31px minmax(0,1fr) 31px;align-items:center;gap:12px;margin-bottom:18px}
+      .activity-report-heading{min-width:0;text-align:center}
+      .activity-report-back{appearance:none;display:grid;place-items:center;justify-self:start;width:31px;height:31px;padding:0;border:1px solid rgba(159,121,218,.15);border-radius:50%;background:rgba(79,47,130,.08);color:#b9afc3;font-size:1rem;cursor:pointer}
       .activity-report-back:hover,.activity-report-back:focus-visible{border-color:rgba(170,128,235,.28);background:rgba(94,55,158,.16);color:#eee7f5;outline:none}
+      .activity-report-top>.activity-directory-close{justify-self:end}
       .activity-report-heading div{min-width:0}.activity-report-heading small{display:block;margin-bottom:3px;color:#84798f;font-size:.55rem;font-weight:650;letter-spacing:.13em;text-transform:uppercase}.activity-report-heading h2{overflow:hidden;margin:0;color:#eee8f5;font-size:1.15rem;font-weight:520;text-overflow:ellipsis;white-space:nowrap}
       .activity-report-total{margin:4px 0 12px;padding:20px 18px 18px;border:1px solid rgba(174,126,255,.2);border-radius:18px;background:linear-gradient(180deg,rgba(74,37,124,.14),rgba(17,10,33,.26));text-align:center}
       .activity-report-total small{color:#92899d;font-size:.61rem;font-weight:650;letter-spacing:.14em}.activity-report-total strong{display:block;margin:6px 0 8px;color:#f3edf9;font-size:clamp(2.45rem,11vw,3.35rem);font-weight:330;line-height:1}.activity-report-total p{margin:0;color:#91879c;font-size:.68rem;line-height:1.5}
@@ -169,8 +170,8 @@
 
     panel.innerHTML = `
       <div class="activity-report-top">
+        <button type="button" class="activity-report-back" data-activity-report-back aria-label="Back to Activities">←</button>
         <div class="activity-report-heading">
-          <button type="button" class="activity-report-back" data-activity-report-back aria-label="Back to Activities">←</button>
           <div><small>ACTIVITY REPORT</small><h2>${esc(data.activity.name)}</h2></div>
         </div>
         <button type="button" class="activity-directory-close activity-close" data-activity-directory-close aria-label="Close">×</button>
