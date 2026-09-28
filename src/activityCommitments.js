@@ -36,7 +36,7 @@
   function write(s) {
     const next = { version:1, activities:s.activities.slice(0,40), sessions:s.sessions.slice(-LIMIT), active:s.active || null };
     try { localStorage.setItem(key(), JSON.stringify(next)); } catch {}
-    window.dispatchEvent(new CustomEvent('pause:activities-changed'));
+    window.dispatchEvent(new CustomEvent('pause:activities-changed', { detail: next }));
     return next;
   }
 
@@ -110,9 +110,9 @@
     const el=document.createElement('style'); el.id='pause-activity-v1-style'; el.textContent=`
       .pause-activity-menu{left:50%!important;right:auto!important;top:auto!important;bottom:-7%!important;transform:translateX(-50%)!important;width:132px!important}.pause-activity-menu:hover{transform:translateX(-50%) scale(1.035)!important}.pause-activity-menu small{display:block;margin-top:3px;color:#8d8299;font-size:.52rem;line-height:1.1}.pause-activity-menu.is-running{border-color:rgba(205,160,255,.5)!important}
       .activity-backdrop{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:20px;background:rgba(3,3,7,.82);backdrop-filter:blur(14px)}.activity-panel{box-sizing:border-box;width:min(94vw,440px);max-height:min(86svh,760px);overflow:auto;padding:22px;border:1px solid rgba(169,124,228,.2);border-radius:22px;background:linear-gradient(180deg,rgba(18,12,31,.98),rgba(7,6,13,.99));box-shadow:0 28px 80px rgba(0,0,0,.55);color:#eee8f5;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
-      .activity-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}.activity-head p,.activity-label{margin:0 0 6px;color:#8d8299;font-size:.58rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}.activity-head h2{margin:0;font-size:1.35rem;font-weight:520}.activity-close{width:34px;height:34px;border:1px solid rgba(169,124,228,.18);border-radius:50%;background:transparent;color:#aaa0b5;font-size:1rem}.activity-intro{margin:0 0 15px;color:#958b9f;font-size:.72rem;line-height:1.5}.activity-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}.activity-actions button,.activity-start,.activity-stop,.activity-submit{min-height:42px;border:1px solid rgba(169,124,228,.18);border-radius:12px;background:rgba(88,53,145,.1);color:#ddd4e7;font-size:.68rem;font-weight:650}.activity-actions button.is-on{border-color:rgba(200,155,255,.4);background:rgba(105,62,176,.18)}
+      .activity-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}.activity-head p,.activity-label{margin:0 0 6px;color:#8d8299;font-size:.58rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}.activity-head h2{margin:0;font-size:1.35rem;font-weight:520}.activity-close{width:34px;height:34px;border:1px solid rgba(169,124,228,.18);border-radius:50%;background:transparent;color:#aaa0b5;font-size:1rem}.activity-intro{margin:0 0 15px;color:#958b9f;font-size:.72rem;line-height:1.5}.activity-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}.activity-actions button,.activity-stop,.activity-submit{min-height:42px;border:1px solid rgba(169,124,228,.18);border-radius:12px;background:rgba(88,53,145,.1);color:#ddd4e7;font-size:.68rem;font-weight:650}.activity-actions button.is-on{border-color:rgba(200,155,255,.4);background:rgba(105,62,176,.18)}
       .activity-running{padding:15px;margin-bottom:14px;border:1px solid rgba(205,160,255,.28);border-radius:16px;text-align:center;background:rgba(105,62,176,.09)}.activity-running small{display:block;color:#9b90a7;font-size:.57rem;letter-spacing:.14em}.activity-running strong{display:block;margin:5px 0 2px;font-size:1rem}.activity-clock{font-size:1.5rem;font-variant-numeric:tabular-nums}.activity-stop{margin-top:9px;padding:0 16px}
-      .activity-list{display:grid;gap:8px}.activity-card{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:12px;border:1px solid rgba(159,121,218,.14);border-radius:14px;background:rgba(11,8,20,.55)}.activity-card strong{display:block;font-size:.82rem}.activity-card span{display:block;margin-top:4px;color:#948a9d;font-size:.62rem}.activity-start{padding:0 13px}.activity-start:disabled{opacity:.35}.activity-empty{margin:18px 0;color:#81798a;font-size:.75rem;text-align:center;line-height:1.55}
+      .activity-list{display:grid;gap:8px}.activity-card{display:block;padding:12px;border:1px solid rgba(159,121,218,.14);border-radius:14px;background:rgba(11,8,20,.55)}.activity-card strong{display:block;font-size:.82rem}.activity-card span{display:block;margin-top:4px;color:#948a9d;font-size:.62rem}.activity-empty{margin:18px 0;color:#81798a;font-size:.75rem;text-align:center;line-height:1.55}
       .activity-form{display:grid;gap:15px}.activity-field>label,.activity-field>span{display:block;margin-bottom:7px;color:#a79dac;font-size:.66rem}.activity-field input[type=text],.activity-field input[type=number],.activity-field input[type=date],.activity-field select{box-sizing:border-box;width:100%;min-height:44px;padding:0 12px;border:1px solid rgba(169,124,228,.18);border-radius:12px;background:rgba(7,5,14,.6);color:#eee8f5;outline:0}.activity-choices{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}.activity-choice{position:relative}.activity-choice input{position:absolute;opacity:0}.activity-choice span{display:grid;place-items:center;min-height:42px;padding:5px;border:1px solid rgba(169,124,228,.16);border-radius:11px;color:#a9a0b3;font-size:.66rem;text-align:center}.activity-choice input:checked+span{border-color:rgba(200,155,255,.46);background:rgba(105,62,176,.18);color:#f0eaf5}.activity-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.activity-help{margin:6px 0 0;color:#736b7b;font-size:.6rem;line-height:1.4}.activity-error{min-height:16px;margin:0;color:#c7a9d9;font-size:.65rem;text-align:center}.activity-submit{width:100%;min-height:46px;background:rgba(112,74,255,.16)}[hidden]{display:none!important}
       .activity-history{display:grid;gap:7px}.activity-history-row,.activity-break-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px;border-bottom:1px solid rgba(169,124,228,.1)}.activity-history-row strong,.activity-break-row strong{font-size:.76rem}.activity-history-row small{display:block;margin-top:3px;color:#7f7688;font-size:.58rem}.activity-history-row b,.activity-break-row b{font-size:.7rem}.activity-insights{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:15px}.activity-stat{padding:14px;border:1px solid rgba(169,124,228,.14);border-radius:14px;text-align:center;background:rgba(11,8,20,.5)}.activity-stat span{display:block;color:#81788a;font-size:.55rem;letter-spacing:.12em}.activity-stat strong{display:block;margin:6px 0 3px;font-size:1rem}.activity-stat small{color:#81788a;font-size:.58rem}
     `; document.head.appendChild(el);
@@ -123,34 +123,34 @@
     const nav=document.querySelector('.pause-orb-menu');
     if (!nav || nav.querySelector('[data-pause-activity-menu]')) return;
     const b=document.createElement('button'); b.type='button'; b.className='pause-menu-node pause-activity-menu'; b.dataset.pauseActivityMenu='1';
-    b.innerHTML=`<span class="pause-menu-node-icon" aria-hidden="true">${menuIcon()}</span><span class="pause-menu-node-copy"><strong>Activity</strong><small>Track declared time</small></span>`;
+    b.innerHTML=`<span class="pause-menu-node-icon" aria-hidden="true">${menuIcon()}</span><span class="pause-menu-node-copy"><strong>Activity</strong><small>Manage declared time</small></span>`;
     b.addEventListener('click',e=>{e.stopPropagation();open('hub');}); nav.appendChild(b); refreshMenu();
   }
   function refreshMenu() {
     const b=document.querySelector('[data-pause-activity-menu]'); if(!b)return;
     const a=read().active; b.classList.toggle('is-running',Boolean(a));
-    const c=b.querySelector('.pause-menu-node-copy'); if(c)c.innerHTML=`<strong>Activity</strong><small>${a?`${esc(a.name)} running`:'Track declared time'}</small>`;
+    const c=b.querySelector('.pause-menu-node-copy'); if(c)c.innerHTML=`<strong>Activity</strong><small>${a?`${esc(a.name)} running`:'Manage declared time'}</small>`;
   }
 
   function start(id) {
-    if (restActive()) return;
-    const s=read(); if(s.active)return;
-    const a=s.activities.find(x=>x.id===id); if(!a || ended(a))return;
-    s.active={id:`active-${Date.now()}`,activityId:a.id,name:a.name,startAt:Date.now()}; write(s); render();
+    if (restActive()) return false;
+    const s=read(); if(s.active)return false;
+    const a=s.activities.find(x=>x.id===id); if(!a || ended(a))return false;
+    s.active={id:`active-${Date.now()}`,activityId:a.id,name:a.name,startAt:Date.now()}; write(s); render(); return true;
   }
   function stop() {
-    const s=read(); if(!s.active)return;
+    const s=read(); if(!s.active)return false;
     const endAt=Date.now(), a=s.active;
     s.sessions.push({id:`session-${endAt}`,activityId:a.activityId,name:a.name,startAt:a.startAt,endAt,durationMs:Math.max(0,endAt-a.startAt)});
-    s.active=null; write(s); render();
+    s.active=null; write(s); render(); return true;
   }
 
   function hub(s) {
     const blocked=restActive();
     return `${s.active?`<div class="activity-running"><small>ACTIVITY IN PROGRESS</small><strong>${esc(s.active.name)}</strong><div class="activity-clock" data-activity-clock>${clock(Date.now()-s.active.startAt)}</div><button class="activity-stop" data-stop>END ACTIVITY</button></div>`:''}
       <div class="activity-actions"><button class="is-on" data-view="add">+ ADD</button><button data-view="history">HISTORY</button><button data-view="insights">INSIGHTS</button></div>
-      ${blocked?'<p class="activity-intro">You are currently resting. Your rest continues exactly as it is; end it before starting an activity.</p>':''}
-      <div class="activity-list">${s.activities.length?s.activities.map(a=>`<div class="activity-card"><div><strong>${esc(a.name)}</strong><span>${esc(targetText(a))} · ${esc(progressText(s,a))}${a.endDate?` · until ${esc(a.endDate)}`:''}</span></div><button class="activity-start" data-start="${esc(a.id)}" ${s.active||blocked||ended(a)?'disabled':''}>${s.active?.activityId===a.id?'RUNNING':'START'}</button></div>`).join(''):'<p class="activity-empty">No declared activities yet.<br>Add only what you intentionally want PAUSE to document.</p>'}</div>`;
+      ${blocked?'<p class="activity-intro">You are currently resting. End Rest before starting an activity from the ORB.</p>':''}
+      <div class="activity-list">${s.activities.length?s.activities.map(a=>`<div class="activity-card"><strong>${esc(a.name)}</strong><span>${esc(targetText(a))} · ${esc(progressText(s,a))}${a.endDate?` · until ${esc(a.endDate)}`:''}</span></div>`).join(''):'<p class="activity-empty">No declared activities yet.<br>Add only what you intentionally want PAUSE to document.</p>'}</div>`;
   }
 
   function addForm() {
@@ -196,13 +196,24 @@
   function render() {
     if(!overlay?.isConnected)return; clearInterval(tick); tick=null; const s=read(), panel=overlay.querySelector('.activity-panel');
     const title=mode==='add'?'Add Activity':mode==='history'?'Activity History':mode==='insights'?'Activity Insights':'Activities'; const body=mode==='add'?addForm():mode==='history'?history(s):mode==='insights'?insights(s):hub(s);
-    panel.innerHTML=`<div class="activity-head"><div><p>PAUSE · INTENTIONAL EFFORT</p><h2>${title}</h2></div><button class="activity-close" data-close aria-label="Close">×</button></div>${mode==='hub'?'<p class="activity-intro">Document only the activities you intentionally choose to track. Your existing rest flow stays exactly as it is.</p>':''}${body}`;
-    panel.querySelector('[data-close]')?.addEventListener('click',close); panel.querySelector('[data-stop]')?.addEventListener('click',stop); panel.querySelectorAll('[data-start]').forEach(b=>b.addEventListener('click',()=>start(b.dataset.start))); panel.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.view;render();}));
+    panel.innerHTML=`<div class="activity-head"><div><p>PAUSE · INTENTIONAL EFFORT</p><h2>${title}</h2></div><button class="activity-close" data-close aria-label="Close">×</button></div>${mode==='hub'?'<p class="activity-intro">Declare and review activities here. Start Rest or an activity directly from the ORB.</p>':''}${body}`;
+    panel.querySelector('[data-close]')?.addEventListener('click',close); panel.querySelector('[data-stop]')?.addEventListener('click',stop); panel.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.view;render();}));
     const form=panel.querySelector('[data-form]'); if(form){form.addEventListener('change',()=>syncFields(form));form.addEventListener('submit',e=>{e.preventDefault();saveForm(form);});syncFields(form);queueMicrotask(()=>form.querySelector('input[name=name]')?.focus());}
     if(s.active)tick=setInterval(()=>{const n=overlay?.querySelector('[data-activity-clock]'),a=read().active;if(n&&a)n.textContent=clock(Date.now()-a.startAt);},1000);
   }
   function open(next='hub') { styles(); close(); mode=next; overlay=document.createElement('div');overlay.className='activity-backdrop';overlay.innerHTML='<section class="activity-panel" role="dialog" aria-modal="true" aria-label="PAUSE activities"></section>';overlay.addEventListener('pointerdown',e=>{if(e.target===overlay)close();});document.body.appendChild(overlay);render(); }
   function close() { clearInterval(tick);tick=null;overlay?.remove();overlay=null;mode='hub'; }
+
+  window.__PAUSE_ACTIVITIES__ = {
+    getActivities: () => read().activities.filter(a => !ended(a)).map(a => ({ ...a })),
+    getActive: () => {
+      const active = read().active;
+      return active ? { ...active } : null;
+    },
+    start,
+    stop,
+    open
+  };
 
   function init() {
     styles(); injectMenu();
