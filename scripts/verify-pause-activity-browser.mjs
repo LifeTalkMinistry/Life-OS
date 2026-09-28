@@ -54,8 +54,7 @@ let syncSnapshot = null;
 async function readJsonBody(request) {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
-  if (!chunks.length) return null;
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  return chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : null;
 }
 
 function sendJson(response, statusCode, payload) {
@@ -81,9 +80,7 @@ const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url || '/', 'http://127.0.0.1');
 
-    if (url.pathname === '/api/pause/me') {
-      return sendJson(response, 200, testUser);
-    }
+    if (url.pathname === '/api/pause/me') return sendJson(response, 200, testUser);
 
     if (url.pathname === '/api/pause/sync') {
       if (request.method === 'GET') {
@@ -102,9 +99,7 @@ const server = createServer(async (request, response) => {
     }
 
     if (url.pathname === '/api/pause/recovery-plan') {
-      if (request.method === 'GET') {
-        return sendJson(response, 200, { exists: true, plan: recoveryPlan });
-      }
+      if (request.method === 'GET') return sendJson(response, 200, { exists: true, plan: recoveryPlan });
       if (request.method === 'PUT') {
         const body = await readJsonBody(request);
         return sendJson(response, 200, { exists: true, plan: body?.plan || recoveryPlan });
@@ -122,10 +117,7 @@ const server = createServer(async (request, response) => {
     }
 
     const file = await readFile(filePath);
-    response.writeHead(200, {
-      'Content-Type': contentType(filePath),
-      'Cache-Control': 'no-store'
-    });
+    response.writeHead(200, { 'Content-Type': contentType(filePath), 'Cache-Control': 'no-store' });
     response.end(file);
   } catch (error) {
     response.writeHead(500);
@@ -137,20 +129,16 @@ await new Promise((resolve, reject) => {
   server.once('error', reject);
   server.listen(0, '127.0.0.1', resolve);
 });
-
-const address = server.address();
-const origin = `http://127.0.0.1:${address.port}`;
-const debugPort = 9333;
+const origin = `http://127.0.0.1:${server.address().port}`;
 
 function resolveChromeBinary() {
   const candidates = [
     process.env.CHROME_PATH,
-    'google-chrome-stable',
     'google-chrome',
+    'google-chrome-stable',
     'chromium',
     'chromium-browser'
   ].filter(Boolean);
-
   for (const candidate of candidates) {
     const result = spawnSync('which', [candidate], { encoding: 'utf8' });
     if (result.status === 0 && result.stdout.trim()) return result.stdout.trim();
@@ -158,13 +146,16 @@ function resolveChromeBinary() {
   throw new Error(`No Chrome/Chromium binary found. Checked: ${candidates.join(', ')}`);
 }
 
-const chrome = spawn(resolveChromeBinary(), [
-  '--headless=new',
+const chromeBinary = resolveChromeBinary();
+const chromeVersion = spawnSync(chromeBinary, ['--version'], { encoding: 'utf8' }).stdout.trim();
+const chrome = spawn(chromeBinary, [
+  '--headless',
   '--no-sandbox',
   '--disable-gpu',
   '--disable-dev-shm-usage',
-  '--remote-debugging-address=127.0.0.1',
-  `--remote-debugging-port=${debugPort}`,
+  '--no-first-run',
+  '--no-default-browser-check',
+  '--remote-debugging-port=0',
   `--user-data-dir=/tmp/pause-browser-${process.pid}`,
   '--window-size=390,844',
   'about:blank'
@@ -173,7 +164,19 @@ const chrome = spawn(resolveChromeBinary(), [
 let chromeStderr = '';
 chrome.stderr?.on('data', (chunk) => { chromeStderr += chunk.toString(); });
 
-async function getJson(url, retries = 80) {
+async function resolveDebugPort() {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const match = chromeStderr.match(/DevTools listening on ws:\/\/[^:]+:(\d+)\//);
+    if (match) return Number(match[1]);
+    if (chrome.exitCode !== null) {
+      throw new Error(`Chrome exited before DevTools started (${chromeVersion}, exit ${chrome.exitCode}).\n${chromeStderr}`);
+    }
+    await sleep(100);
+  }
+  throw new Error(`Chrome DevTools did not start (${chromeVersion}).\n${chromeStderr}`);
+}
+
+async function getJson(url, retries = 40) {
   for (let attempt = 0; attempt < retries; attempt += 1) {
     try {
       const response = await fetch(url);
@@ -181,7 +184,7 @@ async function getJson(url, retries = 80) {
     } catch {}
     await sleep(100);
   }
-  throw new Error(`Unable to connect to ${url}\n${chromeStderr}`);
+  throw new Error(`Unable to connect to ${url} (${chromeVersion}).\n${chromeStderr}`);
 }
 
 let ws = null;
@@ -203,11 +206,7 @@ function send(method, params = {}) {
 }
 
 async function evaluate(expression) {
-  const response = await send('Runtime.evaluate', {
-    expression,
-    awaitPromise: true,
-    returnByValue: true
-  });
+  const response = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
   if (response.result?.exceptionDetails) {
     throw new Error(response.result.exceptionDetails.exception?.description || response.result.exceptionDetails.text);
   }
@@ -239,8 +238,7 @@ async function holdOrb(pointerId) {
 }
 
 async function closeMenuIfOpen() {
-  const open = await evaluate(`Boolean(document.querySelector('.orb-mode-menu .orb'))`);
-  if (open) {
+  if (await evaluate(`Boolean(document.querySelector('.orb-mode-menu .orb'))`)) {
     await evaluate(`document.querySelector('.orb-mode-menu .orb').click()`);
     await waitFor(`!document.querySelector('.pause-orb-menu')`, 'radial menu to close');
   }
@@ -255,8 +253,9 @@ async function openNativeMenuItem(id, pointerId) {
 }
 
 try {
-  const pageTargets = await getJson(`http://127.0.0.1:${debugPort}/json/list`);
-  const page = pageTargets.find((target) => target.type === 'page');
+  const debugPort = await resolveDebugPort();
+  const targets = await getJson(`http://127.0.0.1:${debugPort}/json/list`);
+  const page = targets.find((target) => target.type === 'page');
   if (!page?.webSocketDebuggerUrl) throw new Error('Chrome page target unavailable');
 
   ws = new WebSocket(page.webSocketDebuggerUrl);
@@ -279,7 +278,7 @@ try {
   await send('Runtime.enable');
   await send('Page.enable');
 
-  const bootstrapScript = `(() => {
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => {
     if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
     window.PAUSE_API_URL = location.origin;
     window.__pauseBrowserErrors = [];
@@ -295,15 +294,14 @@ try {
     localStorage.setItem('pause_backend_access_token_v1', ${JSON.stringify(token)});
     localStorage.setItem('pause_backend_user_v1', ${JSON.stringify(JSON.stringify(testUser))});
     localStorage.setItem('pause-recovery-plan-v1:account:${testUser.id}', ${JSON.stringify(JSON.stringify(recoveryPlan))});
-  })();`;
+  })();` });
 
-  await send('Page.addScriptToEvaluateOnNewDocument', { source: bootstrapScript });
   await send('Page.navigate', { url: `${origin}/` });
   await waitFor(`document.readyState === 'complete'`, 'document load');
   await waitFor(`document.querySelector('.pause-main-screen .orb')`, 'authenticated PAUSE main screen', 12_000);
   await waitFor(`window.__PAUSE_RECOVERY_PLAN__?.getPlan?.()?.setupComplete === true`, 'completed Sleep Routine test state');
 
-  // Test A — hold only. The real production menu must stay responsive and stable after release.
+  // Test A — hold only.
   await holdOrb(11);
   assert.equal(await evaluate(`Boolean(document.querySelector('.pause-orb-menu'))`), true);
   assert.equal(await evaluate(`document.querySelectorAll('[data-pause-activity-menu]').length`), 1);
@@ -333,7 +331,7 @@ try {
   })`), 4, 'browser main thread should remain responsive after hold');
   await evaluate(`window.__pauseMenuMutationObserver.disconnect()`);
 
-  // Test B — Activity opens exactly once and does not duplicate its radial button.
+  // Test B — Activity.
   await evaluate(`document.querySelector('[data-pause-activity-menu]').click()`);
   await waitFor(`document.querySelector('.activity-panel')`, 'Activity panel');
   assert.equal(await evaluate(`document.querySelectorAll('.activity-backdrop').length`), 1);
@@ -342,7 +340,7 @@ try {
   await waitFor(`!document.querySelector('.activity-backdrop')`, 'Activity panel to close');
   await closeMenuIfOpen();
 
-  // Test D — native radial destinations remain functional.
+  // Test D — native radial options.
   await openNativeMenuItem('timer', 21);
   await waitFor(`document.querySelector('.pause-timer-panel')`, 'Timer panel');
   await evaluate(`document.querySelector('[data-timer-close]').click()`);
@@ -363,7 +361,7 @@ try {
   await evaluate(`document.querySelector('[data-settings-close]').click()`);
   await waitFor(`!document.querySelector('.pause-settings-panel')`, 'Settings panel to close');
 
-  // Test C — normal tap still starts Rest exactly as before.
+  // Test C — existing tap-to-rest behavior.
   await evaluate(`(() => {
     const orb = document.querySelector('.pause-main-screen .orb');
     orb.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 31, button: 0, clientX: 195, clientY: 422 }));
@@ -377,7 +375,7 @@ try {
   assert.equal(await evaluate(`window.__pauseConsoleErrors.length`), 0, `console errors: ${await evaluate(`JSON.stringify(window.__pauseConsoleErrors)`)}`);
   assert.deepEqual(runtimeExceptions, []);
 
-  console.log('PAUSE browser regression passed: hold is responsive, one Activity button, Activity opens once, tap-to-rest is unchanged, and Timer/Sleep Routine/Rest Insights/Settings still open.');
+  console.log(`PAUSE browser regression passed in ${chromeVersion}: hold is responsive, one Activity button, Activity opens once, tap-to-rest is unchanged, and Timer/Sleep Routine/Rest Insights/Settings still open.`);
 } finally {
   try { ws?.close(); } catch {}
   chrome.kill('SIGTERM');
