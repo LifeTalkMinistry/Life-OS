@@ -47,6 +47,7 @@ class FakeNode {
   }
 
   addEventListener() {}
+  remove() { this.isConnected = false; }
 
   querySelector(selector) {
     return this.querySelectorAll(selector)[0] || null;
@@ -65,7 +66,7 @@ class FakeNode {
   }
 }
 
-function createRuntime() {
+function createRuntime({ activityState = null } = {}) {
   const documentElement = new FakeNode('html');
   const head = new FakeNode('head');
   const body = new FakeNode('body');
@@ -92,17 +93,32 @@ function createRuntime() {
     addEventListener() {}
   };
 
+  const storage = new Map();
+  if (activityState) {
+    storage.set('pause-activity-commitments-v1:account:guest', JSON.stringify(activityState));
+  }
+  const localStorage = {
+    getItem: (key) => storage.has(key) ? storage.get(key) : null,
+    setItem: (key, value) => storage.set(key, String(value))
+  };
+
+  const window = { addEventListener() {}, dispatchEvent() {} };
   const context = {
     document,
     MutationObserver,
-    localStorage: { getItem: () => null, setItem() {} },
-    window: { addEventListener() {}, dispatchEvent() {} },
-    CustomEvent: class CustomEvent { constructor(type) { this.type = type; } },
+    localStorage,
+    window,
+    CustomEvent: class CustomEvent {
+      constructor(type, options = {}) {
+        this.type = type;
+        this.detail = options.detail;
+      }
+    },
     console
   };
 
   vm.runInNewContext(source, context, { filename: 'activityCommitments.js' });
-  return { document, getObserverCallback: () => observerCallback };
+  return { document, window, localStorage, getObserverCallback: () => observerCallback };
 }
 
 test('Activity menu injection is idempotent and uses only the canonical data attribute', () => {
@@ -117,4 +133,40 @@ test('Activity menu injection is idempotent and uses only the canonical data att
 
   assert.equal(document.querySelectorAll('[data-pause-activity-menu]').length, 1);
   assert.equal(document.querySelector('[data-pause-activities-menu]'), null);
+});
+
+test('Activities panel no longer owns START controls and activity timing is exposed to the ORB', () => {
+  assert.equal(source.includes('data-start'), false);
+  assert.equal(source.includes('activity-start'), false);
+
+  const { window } = createRuntime({
+    activityState: {
+      version: 1,
+      activities: [
+        {
+          id: 'spanish',
+          name: 'Spanish Language Practice',
+          targetMode: 'track',
+          targetMinutes: null,
+          spanMode: 'ongoing',
+          endDate: null,
+          createdAt: Date.now()
+        }
+      ],
+      sessions: [],
+      active: null
+    }
+  });
+
+  const api = window.__PAUSE_ACTIVITIES__;
+  assert.equal(typeof api?.getActivities, 'function');
+  assert.equal(api.getActivities().length, 1);
+  assert.equal(api.getActivities()[0].name, 'Spanish Language Practice');
+
+  assert.equal(api.start('spanish'), true);
+  assert.equal(api.getActive().activityId, 'spanish');
+  assert.equal(api.getActive().name, 'Spanish Language Practice');
+
+  assert.equal(api.stop(), true);
+  assert.equal(api.getActive(), null);
 });
