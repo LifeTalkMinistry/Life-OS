@@ -159,6 +159,35 @@
   white-space: nowrap;
 }
 
+/* One PAUSE scrollbar language for both Rest and Activity Insights. Keep the
+ * scroll containers separate, but make their chrome visually identical. */
+.pause-view-insights,
+.activity-panel.activity-insights-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(173, 135, 255, .32) transparent;
+}
+
+.pause-view-insights::-webkit-scrollbar,
+.activity-panel.activity-insights-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pause-view-insights::-webkit-scrollbar-track,
+.activity-panel.activity-insights-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pause-view-insights::-webkit-scrollbar-thumb,
+.activity-panel.activity-insights-panel::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(173, 135, 255, .32);
+}
+
+.pause-view-insights::-webkit-scrollbar-thumb:hover,
+.activity-panel.activity-insights-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(188, 153, 255, .46);
+}
+
 @media (max-width: 390px) {
   .pause-view-insights .pause-weekly-archive-link + .pause-insight-section,
   .pause-view-insights .pause-insight-section:has(> .pause-rhythm-days),
