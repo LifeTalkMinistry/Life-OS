@@ -6,6 +6,7 @@ import { TodayRing } from './components/TodayRing.js';
 import { PausePanel } from './components/PausePanel.js';
 import { PauseTimerPicker } from './components/PauseTimerPicker.js';
 import { PauseOrbMenu } from './components/PauseOrbMenu.js';
+import { PauseStartChooser } from './components/PauseStartChooser.js';
 import { PauseSettingsPanel } from './components/PauseSettingsPanel.js';
 import { AuthCheckingScreen, LoginScreen } from './auth/LoginScreen.js';
 import {
@@ -48,6 +49,7 @@ let authState = {
 let authMode = 'login';
 let screen = 'launch';
 let menuOpen = false;
+let startChooserOpen = false;
 let panelView = null;
 let completionVisible = false;
 let launchTimer = null;
@@ -252,7 +254,6 @@ async function syncNow() {
   syncCycleInFlight = (async () => {
     let snapshot;
     try {
-      // Reconnect rule: always read the account authority before any write.
       snapshot = await pullPauseCloudState(authState.session.token);
     } catch {
       return null;
@@ -404,6 +405,27 @@ async function hydrateAccountState(session) {
   }
 }
 
+function activityApi() {
+  return window.__PAUSE_ACTIVITIES__ || null;
+}
+
+function getActiveActivity() {
+  try {
+    return activityApi()?.getActive?.() || null;
+  } catch {
+    return null;
+  }
+}
+
+function getDeclaredActivities() {
+  try {
+    const activities = activityApi()?.getActivities?.();
+    return Array.isArray(activities) ? activities : [];
+  } catch {
+    return [];
+  }
+}
+
 function checkExpired() {
   const result = completeExpiredRest(pauseState);
   pauseState = result.state;
@@ -414,6 +436,7 @@ function checkExpired() {
 function showCompletion() {
   completionVisible = true;
   menuOpen = false;
+  startChooserOpen = false;
   panelView = null;
   clearTimeout(completionTimer);
   completionTimer = setTimeout(() => {
@@ -425,25 +448,29 @@ function showCompletion() {
 
 function openInsights() {
   menuOpen = false;
+  startChooserOpen = false;
   panelView = 'insights';
   render();
 }
 
 function openTimerPicker() {
-  if (pauseState.active) return;
+  if (pauseState.active || getActiveActivity()) return;
   menuOpen = false;
+  startChooserOpen = false;
   panelView = 'timer';
   render();
 }
 
 function openSettings() {
   menuOpen = false;
+  startChooserOpen = false;
   panelView = 'settings';
   render();
 }
 
 function openRecoveryPlan(section = 'plan') {
   menuOpen = false;
+  startChooserOpen = false;
   panelView = null;
   render();
 
@@ -474,11 +501,12 @@ function handleScoreChange({ timeframe, customRange }) {
 }
 
 function beginRest(durationMinutes = null) {
-  if (pauseState.active) return;
+  if (pauseState.active || getActiveActivity()) return;
   if (durationMinutes) primePauseAlarm();
   pauseState = startRest(pauseState, 'Rest', durationMinutes);
   panelView = null;
   menuOpen = false;
+  startChooserOpen = false;
   completionVisible = false;
   render();
 }
@@ -489,6 +517,38 @@ function beginImmediateRest() {
 
 function beginTimedRest(minutes) {
   beginRest(minutes);
+}
+
+function openStartChooser() {
+  if (startChooserOpen || pauseState.active || getActiveActivity()) return;
+  menuOpen = false;
+  panelView = null;
+  completionVisible = false;
+  startChooserOpen = true;
+  render();
+}
+
+function beginActivity(id) {
+  if (pauseState.active || getActiveActivity()) return false;
+  const started = Boolean(activityApi()?.start?.(id));
+  if (!started) return false;
+  startChooserOpen = false;
+  menuOpen = false;
+  panelView = null;
+  completionVisible = false;
+  render();
+  return true;
+}
+
+function endActivity() {
+  const stopped = Boolean(activityApi()?.stop?.());
+  if (!stopped) return false;
+  startChooserOpen = false;
+  menuOpen = false;
+  panelView = null;
+  completionVisible = false;
+  render();
+  return true;
 }
 
 function handleMenuSelect(item) {
@@ -510,14 +570,22 @@ function handleOrbAction(action) {
     menuOpen = false;
     return render();
   }
+  if (action === 'close-choice') {
+    startChooserOpen = false;
+    return render();
+  }
   if (action === 'end-rest' && pauseState.active) {
     pauseState = finishRest(pauseState, 'ended');
     return showCompletion();
+  }
+  if (action === 'end-activity') {
+    return endActivity();
   }
 }
 
 function openOrbMenu() {
   menuOpen = true;
+  startChooserOpen = false;
   panelView = null;
   completionVisible = false;
   render();
@@ -526,11 +594,12 @@ function openOrbMenu() {
 function getGestureHandlers() {
   gestureController?.destroy();
   gestureController = createOrbGestureController({
+    doubleTapDelay: 0,
     onSingleTap: () => {
-      if (!pauseState.active) beginImmediateRest();
+      if (!pauseState.active && !getActiveActivity()) openStartChooser();
     },
     onDoubleTap: () => {
-      if (!pauseState.active) beginImmediateRest();
+      if (!pauseState.active && !getActiveActivity()) openStartChooser();
     },
     onHoldStart: openOrbMenu,
     onHoldEnd: () => {}
@@ -540,7 +609,7 @@ function getGestureHandlers() {
     pointerUp: () => gestureController.pointerUp(),
     cancel: () => gestureController.cancel(),
     keyboardTap: () => {
-      if (!pauseState.active) beginImmediateRest();
+      if (!pauseState.active && !getActiveActivity()) openStartChooser();
     },
     keyboardHold: openOrbMenu
   };
@@ -564,12 +633,13 @@ function LaunchScreen() {
 
 function MainScreen() {
   checkExpired();
+  const activeActivity = getActiveActivity();
 
-  const showHomeControls = !menuOpen && !pauseState.active && !completionVisible && !panelView;
-  const showInsightsLink = !menuOpen && showHomeControls;
+  const showHomeControls = !menuOpen && !startChooserOpen && !pauseState.active && !activeActivity && !completionVisible && !panelView;
+  const showInsightsLink = !menuOpen && !startChooserOpen && showHomeControls;
 
   const view = document.createElement('section');
-  view.className = `screen main-screen pause-main-screen${showInsightsLink ? ' has-pause-menu' : ''}${menuOpen ? ' is-today is-pause-menu' : ''}${pauseState.active ? ' is-resting' : ''}`;
+  view.className = `screen main-screen pause-main-screen${showInsightsLink ? ' has-pause-menu' : ''}${menuOpen ? ' is-today is-pause-menu' : ''}${pauseState.active ? ' is-resting' : ''}${activeActivity ? ' is-activity' : ''}${startChooserOpen ? ' is-start-chooser' : ''}`;
   view.appendChild(Brand());
 
   if (showHomeControls) {
@@ -585,9 +655,16 @@ function MainScreen() {
   stage.className = 'orb-stage';
 
   if (showInsightsLink) stage.appendChild(TodayRing(handleMenuSelect));
+  if (startChooserOpen) {
+    stage.appendChild(PauseStartChooser({
+      activities: getDeclaredActivities(),
+      onRest: beginImmediateRest,
+      onActivity: beginActivity
+    }));
+  }
   if (menuOpen) {
     stage.appendChild(PauseOrbMenu({
-      active: Boolean(pauseState.active),
+      active: Boolean(pauseState.active || activeActivity),
       onSelect: handleMenuSelect
     }));
   }
@@ -596,14 +673,19 @@ function MainScreen() {
     ? 'completed'
     : menuOpen
       ? 'menu'
-      : pauseState.active
-        ? 'resting'
-        : 'idle';
+      : startChooserOpen
+        ? 'choice'
+        : pauseState.active
+          ? 'resting'
+          : activeActivity
+            ? 'activity'
+            : 'idle';
 
   const orb = Orb({
     state: pauseState,
+    activity: activeActivity,
     mode,
-    gestureHandlers: !menuOpen && !completionVisible && !panelView ? getGestureHandlers() : null,
+    gestureHandlers: !menuOpen && !startChooserOpen && !completionVisible && !panelView ? getGestureHandlers() : null,
     onAction: handleOrbAction
   });
   stage.appendChild(orb);
@@ -613,11 +695,15 @@ function MainScreen() {
   hint.className = 'gesture-hint is-visible pause-hint';
   hint.textContent = menuOpen
     ? 'Choose an option · Tap orb to return'
-    : pauseState.active?.timerExpiredAt
-      ? 'Timer done · Rest continues until you end it'
-      : pauseState.active
-        ? 'Resting now · Hold for more'
-        : 'Tap to pause · Hold for more';
+    : startChooserOpen
+      ? 'Choose Rest or an activity · Tap orb to return'
+      : pauseState.active?.timerExpiredAt
+        ? 'Timer done · Rest continues until you end it'
+        : pauseState.active
+          ? 'Resting now · Hold for more'
+          : activeActivity
+            ? `${activeActivity.name} in progress · Hold for more`
+            : 'Tap to choose · Hold for more';
   view.appendChild(hint);
 
   if (panelView === 'insights') {
@@ -653,6 +739,7 @@ function startAuthenticatedApp() {
   clearTimeout(launchTimer);
   screen = 'launch';
   menuOpen = false;
+  startChooserOpen = false;
   panelView = null;
   completionVisible = false;
   startSyncPolling();
@@ -729,6 +816,7 @@ async function signOut() {
   scorePreference = loadScorePreference();
   screen = 'launch';
   menuOpen = false;
+  startChooserOpen = false;
   panelView = null;
   completionVisible = false;
   render();
@@ -758,22 +846,36 @@ function render() {
 }
 
 function updateLiveTimer() {
-  if (authState.status !== 'authenticated' || !pauseState.active || completionVisible || menuOpen) return;
-  const timer = app.querySelector('[data-pause-timer]');
-  if (!timer) return;
+  if (authState.status !== 'authenticated' || completionVisible || menuOpen || startChooserOpen) return;
 
-  const nextValue = pauseState.active.timerExpiredAt
-    ? `+${formatElapsed(timerOvertimeMs(pauseState))}`
-    : pauseState.active.endAt
-      ? formatCountdown(remainingMs(pauseState))
-      : formatElapsed(elapsedMs(pauseState));
+  if (pauseState.active) {
+    const timer = app.querySelector('[data-pause-timer]');
+    if (!timer) return;
 
+    const nextValue = pauseState.active.timerExpiredAt
+      ? `+${formatElapsed(timerOvertimeMs(pauseState))}`
+      : pauseState.active.endAt
+        ? formatCountdown(remainingMs(pauseState))
+        : formatElapsed(elapsedMs(pauseState));
+
+    if (timer.textContent !== nextValue) timer.textContent = nextValue;
+    return;
+  }
+
+  const activity = getActiveActivity();
+  const timer = app.querySelector('[data-pause-activity-timer]');
+  if (!activity || !timer) return;
+  const nextValue = formatElapsed(Math.max(0, Date.now() - Number(activity.startAt || 0)));
   if (timer.textContent !== nextValue) timer.textContent = nextValue;
 }
 
 function onKeydown(event) {
   if (authState.status !== 'authenticated' || event.key !== 'Escape') return;
   if (panelView) return closePanel();
+  if (startChooserOpen) {
+    startChooserOpen = false;
+    return render();
+  }
   if (menuOpen) {
     menuOpen = false;
     render();
@@ -824,6 +926,9 @@ window.addEventListener('pause:state-changed', (event) => {
   if (event.detail) pauseState = event.detail;
   queueCloudPush('state');
 });
+window.addEventListener('pause:activities-changed', () => {
+  if (authState.status === 'authenticated' && screen === 'main') render();
+});
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && authState.status === 'authenticated' && screen === 'main') {
     checkExpired();
@@ -849,8 +954,9 @@ tickTimer = setInterval(() => {
     return;
   }
 
-  if (!pauseState.active || completionVisible) return;
-  if (checkExpired()) {
+  const activeActivity = getActiveActivity();
+  if ((!pauseState.active && !activeActivity) || completionVisible) return;
+  if (pauseState.active && checkExpired()) {
     render();
     return;
   }
@@ -860,11 +966,13 @@ tickTimer = setInterval(() => {
 window.__PAUSE__ = {
   getState: () => ({
     pauseState,
+    activity: getActiveActivity(),
     authStatus: authState.status,
     authMode,
     user: authState.session?.user || null,
     screen,
     menuOpen,
+    startChooserOpen,
     panelView,
     completionVisible,
     scorePreference,
@@ -878,8 +986,11 @@ window.__PAUSE__ = {
   openTimerPicker,
   openSettings,
   openMenu: openOrbMenu,
+  openStartChooser,
   takeRest: () => beginImmediateRest(),
   takeTimedRest: (minutes) => beginTimedRest(Number(minutes)),
+  startActivity: beginActivity,
+  endActivity,
   syncNow,
   signOut
 };

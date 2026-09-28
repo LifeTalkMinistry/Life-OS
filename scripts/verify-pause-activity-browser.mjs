@@ -34,6 +34,22 @@ const recoveryPlan = {
     wakeTarget: false
   }
 };
+const activityState = {
+  version: 1,
+  activities: [
+    {
+      id: 'spanish',
+      name: 'Spanish Language Practice',
+      targetMode: 'track',
+      targetMinutes: null,
+      spanMode: 'ongoing',
+      endDate: null,
+      createdAt: Date.now()
+    }
+  ],
+  sessions: [],
+  active: null
+};
 
 function base64Url(value) {
   return Buffer.from(JSON.stringify(value))
@@ -222,6 +238,16 @@ async function waitFor(expression, label, timeoutMs = 8000) {
   throw new Error(`Timed out waiting for ${label}`);
 }
 
+async function tapOrb(pointerId) {
+  await evaluate(`(() => {
+    const orb = document.querySelector('.pause-main-screen .orb');
+    if (!orb) throw new Error('ORB not found');
+    orb.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: ${pointerId}, button: 0, clientX: 195, clientY: 422 }));
+    orb.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: ${pointerId}, button: 0, clientX: 195, clientY: 422 }));
+  })()`);
+  await sleep(360);
+}
+
 async function holdOrb(pointerId) {
   await evaluate(`(() => {
     const orb = document.querySelector('.pause-main-screen .orb');
@@ -294,14 +320,16 @@ try {
     localStorage.setItem('pause_backend_access_token_v1', ${JSON.stringify(token)});
     localStorage.setItem('pause_backend_user_v1', ${JSON.stringify(JSON.stringify(testUser))});
     localStorage.setItem('pause-recovery-plan-v1:account:${testUser.id}', ${JSON.stringify(JSON.stringify(recoveryPlan))});
+    localStorage.setItem('pause-activity-commitments-v1:account:${testUser.id}', ${JSON.stringify(JSON.stringify(activityState))});
   })();` });
 
   await send('Page.navigate', { url: `${origin}/` });
   await waitFor(`document.readyState === 'complete'`, 'document load');
   await waitFor(`document.querySelector('.pause-main-screen .orb')`, 'authenticated PAUSE main screen', 12_000);
   await waitFor(`window.__PAUSE_RECOVERY_PLAN__?.getPlan?.()?.setupComplete === true`, 'completed Sleep Routine test state');
+  await waitFor(`window.__PAUSE_ACTIVITIES__?.getActivities?.().length === 1`, 'seeded Activity state');
 
-  // Test A — hold only.
+  // Test A — hold still opens the existing more menu and remains stable.
   await holdOrb(11);
   assert.equal(await evaluate(`Boolean(document.querySelector('.pause-orb-menu'))`), true);
   assert.equal(await evaluate(`document.querySelectorAll('[data-pause-activity-menu]').length`), 1);
@@ -331,16 +359,17 @@ try {
   })`), 4, 'browser main thread should remain responsive after hold');
   await evaluate(`window.__pauseMenuMutationObserver.disconnect()`);
 
-  // Test B — Activity.
+  // Test B — Activity is management-only: no START button remains in the panel.
   await evaluate(`document.querySelector('[data-pause-activity-menu]').click()`);
   await waitFor(`document.querySelector('.activity-panel')`, 'Activity panel');
   assert.equal(await evaluate(`document.querySelectorAll('.activity-backdrop').length`), 1);
-  assert.equal(await evaluate(`document.querySelectorAll('[data-pause-activity-menu]').length`), 1);
+  assert.equal(await evaluate(`document.querySelectorAll('.activity-start, [data-start]').length`), 0);
+  assert.equal(await evaluate(`document.querySelector('.activity-panel').textContent.includes('Spanish Language Practice')`), true);
   await evaluate(`document.querySelector('.activity-close').click()`);
   await waitFor(`!document.querySelector('.activity-backdrop')`, 'Activity panel to close');
   await closeMenuIfOpen();
 
-  // Test D — native radial options.
+  // Test C — native hold-menu destinations are unchanged.
   await openNativeMenuItem('timer', 21);
   await waitFor(`document.querySelector('.pause-timer-panel')`, 'Timer panel');
   await evaluate(`document.querySelector('[data-timer-close]').click()`);
@@ -361,21 +390,46 @@ try {
   await evaluate(`document.querySelector('[data-settings-close]').click()`);
   await waitFor(`!document.querySelector('.pause-settings-panel')`, 'Settings panel to close');
 
-  // Test C — existing tap-to-rest behavior.
-  await evaluate(`(() => {
-    const orb = document.querySelector('.pause-main-screen .orb');
-    orb.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 31, button: 0, clientX: 195, clientY: 422 }));
-    orb.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 31, button: 0, clientX: 195, clientY: 422 }));
-  })()`);
-  await sleep(360);
-  await waitFor(`document.querySelector('.orb-mode-resting [data-pause-action="end-rest"]')`, 'tap-to-rest resting state');
+  // Test D — normal tap opens Rest + declared activities around the ORB.
+  await tapOrb(31);
+  await waitFor(`document.querySelector('.pause-start-chooser')`, 'Rest and Activity chooser');
+  assert.equal(await evaluate(`Boolean(document.querySelector('[data-pause-start-choice="rest"]'))`), true);
+  assert.equal(await evaluate(`Boolean(document.querySelector('[data-pause-start-choice="spanish"]'))`), true);
+  assert.equal(await evaluate(`Boolean(window.__PAUSE__.getState().pauseState.active)`), false, 'tap alone must not start Rest');
+  assert.equal(await evaluate(`Boolean(window.__PAUSE__.getState().activity)`), false, 'tap alone must not start Activity');
+
+  // Choosing an activity starts its count on the ORB.
+  await evaluate(`document.querySelector('[data-pause-start-choice="spanish"]').click()`);
+  await waitFor(`document.querySelector('.orb-mode-activity [data-pause-activity-timer]')`, 'active Activity timer on ORB');
+  assert.equal(await evaluate(`window.__PAUSE__.getState().activity?.activityId`), 'spanish');
+  assert.equal(await evaluate(`Boolean(window.__PAUSE__.getState().pauseState.active)`), false);
+  const activityTimerBefore = await evaluate(`document.querySelector('[data-pause-activity-timer]').textContent`);
+  await sleep(1100);
+  const activityTimerAfter = await evaluate(`document.querySelector('[data-pause-activity-timer]').textContent`);
+  assert.notEqual(activityTimerAfter, activityTimerBefore, 'Activity timer should advance on the ORB');
+
+  // Hold-for-more still works while an Activity is running.
+  await holdOrb(32);
+  assert.equal(await evaluate(`Boolean(document.querySelector('.pause-orb-menu'))`), true);
+  assert.equal(await evaluate(`document.querySelector('[data-pause-menu="timer"]').disabled`), true, 'Rest timer must stay unavailable during an active Activity');
+  await closeMenuIfOpen();
+  await waitFor(`document.querySelector('.orb-mode-activity [data-pause-action="end-activity"]')`, 'Activity ORB after closing more menu');
+  await evaluate(`document.querySelector('[data-pause-action="end-activity"]').click()`);
+  await waitFor(`!window.__PAUSE__.getState().activity`, 'Activity to end');
+
+  // Choosing Rest from the same tap chooser still starts the existing Rest flow.
+  await tapOrb(33);
+  await waitFor(`document.querySelector('.pause-start-chooser')`, 'Rest chooser after Activity');
+  await evaluate(`document.querySelector('[data-pause-start-choice="rest"]').click()`);
+  await waitFor(`document.querySelector('.orb-mode-resting [data-pause-action="end-rest"]')`, 'Resting state after choosing Rest');
   assert.equal(await evaluate(`Boolean(window.__PAUSE__.getState().pauseState.active)`), true);
+  assert.equal(await evaluate(`Boolean(window.__PAUSE__.getState().activity)`), false);
 
   assert.equal(await evaluate(`window.__pauseBrowserErrors.length`), 0, `window errors: ${await evaluate(`JSON.stringify(window.__pauseBrowserErrors)`)}`);
   assert.equal(await evaluate(`window.__pauseConsoleErrors.length`), 0, `console errors: ${await evaluate(`JSON.stringify(window.__pauseConsoleErrors)`)}`);
   assert.deepEqual(runtimeExceptions, []);
 
-  console.log(`PAUSE browser regression passed in ${chromeVersion}: hold is responsive, one Activity button, Activity opens once, tap-to-rest is unchanged, and Timer/Sleep Routine/Rest Insights/Settings still open.`);
+  console.log(`PAUSE browser regression passed in ${chromeVersion}: tap opens Rest + Activity choices, Activity timing runs on the ORB, Rest still starts from the chooser, and hold-for-more remains intact.`);
 } finally {
   try { ws?.close(); } catch {}
   chrome.kill('SIGTERM');

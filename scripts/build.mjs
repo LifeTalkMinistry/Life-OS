@@ -14,6 +14,7 @@ const scriptOrder = [
   'src/components/PausePanel.js',
   'src/components/PauseTimerPicker.js',
   'src/components/PauseOrbMenu.js',
+  'src/components/PauseStartChooser.js',
   'src/auth/backendClient.js',
   'src/pausePushClient.js',
   'src/components/PauseSettingsPanel.js',
