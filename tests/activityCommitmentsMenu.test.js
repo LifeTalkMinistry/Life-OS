@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../src/activityCommitments.js', import.meta.url), 'utf8');
+const directorySource = readFileSync(new URL('../src/activityDirectory.js', import.meta.url), 'utf8');
 
 function dataAttributeFor(property) {
   return `data-${String(property).replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)}`;
@@ -169,4 +170,20 @@ test('Activities panel no longer owns START controls and activity timing is expo
 
   assert.equal(api.stop(), true);
   assert.equal(api.getActive(), null);
+});
+
+test('Activity management is a clean clickable directory with per-activity reporting', () => {
+  assert.match(directorySource, /<h2>Activities<\/h2>/);
+  assert.match(directorySource, /data-activity-directory-add/);
+  assert.match(directorySource, /data-activity-report=/);
+  assert.match(directorySource, /window\.__PAUSE_ACTIVITIES__\?\.open\?\.\('add'\)/);
+
+  assert.equal(directorySource.includes('>HISTORY<'), false);
+  assert.equal(directorySource.includes('>INSIGHTS<'), false);
+  assert.equal(directorySource.includes('Track only ·'), false);
+
+  assert.match(directorySource, /TOTAL TRACKED/);
+  assert.match(directorySource, /LAST 7 DAYS/);
+  assert.match(directorySource, /RECENT SESSIONS/);
+  assert.match(directorySource, /timeZone: 'Asia\/Manila'/);
 });
