@@ -14,7 +14,8 @@ function ensurePauseSymbolStyles() {
     }
 
     .orb-mode-idle .orb,
-    .orb-mode-resting .orb {
+    .orb-mode-resting .orb,
+    .orb-mode-activity .orb {
       touch-action: none;
       -webkit-user-select: none;
       user-select: none;
@@ -68,19 +69,54 @@ function ensurePauseSymbolStyles() {
       text-shadow: 0 0 14px rgba(159, 103, 255, .2);
     }
 
-    .pause-resting-content {
+    .pause-resting-content,
+    .pause-activity-content,
+    .pause-choice-content {
       display: grid;
       place-items: center;
       align-content: center;
-      gap: 18px;
+      gap: 14px;
+      text-align: center;
     }
 
-    .pause-resting-content .pause-countdown {
+    .pause-resting-content .pause-countdown,
+    .pause-activity-content .pause-countdown {
       margin: 0;
     }
 
     .pause-timer-overtime {
       color: #c8b6e2;
+    }
+
+    .pause-activity-kicker {
+      margin: 0;
+      color: rgba(190, 162, 224, .66);
+      font-size: .58rem;
+      font-weight: 700;
+      letter-spacing: .16em;
+    }
+
+    .pause-activity-name {
+      max-width: 72%;
+      margin: -5px 0 0;
+      overflow: hidden;
+      color: #efe8f6;
+      font-size: clamp(.72rem, 3vw, .9rem);
+      font-weight: 590;
+      line-height: 1.2;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pause-choice-content .orb-title {
+      margin: 0;
+      font-size: clamp(1rem, 4vw, 1.25rem);
+      letter-spacing: .08em;
+    }
+
+    .pause-choice-content .pause-symbol-caption {
+      color: rgba(208, 194, 220, .64);
+      font-size: .68rem;
     }
 
     .orb-mode-idle .orb:hover .pause-symbol span,
@@ -111,6 +147,15 @@ function ensurePauseSymbolStyles() {
   document.head.appendChild(style);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function idleContent() {
   return `
     <div class="orb-content orb-now-content pause-idle-content">
@@ -118,7 +163,7 @@ function idleContent() {
         <span></span>
         <span></span>
       </div>
-      <p class="pause-symbol-caption">Tap to pause</p>
+      <p class="pause-symbol-caption">Tap to choose</p>
     </div>
   `;
 }
@@ -127,6 +172,15 @@ function menuContent() {
   return `
     <div class="orb-content orb-now-content pause-menu-content">
       <h1 class="orb-title">Drag to Choose</h1>
+    </div>
+  `;
+}
+
+function choiceContent() {
+  return `
+    <div class="orb-content orb-now-content pause-choice-content">
+      <h1 class="orb-title">CHOOSE</h1>
+      <p class="pause-symbol-caption">Rest or activity</p>
     </div>
   `;
 }
@@ -149,6 +203,19 @@ function restingContent(state) {
   `;
 }
 
+function activityContent(activity) {
+  const startAt = Number(activity?.startAt) || Date.now();
+  const timer = formatElapsed(Math.max(0, Date.now() - startAt));
+  return `
+    <div class="orb-content orb-now-content pause-activity-content">
+      <p class="pause-activity-kicker">ACTIVITY</p>
+      <strong class="pause-activity-name">${escapeHtml(activity?.name || 'Activity')}</strong>
+      <p class="orb-time pause-countdown" data-pause-activity-timer>${timer}</p>
+      <button type="button" class="pause-end-rest" data-pause-action="end-activity">END ACTIVITY</button>
+    </div>
+  `;
+}
+
 function completedContent() {
   return `
     <div class="orb-content orb-completed-content">
@@ -159,7 +226,7 @@ function completedContent() {
   `;
 }
 
-export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
+export function Orb({ state, activity = null, mode = 'idle', gestureHandlers, onAction }) {
   ensurePauseSymbolStyles();
 
   const shell = document.createElement('div');
@@ -174,16 +241,22 @@ export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
     ? state.active?.timerExpiredAt
       ? `Timer done for ${state.active?.label || 'Rest'}. Rest is still running. End rest when you are ready.`
       : `Resting: ${state.active?.label || 'Rest'}. End rest when you are ready. Press and hold, drag to an option, then release to choose it.`
-    : mode === 'menu'
-      ? 'PAUSE radial menu. Keep holding, drag to an option, and release to select. Release elsewhere to cancel.'
-      : 'Pause now. Tap to begin immediately. Press and hold, drag to an option, then release to choose it.');
+    : mode === 'activity'
+      ? `${activity?.name || 'Activity'} is running. End the activity when you are ready, or press and hold for more options.`
+      : mode === 'menu'
+        ? 'PAUSE radial menu. Keep holding, drag to an option, and release to select. Release elsewhere to cancel.'
+        : mode === 'choice'
+          ? 'Choose Rest or one of your declared activities. Tap the orb to return.'
+          : 'Choose what to start. Tap for Rest and declared activities. Press and hold, drag to an option, then release to choose it.');
 
   if (mode === 'resting') orb.innerHTML = restingContent(state);
+  else if (mode === 'activity') orb.innerHTML = activityContent(activity);
   else if (mode === 'completed') orb.innerHTML = completedContent();
   else if (mode === 'menu') orb.innerHTML = menuContent();
+  else if (mode === 'choice') orb.innerHTML = choiceContent();
   else orb.innerHTML = idleContent();
 
-  if ((mode === 'idle' || mode === 'resting') && gestureHandlers) {
+  if ((mode === 'idle' || mode === 'resting' || mode === 'activity') && gestureHandlers) {
     orb.addEventListener('pointerdown', (event) => {
       if (event.button !== undefined && event.button !== 0) return;
       if (event.target.closest('button')) return;
@@ -214,9 +287,18 @@ export function Orb({ state, mode = 'idle', gestureHandlers, onAction }) {
     orb.addEventListener('click', () => onAction?.('close-menu'));
   }
 
+  if (mode === 'choice') {
+    orb.addEventListener('click', () => onAction?.('close-choice'));
+  }
+
   orb.querySelector('[data-pause-action="end-rest"]')?.addEventListener('click', (event) => {
     event.stopPropagation();
     onAction?.('end-rest');
+  });
+
+  orb.querySelector('[data-pause-action="end-activity"]')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    onAction?.('end-activity');
   });
 
   shell.append(OrbArtwork(), orb);
