@@ -115,7 +115,7 @@
           <h2>Activities</h2>
           <button type="button" class="activity-directory-add" data-activity-directory-add aria-label="Add activity">+</button>
         </div>
-        <button type="button" class="activity-directory-close" data-activity-directory-close aria-label="Close">×</button>
+        <button type="button" class="activity-directory-close activity-close" data-activity-directory-close aria-label="Close">×</button>
       </div>
       <div class="activity-directory-list">
         ${state.activities.length
@@ -173,7 +173,7 @@
           <button type="button" class="activity-report-back" data-activity-report-back aria-label="Back to Activities">←</button>
           <div><small>ACTIVITY REPORT</small><h2>${esc(data.activity.name)}</h2></div>
         </div>
-        <button type="button" class="activity-directory-close" data-activity-directory-close aria-label="Close">×</button>
+        <button type="button" class="activity-directory-close activity-close" data-activity-directory-close aria-label="Close">×</button>
       </div>
       <div class="activity-report-total">
         <small>TOTAL TRACKED</small>
