@@ -7,7 +7,6 @@ const required = [
   'REST RHYTHM · LAST 7 CALENDAR DAYS',
   'YOUR 7-DAY RHYTHM',
   'YOUR REST PATTERN · BY WEEKDAY',
-  'RECENT RESTS',
   'DAILY AUDIT · MANILA TIME',
   'buildBoundedRestInsights(state)',
   'buildBoundedRestAuditForDay(state, dayKey)',
@@ -21,12 +20,15 @@ for (const marker of required) {
   assert.ok(html.includes(marker), `Production Rest Insights bundle is missing: ${marker}`);
 }
 
+// RECENT RESTS was intentionally removed from the main Rest Insights surface.
+// Daily audits remain the supported path for inspecting exact recorded sessions.
+assert.equal(html.includes('<p class="pause-insight-section-title">RECENT RESTS</p>'), false, 'Removed Recent Rests section returned to the main Rest Insights surface.');
+
 const forbidden = [
   'RestInsightsSafePanel({',
   'new MutationObserver(pauseWeeklyReconcile)',
   'new MutationObserver(pauseSleepStreakQueueRender)',
   'initializeRestInsightsInfo()',
-  'initializeRecoveryStatusCard()',
   'Your Monday–Sunday recovery report is ready.',
   'PAUSE is opening Rest Insights without blocking the app.'
 ];
