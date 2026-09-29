@@ -119,15 +119,29 @@ const activitySyncReconcileRuntime = (() => {
       .slice(0, ACTIVITY_LIMIT);
   }
 
-  function mergeSessions(localState, remoteState, deletedActivityIds) {
-    const deleted = new Set((deletedActivityIds || []).map(String));
+  function mergeSessions(localState, remoteState, deletedActivityIds, deletedSessionIds, preferLocalSessions) {
+    const deletedActivities = new Set((deletedActivityIds || []).map(String));
+    const deletedSessions = new Set((deletedSessionIds || []).map(String));
+    const localIds = new Set(localState.sessions.map((session) => String(session.id)));
     const byFingerprint = new Map();
-    [...remoteState.sessions, ...localState.sessions].forEach((session) => {
-      if (deleted.has(String(session.activityId))) return;
+
+    remoteState.sessions.forEach((session) => {
+      if (deletedActivities.has(String(session.activityId)) || deletedSessions.has(String(session.id))) return;
+      // A dirty local copy of the same session id represents an edit. Do not keep
+      // the old remote fingerprint when startAt was changed locally.
+      if (preferLocalSessions && localIds.has(String(session.id))) return;
       const fingerprint = `${session.activityId}:${session.startAt}`;
       const current = byFingerprint.get(fingerprint);
       if (!current || session.endAt >= current.endAt) byFingerprint.set(fingerprint, session);
     });
+
+    localState.sessions.forEach((session) => {
+      if (deletedActivities.has(String(session.activityId)) || deletedSessions.has(String(session.id))) return;
+      const fingerprint = `${session.activityId}:${session.startAt}`;
+      const current = byFingerprint.get(fingerprint);
+      if (!current || preferLocalSessions || session.endAt >= current.endAt) byFingerprint.set(fingerprint, session);
+    });
+
     return [...byFingerprint.values()]
       .sort((left, right) => left.endAt - right.endAt)
       .slice(-SESSION_LIMIT);
@@ -149,8 +163,9 @@ const activitySyncReconcileRuntime = (() => {
     const remoteState = normalizeState(remoteValue);
     const preferLocalActivities = options.preferLocalActivities === true;
     const deletedActivityIds = Array.isArray(options.deletedActivityIds) ? options.deletedActivityIds : [];
+    const deletedSessionIds = Array.isArray(options.deletedSessionIds) ? options.deletedSessionIds : [];
     const activities = mergeActivities(localState, remoteState, { preferLocalActivities, deletedActivityIds });
-    const sessions = mergeSessions(localState, remoteState, deletedActivityIds);
+    const sessions = mergeSessions(localState, remoteState, deletedActivityIds, deletedSessionIds, preferLocalActivities);
     const active = resolveActive(localState, remoteState, sessions, deletedActivityIds, preferLocalActivities);
     return normalizeState({ version: 1, activities, sessions, active });
   }
