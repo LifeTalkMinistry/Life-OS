@@ -136,6 +136,17 @@ export function createOrbGestureController({
         return;
       }
 
+      // PAUSE's main ORB intentionally sets doubleTapDelay to 0. In that mode
+      // there is no second-tap gesture to wait for, so firing through setTimeout(0)
+      // only creates a race where an unrelated render/sync can destroy this
+      // controller and cancel the pending tap. Complete the single tap now.
+      if (doubleTapDelay <= 0) {
+        lastTapAt = 0;
+        clearSingleTimer();
+        onSingleTap?.();
+        return;
+      }
+
       const now = Date.now();
       if (lastTapAt && now - lastTapAt <= doubleTapDelay) {
         lastTapAt = 0;
