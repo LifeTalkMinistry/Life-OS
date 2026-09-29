@@ -45,6 +45,44 @@ test('Activity sync deduplicates the same tracked session by activity and start 
   assert.equal(merged.sessions[0].durationMs, 60000);
 });
 
+test('dirty Activity sync keeps a locally edited session instead of restoring the old remote time', () => {
+  const local = {
+    activities: [activity('spanish', 'Spanish')],
+    sessions: [{ id: 'session-1', activityId: 'spanish', name: 'Spanish', startAt: 20000, endAt: 80000 }],
+    active: null
+  };
+  const remote = {
+    activities: [activity('spanish', 'Spanish')],
+    sessions: [{ id: 'session-1', activityId: 'spanish', name: 'Spanish', startAt: 10000, endAt: 70000 }],
+    active: null
+  };
+
+  const merged = reconcileActivitySyncStates(local, remote, { preferLocalActivities: true });
+  assert.equal(merged.sessions.length, 1);
+  assert.equal(merged.sessions[0].id, 'session-1');
+  assert.equal(merged.sessions[0].startAt, 20000);
+  assert.equal(merged.sessions[0].endAt, 80000);
+});
+
+test('deleted Activity session ids are not resurrected from the cloud during a dirty merge', () => {
+  const local = {
+    activities: [activity('spanish', 'Spanish')],
+    sessions: [],
+    active: null
+  };
+  const remote = {
+    activities: [activity('spanish', 'Spanish')],
+    sessions: [{ id: 'session-delete', activityId: 'spanish', name: 'Spanish', startAt: 10000, endAt: 70000 }],
+    active: null
+  };
+
+  const merged = reconcileActivitySyncStates(local, remote, {
+    preferLocalActivities: true,
+    deletedSessionIds: ['session-delete']
+  });
+  assert.equal(merged.sessions.length, 0);
+});
+
 test('completed Activity session clears the matching remote active timer', () => {
   const local = {
     activities: [activity('spanish', 'Spanish')],
