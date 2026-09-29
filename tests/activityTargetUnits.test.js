@@ -135,3 +135,30 @@ test('known corrupted Spanish Activity migrates narrowly and idempotently', () =
   assert.equal(normalized.activities[0].passingDisplayUnit, 'minutes');
   assert.deepEqual(normalizeActivitySyncState(normalized), normalized);
 });
+
+test('known Spanish Activity 60/1800 derivative corruption repairs to 1 hour / 30 minutes', () => {
+  const corrupted = {
+    id: 'practice-spanish-listening',
+    name: 'Practice Spanish Listening',
+    targetMode: 'daily',
+    targetMinutes: 60,
+    passingTargetMinutes: 1800,
+    targetDisplayUnit: 'hours',
+    passingDisplayUnit: 'minutes',
+    spanMode: 'ongoing',
+    createdAt: 1000
+  };
+
+  const repaired = repairKnownActivityTarget(corrupted);
+  assert.equal(repaired.targetMinutes, 60);
+  assert.equal(repaired.passingTargetMinutes, 30);
+  assert.equal(repaired.targetDisplayUnit, 'hours');
+  assert.equal(repaired.passingDisplayUnit, 'minutes');
+  assert.equal(repairKnownActivityTarget(repaired), repaired);
+
+  const normalized = normalizeActivitySyncState({ activities: [corrupted], sessions: [], active: null });
+  assert.equal(normalized.activities[0].targetMinutes, 60);
+  assert.equal(normalized.activities[0].passingTargetMinutes, 30);
+  assert.equal(normalized.activities[0].targetDisplayUnit, 'hours');
+  assert.equal(normalized.activities[0].passingDisplayUnit, 'minutes');
+});
