@@ -64,6 +64,14 @@ import {
 
   function writeLocalActivityState(accountId, value) {
     const next = normalizeActivitySyncState(value);
+    const current = readLocalActivityState(accountId);
+
+    // A cloud poll that returns exactly what this device already has must be a
+    // true no-op. Rewriting localStorage and dispatching activities-changed here
+    // rebuilds the PAUSE screen for no user-visible reason and can interrupt an
+    // ORB pointer sequence that is currently in progress.
+    if (activitySyncStatesEqual(current, next)) return current;
+
     applyingCloud = true;
     try {
       storage()?.setItem(activityKey(accountId), JSON.stringify(next));
