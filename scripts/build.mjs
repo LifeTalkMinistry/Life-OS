@@ -31,6 +31,7 @@ const scriptOrder = [
   'src/activityInsightsInfo.js',
   'src/activityStatusInline.js',
   'src/manualSleepEntry.js',
+  'src/restAuditDelete.js',
   'src/recoveryPlan.js',
   'src/sleepRoutineSchedule.js',
   'src/recoveryPlanPickerStability.js',
