@@ -18,12 +18,14 @@ export function minutesToDisplay(minutes, unit) {
 
 export function repairKnownActivityTarget(activity) {
   if (!activity || typeof activity !== 'object') return activity;
-  if (
-    activity.name === 'Practice Spanish Listening'
-    && activity.targetMode === 'daily'
-    && Number(activity.targetMinutes) === 1
-    && Number(activity.passingTargetMinutes) === 30
-  ) {
+  const isKnownSpanishListening = activity.name === 'Practice Spanish Listening'
+    && activity.targetMode === 'daily';
+  const targetMinutes = Number(activity.targetMinutes);
+  const passingTargetMinutes = Number(activity.passingTargetMinutes);
+  const isOriginalCorruption = targetMinutes === 1 && passingTargetMinutes === 30;
+  const isDerivedDisplayCorruption = targetMinutes === 60 && passingTargetMinutes === 1800;
+
+  if (isKnownSpanishListening && (isOriginalCorruption || isDerivedDisplayCorruption)) {
     return {
       ...activity,
       targetMinutes: 60,
