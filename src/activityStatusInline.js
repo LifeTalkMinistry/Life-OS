@@ -1,3 +1,5 @@
+import { activityDisplayUnit, durationToMinutes, minutesToDisplay, repairKnownActivityTarget } from './activityTargetDurations.js';
+
 /* Activity status/report parity helpers.
  * - Activity status info expands inline like Rest Insights.
  * - Track-only Activities keep the same progress-row skeleton without a fake score.
@@ -33,14 +35,26 @@
   function readState() {
     try {
       const raw = JSON.parse(localStorage.getItem(stateKey()) || 'null');
-      return raw && typeof raw === 'object'
-        ? {
-            version: 1,
-            activities: Array.isArray(raw.activities) ? raw.activities : [],
-            sessions: Array.isArray(raw.sessions) ? raw.sessions : [],
-            active: raw.active || null
-          }
-        : { version: 1, activities: [], sessions: [], active: null };
+      if (!raw || typeof raw !== 'object') return { version: 1, activities: [], sessions: [], active: null };
+      let repaired = false;
+      const activities = Array.isArray(raw.activities)
+        ? raw.activities.map((item) => {
+            const next = repairKnownActivityTarget(item);
+            if (next !== item) repaired = true;
+            return next;
+          })
+        : [];
+      const next = {
+        version: 1,
+        activities,
+        sessions: Array.isArray(raw.sessions) ? raw.sessions : [],
+        active: raw.active || null
+      };
+      if (repaired) {
+        try { localStorage.setItem(stateKey(), JSON.stringify(next)); } catch {}
+        queueMicrotask(() => window.dispatchEvent(new CustomEvent('pause:activities-changed', { detail: next })));
+      }
+      return next;
     } catch {
       return { version: 1, activities: [], sessions: [], active: null };
     }
@@ -179,11 +193,32 @@
     return { state, id, activity: state.activities.find((item) => String(item?.id) === id) || null };
   }
 
-  function targetUnit(mode) {
-    if (mode === 'daily') return 'hours / day';
-    if (mode === 'weekly') return 'hours / week';
-    if (mode === 'total') return 'total hours';
-    return 'hours';
+  function targetCadence(mode) {
+    if (mode === 'daily') return 'per day';
+    if (mode === 'weekly') return 'per week';
+    if (mode === 'total') return 'for this commitment';
+    return '';
+  }
+
+  function configureDurationInput(input, unit) {
+    if (!input) return;
+    const minutes = unit === 'minutes';
+    input.min = minutes ? '1' : '0.01';
+    input.max = minutes ? '60000' : '1000';
+    input.step = minutes ? '1' : '0.01';
+  }
+
+  function convertDurationUnit(select) {
+    if (!select?.matches?.('[data-duration-unit]')) return;
+    const previous = select.dataset.previousUnit === 'minutes' ? 'minutes' : 'hours';
+    const next = select.value === 'minutes' ? 'minutes' : 'hours';
+    const input = select.closest('.activity-target-value-row')?.querySelector('input[type="number"]');
+    if (input && previous !== next && input.value) {
+      const canonical = durationToMinutes(input.value, previous);
+      if (canonical != null) input.value = String(minutesToDisplay(canonical, next));
+    }
+    select.dataset.previousUnit = next;
+    configureDurationInput(input, next);
   }
 
   function returnToReport(panel, activityId) {
@@ -203,8 +238,12 @@
     const { id, activity } = currentActivity(panel);
     if (!activity) return;
     const mode = activity.targetMode && activity.targetMode !== 'track' ? activity.targetMode : 'track';
-    const targetHours = Number(activity.targetMinutes || 0) / 60;
-    const passingHours = Number(activity.passingTargetMinutes || 0) / 60;
+    const targetMinutes = Number(activity.targetMinutes || 0);
+    const passingTargetMinutes = Number(activity.passingTargetMinutes || 0);
+    const targetDisplayUnit = activityDisplayUnit(activity.targetDisplayUnit, targetMinutes);
+    const passingDisplayUnit = activityDisplayUnit(activity.passingDisplayUnit, passingTargetMinutes);
+    const targetValue = targetMinutes > 0 ? minutesToDisplay(targetMinutes, targetDisplayUnit) : '';
+    const passingValue = passingTargetMinutes > 0 ? minutesToDisplay(passingTargetMinutes, passingDisplayUnit) : '';
     const hasEnd = Boolean(activity.endDate);
 
     panel.dataset.activityManageView = '1';
@@ -223,8 +262,8 @@
         <div class="activity-manage-field activity-manage-target-wrap" data-activity-manage-target-wrap ${mode === 'track' ? 'hidden' : ''}>
           <p class="activity-manage-explainer">Set what counts as <strong>100%</strong> and the minimum that still counts as <strong>passing</strong>.</p>
           <div class="activity-manage-targets">
-            <label class="activity-manage-target"><span>100% TARGET</span><input type="number" name="targetHours" min="0.01" max="1000" step="0.01" value="${targetHours || ''}" inputmode="decimal"><small data-activity-target-unit>${targetUnit(mode)}</small></label>
-            <label class="activity-manage-target"><span>PASSING TARGET</span><input type="number" name="passingHours" min="0.01" max="1000" step="0.01" value="${passingHours || ''}" inputmode="decimal"><small data-activity-passing-unit>${targetUnit(mode)}</small></label>
+            <label class="activity-manage-target"><span>100% TARGET</span><div class="activity-target-value-row"><input type="number" name="targetValue" min="0.01" max="1000" step="0.01" value="${targetValue}" inputmode="decimal"><select class="activity-target-unit-select" name="targetUnit" data-duration-unit data-previous-unit="${targetDisplayUnit}" aria-label="100% target unit"><option value="hours"${targetDisplayUnit === 'hours' ? ' selected' : ''}>Hours</option><option value="minutes"${targetDisplayUnit === 'minutes' ? ' selected' : ''}>Minutes</option></select></div><small data-activity-target-unit>${targetCadence(mode)}</small></label>
+            <label class="activity-manage-target"><span>PASSING TARGET</span><div class="activity-target-value-row"><input type="number" name="passingValue" min="0.01" max="1000" step="0.01" value="${passingValue}" inputmode="decimal"><select class="activity-target-unit-select" name="passingUnit" data-duration-unit data-previous-unit="${passingDisplayUnit}" aria-label="Passing target unit"><option value="hours"${passingDisplayUnit === 'hours' ? ' selected' : ''}>Hours</option><option value="minutes"${passingDisplayUnit === 'minutes' ? ' selected' : ''}>Minutes</option></select></div><small data-activity-passing-unit>${targetCadence(mode)}</small></label>
           </div>
         </div>
         <div class="activity-manage-field"><span>How long is this commitment?</span><div class="activity-manage-choices">
@@ -246,18 +285,24 @@
     const untilWrap = panel.querySelector('[data-activity-manage-until]');
     const error = panel.querySelector('[data-activity-manage-error]');
 
+    configureDurationInput(form?.querySelector('input[name="targetValue"]'), targetDisplayUnit);
+    configureDurationInput(form?.querySelector('input[name="passingValue"]'), passingDisplayUnit);
+
     const refreshTargetMode = () => {
       const selected = form?.querySelector('input[name="targetMode"]:checked')?.value || 'track';
       if (targetWrap) targetWrap.hidden = selected === 'track';
-      panel.querySelectorAll('[data-activity-target-unit],[data-activity-passing-unit]').forEach((node) => { node.textContent = targetUnit(selected); });
+      panel.querySelectorAll('[data-activity-target-unit],[data-activity-passing-unit]').forEach((node) => { node.textContent = targetCadence(selected); });
     };
     const refreshSpanMode = () => {
       const selected = form?.querySelector('input[name="spanMode"]:checked')?.value || 'ongoing';
       if (untilWrap) untilWrap.hidden = selected !== 'until';
     };
+    const clearError = () => { if (error) error.textContent = ''; };
 
-    form?.querySelectorAll('input[name="targetMode"]').forEach((input) => input.addEventListener('change', refreshTargetMode));
-    form?.querySelectorAll('input[name="spanMode"]').forEach((input) => input.addEventListener('change', refreshSpanMode));
+    form?.querySelectorAll('input[name="targetMode"]').forEach((input) => input.addEventListener('change', () => { refreshTargetMode(); clearError(); }));
+    form?.querySelectorAll('input[name="spanMode"]').forEach((input) => input.addEventListener('change', () => { refreshSpanMode(); clearError(); }));
+    form?.querySelectorAll('[data-duration-unit]').forEach((select) => select.addEventListener('change', () => { convertDurationUnit(select); clearError(); }));
+    form?.querySelectorAll('input[name="targetValue"],input[name="passingValue"]').forEach((input) => input.addEventListener('input', clearError));
     panel.querySelector('[data-activity-manage-back]')?.addEventListener('click', () => returnToReport(panel, id));
     panel.querySelector('[data-activity-manage-close]')?.addEventListener('click', closeActivityOverlay);
 
@@ -267,17 +312,19 @@
       const name = String(values.get('name') || '').trim().replace(/\s+/g, ' ').slice(0, 48);
       const targetMode = String(values.get('targetMode') || 'track');
       const spanMode = String(values.get('spanMode') || 'ongoing');
-      const targetHoursValue = Number(values.get('targetHours'));
-      const passingHoursValue = Number(values.get('passingHours'));
+      const nextTargetUnit = values.get('targetUnit') === 'minutes' ? 'minutes' : 'hours';
+      const nextPassingUnit = values.get('passingUnit') === 'minutes' ? 'minutes' : 'hours';
+      const nextTargetMinutes = durationToMinutes(values.get('targetValue'), nextTargetUnit);
+      const nextPassingTargetMinutes = durationToMinutes(values.get('passingValue'), nextPassingUnit);
       const endDate = String(values.get('endDate') || '');
 
       if (!name) { if (error) error.textContent = 'Enter an activity name.'; return; }
       if (targetMode !== 'track') {
-        if (!Number.isFinite(targetHoursValue) || targetHoursValue <= 0 || !Number.isFinite(passingHoursValue) || passingHoursValue <= 0) {
+        if (nextTargetMinutes == null || nextPassingTargetMinutes == null) {
           if (error) error.textContent = 'Set both the 100% target and passing target.';
           return;
         }
-        if (passingHoursValue > targetHoursValue) { if (error) error.textContent = 'Passing target cannot be higher than the 100% target.'; return; }
+        if (nextPassingTargetMinutes > nextTargetMinutes) { if (error) error.textContent = 'Passing target cannot be higher than the 100% target.'; return; }
       }
       if (spanMode === 'until' && (!/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < manilaKey())) {
         if (error) error.textContent = 'Choose a valid end date.';
@@ -291,8 +338,10 @@
         ...latest.activities[index],
         name,
         targetMode,
-        targetMinutes: targetMode === 'track' ? null : Math.round(targetHoursValue * 60),
-        passingTargetMinutes: targetMode === 'track' ? null : Math.round(passingHoursValue * 60),
+        targetMinutes: targetMode === 'track' ? null : nextTargetMinutes,
+        passingTargetMinutes: targetMode === 'track' ? null : nextPassingTargetMinutes,
+        targetDisplayUnit: targetMode === 'track' ? null : nextTargetUnit,
+        passingDisplayUnit: targetMode === 'track' ? null : nextPassingUnit,
         spanMode: spanMode === 'until' ? 'until' : 'ongoing',
         endDate: spanMode === 'until' ? endDate : null
       };
