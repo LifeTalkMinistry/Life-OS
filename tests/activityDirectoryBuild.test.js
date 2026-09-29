@@ -8,9 +8,9 @@ const activityDirectorySource = readFileSync(new URL('../src/activityDirectory.j
 const activityInsightsSource = readFileSync(new URL('../src/activityInsightsParity.js', import.meta.url), 'utf8');
 const weeklyReportLinksCss = readFileSync(new URL('../src/weekly-report-links.css', import.meta.url), 'utf8');
 
-test('Activity directory and refined Activity Insights runtime are included in production', () => {
-  assert.match(buildSource, /'src\/activityCommitments\.js',[\s\S]*'src\/activityDirectory\.js',[\s\S]*'src\/activityInsightsParity\.js'/);
-  assert.match(indexSource, /activityCommitments\.js[^<]*<\/script>\s*<script[^>]*activityDirectory\.js[^<]*<\/script>\s*<script[^>]*activityInsightsParity\.js/);
+test('Activity directory, cloud sync, and refined Activity Insights runtime are included in production', () => {
+  assert.match(buildSource, /'src\/activityCommitments\.js',[\s\S]*'src\/sync\/activityCloudSync\.js',[\s\S]*'src\/activityDirectory\.js',[\s\S]*'src\/activityInsightsParity\.js'/);
+  assert.match(indexSource, /activityCommitments\.js[^<]*<\/script>\s*<script[^>]*activityCloudSync\.js[^<]*<\/script>\s*<script[^>]*activityDirectory\.js[^<]*<\/script>\s*<script[^>]*activityInsightsParity\.js/);
 });
 
 test('Activity Insights uses its own DOM instead of borrowing Rest-specific report classes', () => {
