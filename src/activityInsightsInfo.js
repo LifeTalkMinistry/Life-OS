@@ -303,3 +303,140 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 })();
+
+/* Activity target-unit persistence and legacy repair.
+ * The canonical Activity model remains minute-based. This compatibility layer
+ * remembers the user's display unit for each managed Activity and repairs the
+ * old impossible state where a minute value could reopen under an Hours label.
+ */
+(() => {
+  const PREF_PREFIX = 'pause-activity-target-unit-pref-v1';
+  const FORM_SELECTOR = '[data-activity-manage-form]';
+  let queued = false;
+
+  function activityId(form) {
+    return String(form?.closest('.activity-panel')?.dataset?.activityReportId || '').trim();
+  }
+
+  function prefKey(form, field) {
+    const id = activityId(form);
+    return id ? `${PREF_PREFIX}:${id}:${field}` : '';
+  }
+
+  function readPref(form, field) {
+    const key = prefKey(form, field);
+    if (!key) return '';
+    try {
+      const value = localStorage.getItem(key);
+      return value === 'minutes' || value === 'hours' ? value : '';
+    } catch {
+      return '';
+    }
+  }
+
+  function writePref(form, field, value) {
+    const key = prefKey(form, field);
+    if (!key || (value !== 'minutes' && value !== 'hours')) return;
+    try { localStorage.setItem(key, value); } catch {}
+  }
+
+  function roundDisplay(value, places = 4) {
+    const factor = 10 ** places;
+    return Math.round(Number(value) * factor) / factor;
+  }
+
+  function setUnit(form, field, nextUnit, { convert = true } = {}) {
+    const select = form.querySelector(`[data-activity-target-unit-select="${field}"]`);
+    if (!select) return;
+    const current = select.value === 'minutes' ? 'minutes' : 'hours';
+    const next = nextUnit === 'minutes' ? 'minutes' : 'hours';
+    const input = select.closest('.activity-target-value-row')?.querySelector('input[type="number"]');
+
+    if (convert && input && current !== next) {
+      const value = Number(input.value);
+      if (Number.isFinite(value) && value > 0) {
+        input.value = String(roundDisplay(current === 'hours' ? value * 60 : value / 60));
+      }
+    }
+
+    select.value = next;
+    select.dataset.previousUnit = next;
+    if (input) {
+      if (next === 'minutes') {
+        input.min = '1';
+        input.max = '60000';
+        input.step = '1';
+      } else {
+        input.min = '0.01';
+        input.max = '1000';
+        input.step = '0.01';
+      }
+    }
+    writePref(form, field, next);
+  }
+
+  function clearError(form) {
+    const error = form.querySelector('[data-activity-manage-error]');
+    if (error) error.textContent = '';
+  }
+
+  function repairForm(form) {
+    if (!form || !form.isConnected) return;
+    const targetSelect = form.querySelector('[data-activity-target-unit-select="target"]');
+    const passingSelect = form.querySelector('[data-activity-target-unit-select="passing"]');
+    const targetInput = targetSelect?.closest('.activity-target-value-row')?.querySelector('input[type="number"]');
+    const passingInput = passingSelect?.closest('.activity-target-value-row')?.querySelector('input[type="number"]');
+    if (!targetSelect || !passingSelect || !targetInput || !passingInput) return;
+
+    const targetPref = readPref(form, 'target');
+    const passingPref = readPref(form, 'passing');
+    if (targetPref && targetPref !== targetSelect.value) setUnit(form, 'target', targetPref, { convert: true });
+    if (passingPref && passingPref !== passingSelect.value) setUnit(form, 'passing', passingPref, { convert: true });
+
+    // Repair legacy values only when the current presentation is internally
+    // impossible. Example: target 1 Hour + passing 30 Hours. In the old UI this
+    // commonly meant the user had actually selected 30 Minutes but the unit was
+    // lost when Setup rebuilt. Keeping the numeric 30 and restoring Minutes makes
+    // the next Save normalize it to 0.5 hours / 30 canonical minutes.
+    if (!passingPref && targetSelect.value === 'hours' && passingSelect.value === 'hours') {
+      const target = Number(targetInput.value);
+      const passing = Number(passingInput.value);
+      if (Number.isFinite(target) && target > 0 && Number.isFinite(passing) && passing > target && passing <= 60) {
+        setUnit(form, 'passing', 'minutes', { convert: false });
+        clearError(form);
+      }
+    }
+  }
+
+  function scan() {
+    queued = false;
+    document.querySelectorAll(FORM_SELECTOR).forEach(repairForm);
+  }
+
+  function queueScan() {
+    if (queued) return;
+    queued = true;
+    queueMicrotask(scan);
+  }
+
+  function onChange(event) {
+    const select = event.target?.closest?.(`${FORM_SELECTOR} [data-activity-target-unit-select]`);
+    if (!select) return;
+    const form = select.closest(FORM_SELECTOR);
+    const field = select.dataset.activityTargetUnitSelect === 'passing' ? 'passing' : 'target';
+    writePref(form, field, select.value === 'minutes' ? 'minutes' : 'hours');
+    clearError(form);
+  }
+
+  function init() {
+    document.addEventListener('change', onChange);
+    new MutationObserver((records) => {
+      if (records.some((record) => record.addedNodes?.length)) queueScan();
+    }).observe(document.documentElement, { childList: true, subtree: true });
+    window.addEventListener('pause:activities-changed', queueScan);
+    queueScan();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
+})();
