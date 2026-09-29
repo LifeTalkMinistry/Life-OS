@@ -92,6 +92,21 @@ function ensureStyles() {
       min-width: 0;
     }
 
+    .pause-manual-sleep-title-row,
+    .pause-audit-info-heading {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pause-audit-info-heading {
+      justify-content: center;
+    }
+
+    .pause-insight-section-title.pause-audit-info-heading {
+      justify-content: flex-start;
+    }
+
     .pause-manual-sleep-copy strong {
       display: block;
       color: #dcd3e7;
@@ -105,6 +120,41 @@ function ensureStyles() {
       color: #81798a;
       font-size: .65rem;
       line-height: 1.45;
+    }
+
+    .pause-audit-info-button {
+      appearance: none;
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      border: 1px solid rgba(190, 149, 231, .3);
+      border-radius: 50%;
+      background: transparent;
+      color: #8d7d9d;
+      font-size: .53rem;
+      font-weight: 650;
+      line-height: 1;
+      cursor: help;
+    }
+
+    .pause-audit-info-button:hover,
+    .pause-audit-info-button:focus-visible,
+    .pause-audit-info-button[aria-expanded='true'] {
+      border-color: rgba(184, 142, 248, .42);
+      background: rgba(111, 69, 184, .17);
+      color: #e6dcf0;
+      outline: none;
+    }
+
+    .pause-audit-info-copy[hidden] {
+      display: none !important;
+    }
+
+    .pause-audit-score .pause-audit-info-copy {
+      margin: 8px 0 0;
     }
 
     .pause-manual-sleep-toggle {
@@ -270,13 +320,20 @@ function currentDayKey(panel) {
   return selectedDayKey || parseAuditTitleDayKey(panel);
 }
 
+function infoButtonMarkup(key, label) {
+  return `<button type="button" class="pause-audit-info-button" data-audit-info-toggle="${key}" aria-expanded="false" aria-label="${label}">i</button>`;
+}
+
 function manualMarkup(dayKey) {
   const nextDayKey = addManilaDays(dayKey, 1);
   return `
     <div class="pause-manual-sleep-head">
       <div class="pause-manual-sleep-copy">
-        <strong>MISSED SLEEP?</strong>
-        <p>Forgot to track it? Add the real sleep and wake time for this day.</p>
+        <div class="pause-manual-sleep-title-row">
+          <strong>MISSED SLEEP?</strong>
+          ${infoButtonMarkup('missed-sleep', 'About missed sleep')}
+        </div>
+        <p class="pause-audit-info-copy" data-audit-info-copy="missed-sleep" hidden>Forgot to track it? Add the real sleep and wake time for this day.</p>
       </div>
       <button type="button" class="pause-manual-sleep-toggle" data-manual-sleep-toggle>ADD SLEEP</button>
     </div>
@@ -436,20 +493,87 @@ function bindManualSection(root, panel, dayKey) {
   });
 }
 
+function decorateAuditExplanations(panel) {
+  if (!panel) return;
+
+  const score = panel.querySelector('.pause-audit-score');
+  if (score && !score.dataset.auditInfoDecorated) {
+    const label = score.querySelector('small');
+    const copy = score.querySelector('p');
+    if (label && copy) {
+      const heading = document.createElement('div');
+      heading.className = 'pause-audit-info-heading';
+      heading.dataset.auditInfoHeading = 'score';
+      label.insertAdjacentElement('beforebegin', heading);
+      heading.append(label, Object.assign(document.createElement('button'), {
+        type: 'button',
+        className: 'pause-audit-info-button',
+        textContent: 'i'
+      }));
+      const button = heading.querySelector('button');
+      button.dataset.auditInfoToggle = 'daily-score';
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('aria-label', 'About daily pause score');
+      copy.classList.add('pause-audit-info-copy');
+      copy.dataset.auditInfoCopy = 'daily-score';
+      copy.hidden = true;
+      score.dataset.auditInfoDecorated = '1';
+    }
+  }
+
+  const breakdownTitle = [...panel.querySelectorAll('.pause-insight-section-title')]
+    .find((node) => String(node.textContent || '').trim() === 'REST BREAKDOWN');
+  const breakdownSection = breakdownTitle?.closest('.pause-insight-section');
+  if (breakdownTitle && breakdownSection && !breakdownSection.dataset.auditInfoDecorated) {
+    const copy = breakdownSection.querySelector('.pause-insight-section-copy');
+    if (copy) {
+      breakdownTitle.classList.add('pause-audit-info-heading');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'pause-audit-info-button';
+      button.textContent = 'i';
+      button.dataset.auditInfoToggle = 'rest-breakdown';
+      button.setAttribute('aria-expanded', 'false');
+      button.setAttribute('aria-label', 'About rest breakdown');
+      breakdownTitle.appendChild(button);
+      copy.classList.add('pause-audit-info-copy');
+      copy.dataset.auditInfoCopy = 'rest-breakdown';
+      copy.hidden = true;
+      breakdownSection.dataset.auditInfoDecorated = '1';
+    }
+  }
+}
+
+function toggleAuditInfo(button) {
+  const panel = button.closest('.pause-view-insights');
+  if (!panel) return;
+  const key = String(button.dataset.auditInfoToggle || '');
+  if (!key) return;
+  const copy = panel.querySelector(`[data-audit-info-copy="${key}"]`);
+  if (!copy) return;
+  const opening = copy.hidden;
+  copy.hidden = !opening;
+  button.setAttribute('aria-expanded', opening ? 'true' : 'false');
+}
+
 function scanAudit() {
   const panel = auditPanel();
-  if (!panel || panel.querySelector('[data-manual-sleep-root]')) return;
+  if (!panel) return;
+
+  ensureStyles();
+  decorateAuditExplanations(panel);
+
+  if (panel.querySelector('[data-manual-sleep-root]')) return;
   const dayKey = currentDayKey(panel);
   if (!dayKey) return;
 
-  ensureStyles();
   const root = document.createElement('section');
   root.className = 'pause-manual-sleep';
   root.dataset.manualSleepRoot = '';
   root.innerHTML = manualMarkup(dayKey);
 
   const breakdownTitle = [...panel.querySelectorAll('.pause-insight-section-title')]
-    .find((node) => String(node.textContent || '').trim() === 'REST BREAKDOWN');
+    .find((node) => String(node.textContent || '').replace(/i\s*$/, '').trim() === 'REST BREAKDOWN');
   const breakdownSection = breakdownTitle?.closest('.pause-insight-section');
   const summary = panel.querySelector('.pause-audit-summary');
 
@@ -468,6 +592,13 @@ export function initializeManualSleepEntry() {
   if (typeof document === 'undefined') return;
 
   document.addEventListener('click', (event) => {
+    const infoButton = event.target.closest?.('[data-audit-info-toggle]');
+    if (infoButton) {
+      event.preventDefault();
+      toggleAuditInfo(infoButton);
+      return;
+    }
+
     const dayButton = event.target.closest?.('[data-pause-day-key]');
     if (dayButton?.dataset.pauseDayKey) selectedDayKey = dayButton.dataset.pauseDayKey;
 
