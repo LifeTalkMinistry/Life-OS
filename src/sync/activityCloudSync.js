@@ -93,10 +93,23 @@ import {
           : [],
         deletedActivityIds: Array.isArray(parsed.deletedActivityIds)
           ? parsed.deletedActivityIds.map(String).slice(0, 80)
+          : [],
+        lastSyncedSessionIds: Array.isArray(parsed.lastSyncedSessionIds)
+          ? parsed.lastSyncedSessionIds.map(String).slice(0, 500)
+          : [],
+        deletedSessionIds: Array.isArray(parsed.deletedSessionIds)
+          ? parsed.deletedSessionIds.map(String).slice(0, 1000)
           : []
       };
     } catch {
-      return { initialized: false, dirty: false, lastSyncedActivityIds: [], deletedActivityIds: [] };
+      return {
+        initialized: false,
+        dirty: false,
+        lastSyncedActivityIds: [],
+        deletedActivityIds: [],
+        lastSyncedSessionIds: [],
+        deletedSessionIds: []
+      };
     }
   }
 
@@ -106,13 +119,19 @@ import {
         initialized: meta.initialized === true,
         dirty: meta.dirty === true,
         lastSyncedActivityIds: Array.isArray(meta.lastSyncedActivityIds) ? meta.lastSyncedActivityIds.slice(0, 40) : [],
-        deletedActivityIds: Array.isArray(meta.deletedActivityIds) ? meta.deletedActivityIds.slice(0, 80) : []
+        deletedActivityIds: Array.isArray(meta.deletedActivityIds) ? meta.deletedActivityIds.slice(0, 80) : [],
+        lastSyncedSessionIds: Array.isArray(meta.lastSyncedSessionIds) ? meta.lastSyncedSessionIds.slice(-500) : [],
+        deletedSessionIds: Array.isArray(meta.deletedSessionIds) ? meta.deletedSessionIds.slice(-1000) : []
       }));
     } catch {}
   }
 
   function activityIds(state) {
     return normalizeActivitySyncState(state).activities.map((activity) => String(activity.id));
+  }
+
+  function sessionIds(state) {
+    return normalizeActivitySyncState(state).sessions.map((session) => String(session.id));
   }
 
   function hasActivityData(state) {
@@ -123,13 +142,20 @@ import {
   function markLocalDirty(accountId) {
     const meta = readMeta(accountId);
     const current = readLocalActivityState(accountId);
-    const currentIds = new Set(activityIds(current));
+    const currentActivityIds = new Set(activityIds(current));
+    const currentSessionIds = new Set(sessionIds(current));
     if (meta.initialized) {
-      const deleted = new Set(meta.deletedActivityIds);
+      const deletedActivities = new Set(meta.deletedActivityIds);
       meta.lastSyncedActivityIds.forEach((id) => {
-        if (!currentIds.has(String(id))) deleted.add(String(id));
+        if (!currentActivityIds.has(String(id))) deletedActivities.add(String(id));
       });
-      meta.deletedActivityIds = [...deleted].slice(-80);
+      meta.deletedActivityIds = [...deletedActivities].slice(-80);
+
+      const deletedSessions = new Set(meta.deletedSessionIds);
+      meta.lastSyncedSessionIds.forEach((id) => {
+        if (!currentSessionIds.has(String(id))) deletedSessions.add(String(id));
+      });
+      meta.deletedSessionIds = [...deletedSessions].slice(-1000);
     }
     meta.dirty = true;
     saveMeta(accountId, meta);
@@ -140,7 +166,9 @@ import {
       initialized: true,
       dirty: false,
       lastSyncedActivityIds: activityIds(state),
-      deletedActivityIds: []
+      deletedActivityIds: [],
+      lastSyncedSessionIds: sessionIds(state),
+      deletedSessionIds: []
     });
   }
 
@@ -232,7 +260,8 @@ import {
     if (!meta.initialized) {
       const merged = reconcileActivitySyncStates(local, remote, {
         preferLocalActivities: hasActivityData(local),
-        deletedActivityIds: []
+        deletedActivityIds: [],
+        deletedSessionIds: []
       });
       if (!snapshot?.exists || !activitySyncStatesEqual(merged, remote)) {
         return pushActivityState(credentialsValue, snapshot || { exists: false, revision: 0 }, merged);
@@ -245,7 +274,8 @@ import {
     if (meta.dirty) {
       const merged = reconcileActivitySyncStates(local, remote, {
         preferLocalActivities: true,
-        deletedActivityIds: meta.deletedActivityIds
+        deletedActivityIds: meta.deletedActivityIds,
+        deletedSessionIds: meta.deletedSessionIds
       });
       if (!activitySyncStatesEqual(merged, remote)) {
         return pushActivityState(credentialsValue, snapshot, merged);
