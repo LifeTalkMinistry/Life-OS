@@ -127,12 +127,11 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .activity-target-value-row{display:grid;grid-template-columns:minmax(0,1fr) 82px;gap:7px;align-items:stretch}
-      .activity-target-value-row>input{min-width:0}
-      .activity-target-unit-select{box-sizing:border-box;min-width:0;min-height:44px;padding:0 8px;border:1px solid rgba(169,124,228,.18);border-radius:10px;background:rgba(7,5,14,.68);color:#b9afc3;color-scheme:dark;font:inherit;font-size:.6rem;outline:0;cursor:pointer}
+      .activity-target-value-row{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:stretch}
+      .activity-target-value-row>input{box-sizing:border-box;width:100%;min-width:0;padding-left:10px!important;padding-right:10px!important}
+      .activity-target-unit-select{box-sizing:border-box;width:100%;min-width:0;min-height:36px;padding:0 9px;border:1px solid rgba(169,124,228,.18);border-radius:10px;background:rgba(7,5,14,.68);color:#b9afc3;color-scheme:dark;font:inherit;font-size:.6rem;outline:0;cursor:pointer}
       .activity-target-unit-select:focus{border-color:rgba(190,145,255,.42);background:rgba(12,8,24,.78)}
       .activity-score-target>small,.activity-manage-target>small{min-height:.8em}
-      @media(max-width:380px){.activity-target-value-row{grid-template-columns:minmax(0,1fr) 78px}}
     `;
     document.head.appendChild(style);
   }
