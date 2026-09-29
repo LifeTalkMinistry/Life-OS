@@ -7,6 +7,7 @@ const activitySyncReconcileRuntime = (() => {
   }
 
   function finiteTimestamp(value) {
+    if (value == null || value === '') return null;
     const number = Number(value);
     return Number.isFinite(number) ? Math.round(number) : null;
   }
