@@ -24,7 +24,6 @@ const activitySyncReconcileRuntime = (() => {
     const targetMinutes = Number(activity.targetMinutes);
     const passingTargetMinutes = Number(activity.passingTargetMinutes);
     return {
-      ...activity,
       id,
       name,
       targetMode,
@@ -46,7 +45,6 @@ const activitySyncReconcileRuntime = (() => {
     if (!id || !activityId || startAt == null || endAt == null) return null;
     const safeEndAt = Math.max(startAt, endAt);
     return {
-      ...session,
       id,
       activityId,
       name,
@@ -63,7 +61,7 @@ const activitySyncReconcileRuntime = (() => {
     const name = cleanText(active.name || 'Activity', 48) || 'Activity';
     const startAt = finiteTimestamp(active.startAt);
     if (!id || !activityId || startAt == null) return null;
-    return { ...active, id, activityId, name, startAt };
+    return { id, activityId, name, startAt };
   }
 
   function normalizeState(value = {}) {
