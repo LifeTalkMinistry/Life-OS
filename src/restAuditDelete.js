@@ -43,9 +43,8 @@ import { savePauseState } from './restState.js';
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .pause-audit-delete-zone{margin-top:12px;padding-top:12px;border-top:1px solid rgba(188,98,125,.12)}
-      .pause-audit-delete-trigger{appearance:none;width:100%;min-height:40px;border:1px solid rgba(210,92,121,.2);border-radius:10px;background:rgba(125,34,57,.08);color:#c89aa9;font-size:.62rem;font-weight:700;letter-spacing:.04em;cursor:pointer}
-      .pause-audit-delete-trigger:hover,.pause-audit-delete-trigger:focus-visible{border-color:rgba(222,111,139,.36);background:rgba(125,34,57,.14);color:#ddb0bd;outline:none}
+      .pause-audit-edit-actions .pause-audit-delete-trigger{appearance:none;width:auto;min-width:86px;min-height:34px;margin-right:auto;padding:0 12px;border:1px solid rgba(210,92,121,.2);border-radius:9px;background:rgba(125,34,57,.08);color:#c89aa9;font-size:.58rem;font-weight:700;letter-spacing:.03em;cursor:pointer;white-space:nowrap}
+      .pause-audit-edit-actions .pause-audit-delete-trigger:hover,.pause-audit-edit-actions .pause-audit-delete-trigger:focus-visible{border-color:rgba(222,111,139,.36);background:rgba(125,34,57,.14);color:#ddb0bd;outline:none}
       .pause-audit-delete-confirm{margin-top:10px;padding:12px;border:1px solid rgba(210,92,121,.18);border-radius:11px;background:rgba(96,26,44,.1)}
       .pause-audit-delete-confirm[hidden]{display:none}
       .pause-audit-delete-confirm p{margin:0 0 11px;color:#a99099;font-size:.62rem;line-height:1.5}
@@ -54,20 +53,18 @@ import { savePauseState } from './restState.js';
       .pause-audit-delete-keep{border:1px solid rgba(158,123,205,.16);background:transparent;color:#978da0}
       .pause-audit-delete-final{border:1px solid rgba(218,101,131,.26);background:rgba(135,40,64,.15);color:#d8a8b6}
       .pause-audit-delete-keep:hover,.pause-audit-delete-keep:focus-visible,.pause-audit-delete-final:hover,.pause-audit-delete-final:focus-visible{outline:none;color:#f0e8f3}
+      @media(max-width:360px){.pause-audit-edit-actions .pause-audit-delete-trigger{min-width:0;padding:0 9px;font-size:.55rem}}
     `;
     document.head.appendChild(style);
   }
 
-  function markup() {
+  function confirmMarkup() {
     return `
-      <div class="pause-audit-delete-zone" data-pause-audit-delete-zone>
-        <button type="button" class="pause-audit-delete-trigger" data-pause-audit-delete-trigger>Delete Rest</button>
-        <div class="pause-audit-delete-confirm" data-pause-audit-delete-confirm hidden>
-          <p>Delete this rest entry? It will be removed from your rest history and this day’s score and totals will be recalculated.</p>
-          <div class="pause-audit-delete-confirm-actions">
-            <button type="button" class="pause-audit-delete-keep" data-pause-audit-delete-keep>Keep Rest</button>
-            <button type="button" class="pause-audit-delete-final" data-pause-audit-delete-final>Delete Permanently</button>
-          </div>
+      <div class="pause-audit-delete-confirm" data-pause-audit-delete-confirm hidden>
+        <p>Delete this rest entry? It will be removed from your rest history and this day’s score and totals will be recalculated.</p>
+        <div class="pause-audit-delete-confirm-actions">
+          <button type="button" class="pause-audit-delete-keep" data-pause-audit-delete-keep>Keep Rest</button>
+          <button type="button" class="pause-audit-delete-final" data-pause-audit-delete-final>Delete Permanently</button>
         </div>
       </div>
     `;
@@ -78,7 +75,15 @@ import { savePauseState } from './restState.js';
     form.dataset.pauseAuditDeleteEnhanced = '1';
     const actions = form.querySelector('.pause-audit-edit-actions');
     if (!actions) return;
-    actions.insertAdjacentHTML('afterend', markup());
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'pause-audit-delete-trigger';
+    trigger.dataset.pauseAuditDeleteTrigger = '';
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.textContent = 'Delete Rest';
+    actions.prepend(trigger);
+    actions.insertAdjacentHTML('afterend', confirmMarkup());
   }
 
   function scan() {
@@ -130,20 +135,21 @@ import { savePauseState } from './restState.js';
   function onClick(event) {
     const trigger = event.target?.closest?.('[data-pause-audit-delete-trigger]');
     if (trigger) {
-      const zone = trigger.closest('[data-pause-audit-delete-zone]');
-      const confirm = zone?.querySelector('[data-pause-audit-delete-confirm]');
-      trigger.hidden = true;
-      if (confirm) confirm.hidden = false;
+      const form = trigger.closest('[data-pause-edit-form]');
+      const confirm = form?.querySelector('[data-pause-audit-delete-confirm]');
+      const opening = Boolean(confirm?.hidden);
+      if (confirm) confirm.hidden = !opening;
+      trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
       return;
     }
 
     const keep = event.target?.closest?.('[data-pause-audit-delete-keep]');
     if (keep) {
-      const zone = keep.closest('[data-pause-audit-delete-zone]');
-      const confirm = zone?.querySelector('[data-pause-audit-delete-confirm]');
-      const triggerButton = zone?.querySelector('[data-pause-audit-delete-trigger]');
+      const form = keep.closest('[data-pause-edit-form]');
+      const confirm = form?.querySelector('[data-pause-audit-delete-confirm]');
+      const triggerButton = form?.querySelector('[data-pause-audit-delete-trigger]');
       if (confirm) confirm.hidden = true;
-      if (triggerButton) triggerButton.hidden = false;
+      triggerButton?.setAttribute('aria-expanded', 'false');
       return;
     }
 
