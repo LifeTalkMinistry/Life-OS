@@ -20,6 +20,7 @@ const scriptOrder = [
   'src/components/PauseSettingsPanel.js',
   'src/sync/pauseSyncClient.js',
   'src/sync/pauseSyncReconcile.js',
+  'src/activityTargetDurations.js',
   'src/sync/activitySyncReconcile.js',
   'src/auth/LoginScreen.js',
   'src/recoveryStatusCard.js',

@@ -1,3 +1,5 @@
+import { activityDisplayUnit, repairKnownActivityTarget } from '../activityTargetDurations.js';
+
 const activitySyncReconcileRuntime = (() => {
   const ACTIVITY_LIMIT = 40;
   const SESSION_LIMIT = 500;
@@ -13,27 +15,36 @@ const activitySyncReconcileRuntime = (() => {
   }
 
   function normalizeActivity(activity = {}) {
-    const id = cleanText(activity.id, 96);
-    const name = cleanText(activity.name, 48);
+    const repaired = repairKnownActivityTarget(activity) || {};
+    const id = cleanText(repaired.id, 96);
+    const name = cleanText(repaired.name, 48);
     if (!id || !name) return null;
-    const targetMode = ['track', 'daily', 'weekly', 'total'].includes(activity.targetMode)
-      ? activity.targetMode
+    const targetMode = ['track', 'daily', 'weekly', 'total'].includes(repaired.targetMode)
+      ? repaired.targetMode
       : 'track';
-    const spanMode = ['ongoing', 'until', 'period'].includes(activity.spanMode)
-      ? activity.spanMode
+    const spanMode = ['ongoing', 'until', 'period'].includes(repaired.spanMode)
+      ? repaired.spanMode
       : 'ongoing';
-    const targetMinutes = Number(activity.targetMinutes);
-    const passingTargetMinutes = Number(activity.passingTargetMinutes);
+    const targetMinutesValue = Number(repaired.targetMinutes);
+    const passingTargetMinutesValue = Number(repaired.passingTargetMinutes);
+    const targetMinutes = targetMode === 'track' || !Number.isFinite(targetMinutesValue)
+      ? null
+      : Math.max(1, Math.round(targetMinutesValue));
+    const passingTargetMinutes = targetMode === 'track' || !Number.isFinite(passingTargetMinutesValue)
+      ? null
+      : Math.max(1, Math.round(passingTargetMinutesValue));
     return {
       id,
       name,
       targetMode,
-      targetMinutes: targetMode === 'track' || !Number.isFinite(targetMinutes) ? null : Math.max(1, Math.round(targetMinutes)),
-      passingTargetMinutes: targetMode === 'track' || !Number.isFinite(passingTargetMinutes) ? null : Math.max(1, Math.round(passingTargetMinutes)),
+      targetMinutes,
+      passingTargetMinutes,
+      targetDisplayUnit: targetMinutes == null ? null : activityDisplayUnit(repaired.targetDisplayUnit, targetMinutes),
+      passingDisplayUnit: passingTargetMinutes == null ? null : activityDisplayUnit(repaired.passingDisplayUnit, passingTargetMinutes),
       spanMode,
-      endDate: /^\d{4}-\d{2}-\d{2}$/.test(String(activity.endDate || '')) ? String(activity.endDate) : null,
-      createdAt: finiteTimestamp(activity.createdAt),
-      updatedAt: finiteTimestamp(activity.updatedAt)
+      endDate: /^\d{4}-\d{2}-\d{2}$/.test(String(repaired.endDate || '')) ? String(repaired.endDate) : null,
+      createdAt: finiteTimestamp(repaired.createdAt),
+      updatedAt: finiteTimestamp(repaired.updatedAt)
     };
   }
 

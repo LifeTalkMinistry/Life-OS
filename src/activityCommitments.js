@@ -1,3 +1,5 @@
+import { durationToMinutes, minutesToDisplay, repairKnownActivityTarget } from './activityTargetDurations.js';
+
 /* PAUSE declared Activity commitments.
  * Activity timing stays owned by the ORB. This module owns Activity storage,
  * creation, and the hold-menu entry point.
@@ -35,12 +37,28 @@
     try {
       const raw = JSON.parse(localStorage.getItem(key()) || 'null');
       if (!raw || typeof raw !== 'object') return empty();
-      return {
+      let repaired = false;
+      const activities = Array.isArray(raw.activities)
+        ? raw.activities
+            .filter((item) => item?.id && item?.name)
+            .slice(0, 40)
+            .map((item) => {
+              const next = repairKnownActivityTarget(item);
+              if (next !== item) repaired = true;
+              return next;
+            })
+        : [];
+      const next = {
         version: 1,
-        activities: Array.isArray(raw.activities) ? raw.activities.filter((item) => item?.id && item?.name).slice(0, 40) : [],
+        activities,
         sessions: Array.isArray(raw.sessions) ? raw.sessions.filter((item) => item?.activityId && Number(item.startAt) && Number(item.endAt)).slice(-LIMIT) : [],
         active: raw.active?.activityId && Number(raw.active?.startAt) ? raw.active : null
       };
+      if (repaired) {
+        try { localStorage.setItem(key(), JSON.stringify(next)); } catch {}
+        queueMicrotask(() => window.dispatchEvent(new CustomEvent('pause:activities-changed', { detail: next })));
+      }
+      return next;
     } catch {
       return empty();
     }
@@ -140,6 +158,10 @@
       .activity-score-target>span{display:block;margin-bottom:5px;color:#a79dac;font-size:.61rem;font-weight:680;letter-spacing:.08em}
       .activity-score-target>small{display:block;margin-top:6px;color:#776e80;font-size:.57rem;line-height:1.35}
       .activity-score-target input{font-variant-numeric:tabular-nums}
+      .activity-target-value-row{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;align-items:stretch}
+      .activity-target-value-row>input{box-sizing:border-box;width:100%;min-width:0;padding-left:10px!important;padding-right:10px!important}
+      .activity-target-unit-select{box-sizing:border-box;width:100%;min-width:0;min-height:36px;padding:0 9px;border:1px solid rgba(169,124,228,.18);border-radius:10px;background:rgba(7,5,14,.68);color:#b9afc3;color-scheme:dark;font:inherit;font-size:.6rem;outline:0;cursor:pointer}
+      .activity-target-unit-select:focus{border-color:rgba(190,145,255,.42);background:rgba(12,8,24,.78)}
       .activity-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
       .activity-help{margin:7px 0 0;color:#736b7b;font-size:.6rem;line-height:1.5}
       .activity-score-explainer{margin:0;padding:12px 13px;border:1px solid rgba(164,121,226,.12);border-radius:12px;background:rgba(85,51,142,.07);color:#8f849a;font-size:.64rem;line-height:1.5}
@@ -247,13 +269,19 @@
         <div class="activity-score-targets" style="margin-top:9px">
           <label class="activity-score-target">
             <span>100% TARGET</span>
-            <input type="number" name="targetHours" min="0.25" max="1000" step="0.25" placeholder="2" inputmode="decimal">
-            <small data-full-target-unit>hours</small>
+            <div class="activity-target-value-row">
+              <input type="number" name="targetValue" min="0.25" max="1000" step="0.25" placeholder="2" inputmode="decimal">
+              <select class="activity-target-unit-select" name="targetUnit" data-duration-unit data-previous-unit="hours" aria-label="100% target unit"><option value="hours" selected>Hours</option><option value="minutes">Minutes</option></select>
+            </div>
+            <small data-full-target-unit></small>
           </label>
           <label class="activity-score-target">
             <span>PASSING TARGET</span>
-            <input type="number" name="passingHours" min="0.25" max="1000" step="0.25" placeholder="1" inputmode="decimal">
-            <small data-passing-target-unit>hours</small>
+            <div class="activity-target-value-row">
+              <input type="number" name="passingValue" min="0.25" max="1000" step="0.25" placeholder="1" inputmode="decimal">
+              <select class="activity-target-unit-select" name="passingUnit" data-duration-unit data-previous-unit="hours" aria-label="Passing target unit"><option value="hours" selected>Hours</option><option value="minutes">Minutes</option></select>
+            </div>
+            <small data-passing-target-unit></small>
           </label>
         </div>
       </div>
@@ -274,11 +302,32 @@
     </form>`;
   }
 
-  function targetUnit(mode) {
-    if (mode === 'daily') return 'hours / day';
-    if (mode === 'weekly') return 'hours / week';
-    if (mode === 'total') return 'hours for this commitment';
-    return 'hours';
+  function targetCadence(mode) {
+    if (mode === 'daily') return 'per day';
+    if (mode === 'weekly') return 'per week';
+    if (mode === 'total') return 'for this commitment';
+    return '';
+  }
+
+  function configureDurationInput(input, unit, field) {
+    if (!input) return;
+    const minutes = unit === 'minutes';
+    input.min = minutes ? '15' : '0.25';
+    input.max = minutes ? '60000' : '1000';
+    input.step = minutes ? '1' : '0.25';
+    input.placeholder = minutes ? (field === 'target' ? '120' : '60') : (field === 'target' ? '2' : '1');
+  }
+
+  function convertDurationUnit(select) {
+    if (!select?.matches?.('[data-duration-unit]')) return;
+    const previous = select.dataset.previousUnit === 'minutes' ? 'minutes' : 'hours';
+    const next = select.value === 'minutes' ? 'minutes' : 'hours';
+    const input = select.closest('.activity-target-value-row')?.querySelector('input[type="number"]');
+    if (input && previous !== next && input.value) {
+      const canonical = durationToMinutes(input.value, previous);
+      if (canonical != null) input.value = String(minutesToDisplay(canonical, next));
+    }
+    select.dataset.previousUnit = next;
   }
 
   function syncFields(form) {
@@ -288,11 +337,13 @@
     if (scoreTargets) scoreTargets.hidden = targetMode === 'track';
     form.querySelector('[data-until]').hidden = spanMode !== 'until';
     form.querySelector('[data-period]').hidden = spanMode !== 'period';
-    const unit = targetUnit(targetMode);
+    const cadence = targetCadence(targetMode);
     const fullUnit = form.querySelector('[data-full-target-unit]');
     const passUnit = form.querySelector('[data-passing-target-unit]');
-    if (fullUnit) fullUnit.textContent = unit;
-    if (passUnit) passUnit.textContent = unit;
+    if (fullUnit) fullUnit.textContent = cadence;
+    if (passUnit) passUnit.textContent = cadence;
+    configureDurationInput(form.querySelector('input[name="targetValue"]'), form.querySelector('select[name="targetUnit"]')?.value, 'target');
+    configureDurationInput(form.querySelector('input[name="passingValue"]'), form.querySelector('select[name="passingUnit"]')?.value, 'passing');
   }
 
   function saveForm(form) {
@@ -302,8 +353,10 @@
     const name = clean(data.get('name'));
     const targetMode = String(data.get('targetMode') || 'track');
     const spanMode = String(data.get('spanMode') || 'ongoing');
-    const targetHours = Number(data.get('targetHours'));
-    const passingHours = Number(data.get('passingHours'));
+    const targetUnit = data.get('targetUnit') === 'minutes' ? 'minutes' : 'hours';
+    const passingUnit = data.get('passingUnit') === 'minutes' ? 'minutes' : 'hours';
+    const targetMinutes = durationToMinutes(data.get('targetValue'), targetUnit);
+    const passingTargetMinutes = durationToMinutes(data.get('passingValue'), passingUnit);
 
     if (!name) {
       error.textContent = 'Name the activity you want to document.';
@@ -314,12 +367,12 @@
       return;
     }
     if (targetMode !== 'track') {
-      if (!Number.isFinite(targetHours) || targetHours < 0.25 || targetHours > 1000) {
-        error.textContent = 'Choose a 100% target between 0.25 and 1000 hours.';
+      if (targetMinutes == null || targetMinutes < 15 || targetMinutes > 60000) {
+        error.textContent = 'Choose a 100% target between 15 minutes and 1000 hours.';
         return;
       }
-      if (!Number.isFinite(passingHours) || passingHours < 0.25 || passingHours > targetHours) {
-        error.textContent = 'Passing must be at least 0.25 hours and cannot be higher than your 100% target.';
+      if (passingTargetMinutes == null || passingTargetMinutes < 15 || passingTargetMinutes > targetMinutes) {
+        error.textContent = 'Passing must be at least 15 minutes and cannot be higher than your 100% target.';
         return;
       }
     }
@@ -344,8 +397,10 @@
       id: `activity-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name,
       targetMode,
-      targetMinutes: targetMode === 'track' ? null : Math.round(targetHours * 60),
-      passingTargetMinutes: targetMode === 'track' ? null : Math.round(passingHours * 60),
+      targetMinutes: targetMode === 'track' ? null : targetMinutes,
+      passingTargetMinutes: targetMode === 'track' ? null : passingTargetMinutes,
+      targetDisplayUnit: targetMode === 'track' ? null : targetUnit,
+      passingDisplayUnit: targetMode === 'track' ? null : passingUnit,
       spanMode,
       endDate,
       createdAt: Date.now()
@@ -368,7 +423,10 @@
     panel.querySelector('[data-stop]')?.addEventListener('click', stop);
     const form = panel.querySelector('[data-form]');
     if (form) {
-      form.addEventListener('change', () => syncFields(form));
+      form.addEventListener('change', (event) => {
+        convertDurationUnit(event.target?.closest?.('[data-duration-unit]'));
+        syncFields(form);
+      });
       form.addEventListener('submit', (event) => {
         event.preventDefault();
         saveForm(form);

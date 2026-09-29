@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { durationToMinutes, minutesToDisplay, repairKnownActivityTarget } from '../src/activityTargetDurations.js';
 
 const source = readFileSync(new URL('../src/activityCommitments.js', import.meta.url), 'utf8');
+const runtimeSource = source.replace(/^import[^\n]+\n\n/, '');
 const directorySource = readFileSync(new URL('../src/activityDirectory.js', import.meta.url), 'utf8');
 
 function dataAttributeFor(property) {
@@ -107,6 +109,10 @@ function createRuntime({ activityState = null } = {}) {
     MutationObserver,
     localStorage,
     window,
+    durationToMinutes,
+    minutesToDisplay,
+    repairKnownActivityTarget,
+    queueMicrotask,
     CustomEvent: class CustomEvent {
       constructor(type, options = {}) {
         this.type = type;
@@ -116,7 +122,7 @@ function createRuntime({ activityState = null } = {}) {
     console
   };
 
-  vm.runInNewContext(source, context, { filename: 'activityCommitments.js' });
+  vm.runInNewContext(runtimeSource, context, { filename: 'activityCommitments.js' });
   return { document, window, localStorage, getObserverCallback: () => observerCallback };
 }
 
@@ -171,12 +177,17 @@ test('Activities panel no longer owns START controls and activity timing is expo
   assert.equal(api.getActive(), null);
 });
 
-test('Activity creation requires both a 100% target and a user-defined passing target', () => {
+test('Activity creation requires explicit target values, units, and a user-defined passing target', () => {
   assert.match(source, /100% TARGET/);
   assert.match(source, /PASSING TARGET/);
-  assert.match(source, /name="passingHours"/);
+  assert.match(source, /name="targetValue"/);
+  assert.match(source, /name="targetUnit"/);
+  assert.match(source, /name="passingValue"/);
+  assert.match(source, /name="passingUnit"/);
   assert.match(source, /passingTargetMinutes/);
-  assert.match(source, /Passing must be at least 0\.25 hours and cannot be higher than your 100% target/);
+  assert.match(source, /Passing must be at least 15 minutes and cannot be higher than your 100% target/);
+  assert.equal(source.includes('name="targetHours"'), false);
+  assert.equal(source.includes('name="passingHours"'), false);
 });
 
 test('Activity management stays clean while per-activity reporting mirrors Rest Insights', () => {
