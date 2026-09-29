@@ -110,3 +110,183 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 })();
+
+/* Activity target display units.
+ * Activity targets remain canonically stored in minutes by the existing Activity
+ * model. This layer only lets people enter the same duration in Hours or Minutes.
+ * Before the existing form handlers run, minute values are translated back to
+ * hours so no scoring/storage/backend contract changes are required.
+ */
+(() => {
+  const STYLE_ID = 'pause-activity-target-unit-style';
+  const FORM_SELECTOR = '.activity-form[data-form], [data-activity-manage-form]';
+  let scanQueued = false;
+
+  function ensureUnitStyles() {
+    if (document.querySelector(`#${STYLE_ID}`)) return;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      .activity-target-value-row{display:grid;grid-template-columns:minmax(0,1fr) 82px;gap:7px;align-items:stretch}
+      .activity-target-value-row>input{min-width:0}
+      .activity-target-unit-select{box-sizing:border-box;min-width:0;min-height:44px;padding:0 8px;border:1px solid rgba(169,124,228,.18);border-radius:10px;background:rgba(7,5,14,.68);color:#b9afc3;color-scheme:dark;font:inherit;font-size:.6rem;outline:0;cursor:pointer}
+      .activity-target-unit-select:focus{border-color:rgba(190,145,255,.42);background:rgba(12,8,24,.78)}
+      .activity-score-target>small,.activity-manage-target>small{min-height:.8em}
+      @media(max-width:380px){.activity-target-value-row{grid-template-columns:minmax(0,1fr) 78px}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function cadence(mode) {
+    if (mode === 'daily') return 'per day';
+    if (mode === 'weekly') return 'per week';
+    if (mode === 'total') return 'for this commitment';
+    return '';
+  }
+
+  function roundDisplay(value, places = 4) {
+    const factor = 10 ** places;
+    return Math.round(Number(value) * factor) / factor;
+  }
+
+  function configureInput(input, unit, form) {
+    if (!input) return;
+    const isAdd = form.matches('.activity-form[data-form]');
+    if (unit === 'minutes') {
+      input.min = isAdd ? '15' : '1';
+      input.max = '60000';
+      input.step = '1';
+    } else {
+      input.min = isAdd ? '0.25' : '0.01';
+      input.max = '1000';
+      input.step = '0.01';
+    }
+  }
+
+  function convertVisibleValue(input, fromUnit, toUnit) {
+    if (!input || fromUnit === toUnit) return;
+    const value = Number(input.value);
+    if (Number.isFinite(value) && value > 0) {
+      input.value = String(roundDisplay(fromUnit === 'hours' ? value * 60 : value / 60));
+    }
+    const placeholder = Number(input.placeholder);
+    if (Number.isFinite(placeholder) && placeholder > 0) {
+      input.placeholder = String(roundDisplay(fromUnit === 'hours' ? placeholder * 60 : placeholder / 60));
+    }
+  }
+
+  function smallNode(form, field) {
+    if (form.matches('[data-activity-manage-form]')) {
+      return form.querySelector(field === 'target' ? '[data-activity-target-unit]' : '[data-activity-passing-unit]');
+    }
+    return form.querySelector(field === 'target' ? '[data-full-target-unit]' : '[data-passing-target-unit]');
+  }
+
+  function refreshUnitCopy(form) {
+    const mode = form.querySelector('input[name="targetMode"]:checked')?.value || 'track';
+    const copy = cadence(mode);
+    ['target', 'passing'].forEach((field) => {
+      const node = smallNode(form, field);
+      if (node) node.textContent = copy;
+    });
+  }
+
+  function initialUnit(input) {
+    const value = Number(input?.value);
+    return Number.isFinite(value) && value > 0 && value < 1 ? 'minutes' : 'hours';
+  }
+
+  function decorateField(form, field, inputName) {
+    const input = form.querySelector(`input[name="${inputName}"]`);
+    if (!input || input.closest('.activity-target-value-row')) return;
+
+    const unit = initialUnit(input);
+    if (unit === 'minutes') convertVisibleValue(input, 'hours', 'minutes');
+    configureInput(input, unit, form);
+
+    const select = document.createElement('select');
+    select.className = 'activity-target-unit-select';
+    select.dataset.activityTargetUnitSelect = field;
+    select.dataset.previousUnit = unit;
+    select.setAttribute('aria-label', `${field === 'target' ? '100% target' : 'Passing target'} unit`);
+    select.innerHTML = `<option value="hours"${unit === 'hours' ? ' selected' : ''}>Hours</option><option value="minutes"${unit === 'minutes' ? ' selected' : ''}>Minutes</option>`;
+
+    const row = document.createElement('div');
+    row.className = 'activity-target-value-row';
+    input.insertAdjacentElement('beforebegin', row);
+    row.append(input, select);
+  }
+
+  function enhanceForm(form) {
+    if (!form || form.dataset.activityTargetUnitsEnhanced === '1') return;
+    form.dataset.activityTargetUnitsEnhanced = '1';
+    decorateField(form, 'target', 'targetHours');
+    decorateField(form, 'passing', 'passingHours');
+    refreshUnitCopy(form);
+  }
+
+  function scan() {
+    scanQueued = false;
+    ensureUnitStyles();
+    document.querySelectorAll(`${FORM_SELECTOR}:not([data-activity-target-units-enhanced="1"])`).forEach(enhanceForm);
+  }
+
+  function queueScan() {
+    if (scanQueued) return;
+    scanQueued = true;
+    queueMicrotask(scan);
+  }
+
+  function onChange(event) {
+    const form = event.target?.closest?.(FORM_SELECTOR);
+    if (!form) return;
+
+    const select = event.target.closest?.('[data-activity-target-unit-select]');
+    if (select) {
+      const previous = select.dataset.previousUnit || 'hours';
+      const next = select.value === 'minutes' ? 'minutes' : 'hours';
+      const input = select.closest('.activity-target-value-row')?.querySelector('input[type="number"]');
+      convertVisibleValue(input, previous, next);
+      configureInput(input, next, form);
+      select.dataset.previousUnit = next;
+    }
+
+    refreshUnitCopy(form);
+  }
+
+  function prepareSubmit(event) {
+    const form = event.target?.closest?.(FORM_SELECTOR);
+    if (!form) return;
+
+    const restore = [];
+    form.querySelectorAll('[data-activity-target-unit-select]').forEach((select) => {
+      if (select.value !== 'minutes') return;
+      const input = select.closest('.activity-target-value-row')?.querySelector('input[type="number"]');
+      if (!input || !input.value) return;
+      const minutes = Number(input.value);
+      if (!Number.isFinite(minutes)) return;
+      const visibleValue = input.value;
+      input.value = String(roundDisplay(minutes / 60, 6));
+      restore.push([input, visibleValue]);
+    });
+
+    if (!restore.length) return;
+    queueMicrotask(() => {
+      if (!form.isConnected) return;
+      restore.forEach(([input, value]) => { input.value = value; });
+    });
+  }
+
+  function init() {
+    ensureUnitStyles();
+    document.addEventListener('change', onChange);
+    document.addEventListener('submit', prepareSubmit, true);
+    new MutationObserver((records) => {
+      if (records.some((record) => record.addedNodes?.length)) queueScan();
+    }).observe(document.documentElement, { childList: true, subtree: true });
+    queueScan();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
+})();
