@@ -22,7 +22,7 @@ jobs:
           node-version: 20
 
       - name: Test PAUSE
-        run: node --test tests/pauseCalendar.test.js tests/restInsightsSafeRuntime.test.js tests/pauseSyncReconcile.test.js tests/recoveryStatus.test.js tests/recoveryPlan.test.js tests/sleepRoutineSchedule.test.js tests/recoveryPlanPickerStability.test.js tests/recoveryBriefing.test.js tests/recoveryThiefLog.test.js tests/weeklyReport.test.js tests/sleepRoutineStreak.test.js tests/pauseMenu.test.js tests/orbGestures.test.js tests/activityCommitmentsMenu.test.js tests/activityDirectoryBuild.test.js
+        run: node --test tests/pauseCalendar.test.js tests/restInsightsSafeRuntime.test.js tests/pauseSyncReconcile.test.js tests/recoveryStatus.test.js tests/recoveryPlan.test.js tests/sleepRoutineSchedule.test.js tests/recoveryPlanPickerStability.test.js tests/recoveryBriefing.test.js tests/recoveryThiefLog.test.js tests/weeklyReport.test.js tests/sleepRoutineStreak.test.js tests/pauseMenu.test.js tests/orbGestures.test.js tests/activityCommitmentsMenu.test.js tests/activityDirectoryBuild.test.js tests/activityTargetUnits.test.js
 
       - name: Build PAUSE
         run: npm run build
@@ -39,6 +39,9 @@ jobs:
             fi
           done
           exit 1
+
+      - name: Verify Activity mixed-unit regression in browser
+        run: node --experimental-websocket scripts/verify-pause-activity-target-units.mjs
 
       - name: Verify recovered Rest Insights bundle
         run: node scripts/verify-rest-insights-build.mjs
