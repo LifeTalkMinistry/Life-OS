@@ -190,6 +190,11 @@
     });
   }
 
+  function clearValidationMessage(form) {
+    const error = form?.querySelector('[data-activity-manage-error], .activity-error');
+    if (error) error.textContent = '';
+  }
+
   function initialUnit(input) {
     const value = Number(input?.value);
     return Number.isFinite(value) && value > 0 && value < 1 ? 'minutes' : 'hours';
@@ -251,12 +256,20 @@
     }
 
     refreshUnitCopy(form);
+    clearValidationMessage(form);
+  }
+
+  function onInput(event) {
+    const form = event.target?.closest?.(FORM_SELECTOR);
+    if (!form) return;
+    if (event.target.matches?.('input[name="targetHours"], input[name="passingHours"]')) clearValidationMessage(form);
   }
 
   function prepareSubmit(event) {
     const form = event.target?.closest?.(FORM_SELECTOR);
     if (!form) return;
 
+    clearValidationMessage(form);
     const restore = [];
     form.querySelectorAll('[data-activity-target-unit-select]').forEach((select) => {
       if (select.value !== 'minutes') return;
@@ -279,6 +292,7 @@
   function init() {
     ensureUnitStyles();
     document.addEventListener('change', onChange);
+    document.addEventListener('input', onInput);
     document.addEventListener('submit', prepareSubmit, true);
     new MutationObserver((records) => {
       if (records.some((record) => record.addedNodes?.length)) queueScan();
