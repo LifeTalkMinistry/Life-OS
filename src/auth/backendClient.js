@@ -119,9 +119,7 @@ function saveSession({ token, user }) {
   const storage = getStorage();
   storage?.setItem(TOKEN_KEY, token);
   storage?.setItem(USER_KEY, JSON.stringify(normalizedUser));
-  const session = { token, user: normalizedUser };
-  announceOnlineSession(session);
-  return session;
+  return { token, user: normalizedUser };
 }
 
 export function clearPauseSession() {
@@ -181,7 +179,9 @@ export async function createPauseBackendAccount({ name, email, password }) {
       password: String(password || '')
     }
   });
-  return saveSession(payload || {});
+  const session = saveSession(payload || {});
+  announceOnlineSession(session);
+  return session;
 }
 
 export async function signInWithPauseBackend({ email, password }) {
@@ -192,7 +192,9 @@ export async function signInWithPauseBackend({ email, password }) {
       password: String(password || '')
     }
   });
-  return saveSession(payload || {});
+  const session = saveSession(payload || {});
+  announceOnlineSession(session);
+  return session;
 }
 
 export async function restorePauseBackendSession() {
