@@ -2,6 +2,9 @@ import { DEFAULT_API_URL, restorePauseBackendSession } from './auth/backendClien
 
 const PUBLIC_KEY_PATH = '/api/pause/push/public-key';
 const SUBSCRIPTIONS_PATH = '/api/pause/push/subscriptions';
+const STATUS_PATH = '/api/pause/push/status';
+const AUTHENTICATED_SESSION_EVENT = 'pause:authenticated-session';
+let existingSubscriptionSyncInFlight = null;
 
 function pausePushApiUrl() {
   const configured = typeof window !== 'undefined'
@@ -70,9 +73,14 @@ async function pausePushRequest(path, { method = 'GET', body } = {}) {
   return payload;
 }
 
+async function pauseExistingServiceWorkerRegistration() {
+  if (!pausePushSupported()) return null;
+  return navigator.serviceWorker.getRegistration('./');
+}
+
 async function pauseServiceWorkerRegistration() {
   if (!pausePushSupported()) return null;
-  let registration = await navigator.serviceWorker.getRegistration('./');
+  let registration = await pauseExistingServiceWorkerRegistration();
   if (!registration) {
     registration = await navigator.serviceWorker.register('./sw.js', {
       scope: './',
@@ -110,28 +118,94 @@ async function pauseRegisterSubscriptionWithServer(subscription) {
   });
 }
 
-export async function getPausePushState() {
-  if (!pausePushSupported()) {
+async function pauseBackendPushConfigured() {
+  const payload = await pausePushRequest(STATUS_PATH);
+  return payload?.configured === true;
+}
+
+export function classifyPausePushState({
+  supported = true,
+  permission = 'default',
+  hasSubscription = false,
+  backendConfigured = false,
+  backendReachable = true
+} = {}) {
+  if (!supported) {
     return { status: 'unavailable', label: 'Unavailable', canEnable: false, canDisable: false };
   }
 
-  if (Notification.permission === 'denied') {
+  if (permission === 'denied') {
     return { status: 'blocked', label: 'Blocked', canEnable: false, canDisable: false };
   }
 
-  const registration = await pauseServiceWorkerRegistration().catch(() => null);
-  const subscription = await registration?.pushManager?.getSubscription?.().catch(() => null);
+  if (permission !== 'granted' || !hasSubscription) {
+    return {
+      status: 'off',
+      label: permission === 'granted' ? 'Off' : 'Not allowed yet',
+      canEnable: true,
+      canDisable: false
+    };
+  }
 
-  if (Notification.permission === 'granted' && subscription) {
+  if (!backendReachable) {
+    return { status: 'unavailable', label: "Can't verify", canEnable: false, canDisable: true };
+  }
+
+  if (backendConfigured) {
     return { status: 'on', label: 'On', canEnable: false, canDisable: true };
   }
 
-  return {
-    status: 'off',
-    label: Notification.permission === 'granted' ? 'Off' : 'Not allowed yet',
-    canEnable: true,
-    canDisable: false
-  };
+  return { status: 'off', label: 'Reconnect', canEnable: true, canDisable: false };
+}
+
+export async function getPausePushState() {
+  if (!pausePushSupported()) {
+    return classifyPausePushState({ supported: false });
+  }
+
+  if (Notification.permission === 'denied') {
+    return classifyPausePushState({ permission: 'denied' });
+  }
+
+  const registration = await pauseExistingServiceWorkerRegistration().catch(() => null);
+  const subscription = await registration?.pushManager?.getSubscription?.().catch(() => null);
+  const permission = Notification.permission;
+
+  if (permission !== 'granted' || !subscription) {
+    return classifyPausePushState({ permission, hasSubscription: Boolean(subscription) });
+  }
+
+  let backendConfigured = false;
+  try {
+    backendConfigured = await pauseBackendPushConfigured();
+  } catch {
+    return classifyPausePushState({
+      permission,
+      hasSubscription: true,
+      backendReachable: false
+    });
+  }
+
+  if (!backendConfigured) {
+    const synchronized = await syncExistingPausePushSubscription();
+    if (synchronized) {
+      try {
+        backendConfigured = await pauseBackendPushConfigured();
+      } catch {
+        return classifyPausePushState({
+          permission,
+          hasSubscription: true,
+          backendReachable: false
+        });
+      }
+    }
+  }
+
+  return classifyPausePushState({
+    permission,
+    hasSubscription: true,
+    backendConfigured
+  });
 }
 
 export async function enablePausePushNotifications() {
@@ -170,7 +244,7 @@ export async function enablePausePushNotifications() {
 
 export async function disablePausePushNotifications() {
   if (!pausePushSupported()) return getPausePushState();
-  const registration = await pauseServiceWorkerRegistration().catch(() => null);
+  const registration = await pauseExistingServiceWorkerRegistration().catch(() => null);
   const subscription = await registration?.pushManager?.getSubscription?.().catch(() => null);
   if (!subscription) return getPausePushState();
 
@@ -189,14 +263,28 @@ export async function disablePausePushNotifications() {
 }
 
 export async function syncExistingPausePushSubscription() {
+  if (existingSubscriptionSyncInFlight) return existingSubscriptionSyncInFlight;
   if (!pausePushSupported() || Notification.permission !== 'granted') return false;
-  try {
-    const registration = await pauseServiceWorkerRegistration();
-    const subscription = await registration.pushManager.getSubscription();
-    if (!subscription) return false;
-    await pauseRegisterSubscriptionWithServer(subscription);
-    return true;
-  } catch {
-    return false;
-  }
+
+  existingSubscriptionSyncInFlight = (async () => {
+    try {
+      const registration = await pauseExistingServiceWorkerRegistration();
+      const subscription = await registration?.pushManager?.getSubscription?.();
+      if (!subscription) return false;
+      await pauseRegisterSubscriptionWithServer(subscription);
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    existingSubscriptionSyncInFlight = null;
+  });
+
+  return existingSubscriptionSyncInFlight;
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener(AUTHENTICATED_SESSION_EVENT, () => {
+    void syncExistingPausePushSubscription();
+  });
 }
