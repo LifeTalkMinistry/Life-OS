@@ -4,6 +4,7 @@ const PUBLIC_KEY_PATH = '/api/pause/push/public-key';
 const SUBSCRIPTIONS_PATH = '/api/pause/push/subscriptions';
 const STATUS_PATH = '/api/pause/push/status';
 let existingSubscriptionSyncInFlight = null;
+let authenticatedMainScreenPresent = false;
 
 function pausePushApiUrl() {
   const configured = typeof window !== 'undefined'
@@ -280,4 +281,25 @@ export async function syncExistingPausePushSubscription() {
   });
 
   return existingSubscriptionSyncInFlight;
+}
+
+function checkAuthenticatedMainScreenForPushSync() {
+  if (typeof document === 'undefined') return;
+  const mainScreenPresent = Boolean(document.querySelector('.pause-main-screen'));
+  if (!mainScreenPresent) {
+    authenticatedMainScreenPresent = false;
+    return;
+  }
+  if (authenticatedMainScreenPresent) return;
+  authenticatedMainScreenPresent = true;
+  void syncExistingPausePushSubscription();
+}
+
+if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
+  const observeTarget = document.documentElement || document.body;
+  if (observeTarget) {
+    const observer = new MutationObserver(checkAuthenticatedMainScreenForPushSync);
+    observer.observe(observeTarget, { childList: true, subtree: true });
+    checkAuthenticatedMainScreenForPushSync();
+  }
 }
