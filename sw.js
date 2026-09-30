@@ -1,8 +1,13 @@
-const CACHE_NAME = 'pause-shell-v43';
+const CACHE_PREFIX = 'pause-shell-';
+const CACHE_NAME = `${CACHE_PREFIX}v44`;
 const BASE_URL = new URL('./', self.location.href);
 
 const toUrl = (path) => new URL(path, BASE_URL).href;
+const SHELL_URL = toUrl('./');
+const INDEX_URL = toUrl('./index.html');
 const APP_SHELL = [
+  SHELL_URL,
+  INDEX_URL,
   toUrl('./manifest.webmanifest'),
   toUrl('./pwa/icon-192.png'),
   toUrl('./pwa/icon-512.png'),
@@ -21,17 +26,41 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.map((key) => key === CACHE_NAME ? null : caches.delete(key))))
+      .then((keys) => Promise.all(keys.map((key) => (
+        key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME ? caches.delete(key) : null
+      ))))
       .then(() => self.clients.claim())
   );
 });
 
-async function freshFetch(request) {
+async function networkFirst(request, fallbackUrl = null) {
+  const cache = await caches.open(CACHE_NAME);
   try {
-    return await fetch(request, { cache: 'no-store' });
+    const response = await fetch(request, { cache: 'no-store' });
+    if (response && response.ok && response.type !== 'opaque') {
+      await cache.put(request, response.clone());
+      if (request.mode === 'navigate' || request.destination === 'document') {
+        await cache.put(SHELL_URL, response.clone());
+        await cache.put(INDEX_URL, response.clone());
+      }
+    }
+    return response;
   } catch {
-    return (await caches.match(request)) || Response.error();
+    return (await cache.match(request))
+      || (fallbackUrl ? await cache.match(fallbackUrl) : null)
+      || Response.error();
   }
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response && response.ok && response.type !== 'opaque') {
+    await cache.put(request, response.clone());
+  }
+  return response;
 }
 
 self.addEventListener('fetch', (event) => {
@@ -39,18 +68,26 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (request.mode === 'navigate' || request.destination === 'document' || request.destination === 'script' || request.destination === 'style') {
-    event.respondWith(freshFetch(request));
+
+  // Navigation stays network-first so a normal online launch immediately picks up
+  // the newest PAUSE build. The cached shell is only the offline fallback.
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    event.respondWith(networkFirst(request, SHELL_URL));
     return;
   }
-  event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-      if (!response || response.status !== 200 || response.type !== 'basic') return response;
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-      return response;
-    }))
-  );
+
+  // Development/source builds may still request standalone scripts and styles.
+  // Keep them fresh online while retaining the last successful response offline.
+  if (request.destination === 'script' || request.destination === 'style') {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // Cache only static presentation assets. API/data fetches are deliberately left
+  // to the network so private or changing account data is never served from this cache.
+  if (request.destination === 'image' || request.destination === 'font' || request.destination === 'manifest') {
+    event.respondWith(cacheFirst(request));
+  }
 });
 
 self.addEventListener('push', (event) => {

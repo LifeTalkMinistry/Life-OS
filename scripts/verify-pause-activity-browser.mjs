@@ -404,7 +404,11 @@ try {
   assert.equal(await evaluate(`window.__PAUSE__.getState().activity?.activityId`), 'spanish');
   assert.equal(await evaluate(`Boolean(window.__PAUSE__.getState().pauseState.active)`), false);
   const activityTimerBefore = await evaluate(`document.querySelector('[data-pause-activity-timer]').textContent`);
-  await sleep(1100);
+  await waitFor(
+    `document.querySelector('[data-pause-activity-timer]').textContent !== ${JSON.stringify(activityTimerBefore)}`,
+    'Activity timer to advance on the ORB',
+    3000
+  );
   const activityTimerAfter = await evaluate(`document.querySelector('[data-pause-activity-timer]').textContent`);
   assert.notEqual(activityTimerAfter, activityTimerBefore, 'Activity timer should advance on the ORB');
 
