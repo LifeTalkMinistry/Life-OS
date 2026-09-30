@@ -172,6 +172,16 @@ const html = `<!doctype html>
     <link rel="apple-touch-icon" sizes="180x180" href="./pwa/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="./pwa/icon-192.png" />
     <style>${css}</style>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('./sw.js', { scope: './', updateViaCache: 'none' })
+            .then((registration) => registration.update().catch(() => {}))
+            .catch(() => {});
+        });
+      }
+    </script>
   </head>
   <body>
     <main id="app" aria-live="polite"></main>
