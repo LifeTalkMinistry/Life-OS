@@ -122,6 +122,7 @@ export function clearPauseSession() {
   const storage = getStorage();
   storage?.removeItem(TOKEN_KEY);
   storage?.removeItem(USER_KEY);
+  lastAnnouncedOnlineToken = null;
 }
 
 async function parseResponse(response) {
