@@ -27,6 +27,9 @@ jobs:
       - name: Build PAUSE
         run: npm run build
 
+      - name: Verify Android/iOS PWA production build
+        run: node scripts/verify-pwa-build.mjs
+
       - name: Verify Activity hold regression in browser
         run: |
           for attempt in 1 2 3; do
