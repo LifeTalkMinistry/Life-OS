@@ -3,9 +3,7 @@ import { DEFAULT_API_URL, restorePauseBackendSession } from './auth/backendClien
 const PUBLIC_KEY_PATH = '/api/pause/push/public-key';
 const SUBSCRIPTIONS_PATH = '/api/pause/push/subscriptions';
 const STATUS_PATH = '/api/pause/push/status';
-const AUTHENTICATED_SESSION_EVENT = 'pause:authenticated-session';
 let existingSubscriptionSyncInFlight = null;
-let startupSubscriptionSyncTimer = null;
 
 function pausePushApiUrl() {
   const configured = typeof window !== 'undefined'
@@ -282,24 +280,4 @@ export async function syncExistingPausePushSubscription() {
   });
 
   return existingSubscriptionSyncInFlight;
-}
-
-function scheduleStartupPausePushSync() {
-  clearTimeout(startupSubscriptionSyncTimer);
-  startupSubscriptionSyncTimer = setTimeout(() => {
-    startupSubscriptionSyncTimer = null;
-    void syncExistingPausePushSubscription();
-  }, 2000);
-}
-
-if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-  window.addEventListener(AUTHENTICATED_SESSION_EVENT, () => {
-    void syncExistingPausePushSubscription();
-  });
-
-  if (typeof document !== 'undefined' && document.readyState === 'complete') {
-    scheduleStartupPausePushSync();
-  } else {
-    window.addEventListener('load', scheduleStartupPausePushSync, { once: true });
-  }
 }
