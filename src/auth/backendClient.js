@@ -6,6 +6,7 @@ const TOKEN_KEY = 'pause_backend_access_token_v1';
 const USER_KEY = 'pause_backend_user_v1';
 const AUTHENTICATED_SESSION_EVENT = 'pause:authenticated-session';
 let lastAnnouncedOnlineToken = null;
+let sessionAnnouncementTimer = null;
 
 function getStorage() {
   if (typeof window === 'undefined') return null;
@@ -97,12 +98,17 @@ function announceOnlineSession(session) {
   ) return;
 
   lastAnnouncedOnlineToken = session.token;
-  try {
-    const event = typeof CustomEvent === 'function'
-      ? new CustomEvent(AUTHENTICATED_SESSION_EVENT, { detail: { userId: session.user?.id ?? null } })
-      : new Event(AUTHENTICATED_SESSION_EVENT);
-    window.dispatchEvent(event);
-  } catch {}
+  clearTimeout(sessionAnnouncementTimer);
+  sessionAnnouncementTimer = setTimeout(() => {
+    sessionAnnouncementTimer = null;
+    if (getStoredToken() !== session.token) return;
+    try {
+      const event = typeof CustomEvent === 'function'
+        ? new CustomEvent(AUTHENTICATED_SESSION_EVENT, { detail: { userId: session.user?.id ?? null } })
+        : new Event(AUTHENTICATED_SESSION_EVENT);
+      window.dispatchEvent(event);
+    } catch {}
+  }, 1500);
 }
 
 function saveSession({ token, user }) {
@@ -122,6 +128,8 @@ export function clearPauseSession() {
   const storage = getStorage();
   storage?.removeItem(TOKEN_KEY);
   storage?.removeItem(USER_KEY);
+  clearTimeout(sessionAnnouncementTimer);
+  sessionAnnouncementTimer = null;
   lastAnnouncedOnlineToken = null;
 }
 
