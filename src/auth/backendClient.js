@@ -4,9 +4,6 @@ const LOGIN_PATH = '/api/pause/auth/login';
 const ME_PATH = '/api/pause/me';
 const TOKEN_KEY = 'pause_backend_access_token_v1';
 const USER_KEY = 'pause_backend_user_v1';
-const AUTHENTICATED_SESSION_EVENT = 'pause:authenticated-session';
-let lastAnnouncedOnlineToken = null;
-let sessionAnnouncementTimer = null;
 
 function getStorage() {
   if (typeof window === 'undefined') return null;
@@ -89,28 +86,6 @@ function getStoredUser() {
   }
 }
 
-function announceOnlineSession(session) {
-  if (
-    typeof window === 'undefined' ||
-    typeof window.dispatchEvent !== 'function' ||
-    !session?.token ||
-    session.token === lastAnnouncedOnlineToken
-  ) return;
-
-  lastAnnouncedOnlineToken = session.token;
-  clearTimeout(sessionAnnouncementTimer);
-  sessionAnnouncementTimer = setTimeout(() => {
-    sessionAnnouncementTimer = null;
-    if (getStoredToken() !== session.token) return;
-    try {
-      const event = typeof CustomEvent === 'function'
-        ? new CustomEvent(AUTHENTICATED_SESSION_EVENT, { detail: { userId: session.user?.id ?? null } })
-        : new Event(AUTHENTICATED_SESSION_EVENT);
-      window.dispatchEvent(event);
-    } catch {}
-  }, 1500);
-}
-
 function saveSession({ token, user }) {
   const normalizedUser = normalizeUser(user);
   if (!isPauseToken(token) || !normalizedUser) {
@@ -126,9 +101,6 @@ export function clearPauseSession() {
   const storage = getStorage();
   storage?.removeItem(TOKEN_KEY);
   storage?.removeItem(USER_KEY);
-  clearTimeout(sessionAnnouncementTimer);
-  sessionAnnouncementTimer = null;
-  lastAnnouncedOnlineToken = null;
 }
 
 async function parseResponse(response) {
@@ -179,9 +151,7 @@ export async function createPauseBackendAccount({ name, email, password }) {
       password: String(password || '')
     }
   });
-  const session = saveSession(payload || {});
-  announceOnlineSession(session);
-  return session;
+  return saveSession(payload || {});
 }
 
 export async function signInWithPauseBackend({ email, password }) {
@@ -192,9 +162,7 @@ export async function signInWithPauseBackend({ email, password }) {
       password: String(password || '')
     }
   });
-  const session = saveSession(payload || {});
-  announceOnlineSession(session);
-  return session;
+  return saveSession(payload || {});
 }
 
 export async function restorePauseBackendSession() {
@@ -252,12 +220,4 @@ export function friendlyAuthError(error) {
   return message || 'PAUSE could not complete the account request.';
 }
 
-export {
-  AUTHENTICATED_SESSION_EVENT,
-  DEFAULT_API_URL,
-  REGISTER_PATH,
-  LOGIN_PATH,
-  ME_PATH,
-  TOKEN_KEY,
-  USER_KEY
-};
+export { DEFAULT_API_URL, REGISTER_PATH, LOGIN_PATH, ME_PATH, TOKEN_KEY, USER_KEY };
