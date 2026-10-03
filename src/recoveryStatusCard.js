@@ -54,7 +54,7 @@ export function recoveryRangeForDays(days = 7, now = Date.now()) {
 }
 
 function recoveryClockMinutes(value) {
-  const match = String(value || '').match(/^(\\d{2}):(\\d{2})$/);
+  const match = String(value || '').match(/^(\d{2}):(\d{2})$/);
   if (!match) return null;
   const hour = Number(match[1]);
   const minute = Number(match[2]);
