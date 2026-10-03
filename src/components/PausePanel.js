@@ -1124,7 +1124,7 @@ function updateEditPreview(form) {
   return true;
 }
 
-export function PausePanel({ state, onClose }) {
+export function PausePanel({ state, initialDayKey = null, onDayChange, onClose }) {
   ensureInsightStyles();
 
   const backdrop = document.createElement('div');
@@ -1136,7 +1136,7 @@ export function PausePanel({ state, onClose }) {
   panel.setAttribute('aria-modal', 'true');
 
   let panelState = state;
-  let selectedDayKey = null;
+  let selectedDayKey = String(initialDayKey || '').trim() || null;
   let editingEntryId = null;
 
   const renderContent = ({ resetScroll = true } = {}) => {
@@ -1162,6 +1162,7 @@ export function PausePanel({ state, onClose }) {
     if (action === 'back') {
       editingEntryId = null;
       selectedDayKey = null;
+      onDayChange?.(null);
       renderContent();
       return;
     }
@@ -1175,6 +1176,7 @@ export function PausePanel({ state, onClose }) {
     if (historyEditButton?.dataset.pauseHistoryEditId) {
       editingEntryId = historyEditButton.dataset.pauseHistoryEditId;
       selectedDayKey = historyEditButton.dataset.pauseHistoryDayKey || null;
+      onDayChange?.(selectedDayKey);
       renderContent();
       focusEditor();
       return;
@@ -1192,6 +1194,7 @@ export function PausePanel({ state, onClose }) {
     if (dayButton?.dataset.pauseDayKey) {
       editingEntryId = null;
       selectedDayKey = dayButton.dataset.pauseDayKey;
+      onDayChange?.(selectedDayKey);
       renderContent();
     }
   });

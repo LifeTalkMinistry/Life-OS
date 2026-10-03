@@ -51,6 +51,7 @@ let screen = 'launch';
 let menuOpen = false;
 let startChooserOpen = false;
 let panelView = null;
+let insightsDayKey = null;
 let completionVisible = false;
 let launchTimer = null;
 let completionTimer = null;
@@ -65,6 +66,9 @@ let syncDirtyPreference = false;
 let dirtyBaseRevision = null;
 let applyingCloudSnapshot = false;
 let lastCloudRevision = 0;
+let syncFollowupRequested = false;
+let stateMutationVersion = 0;
+let preferenceMutationVersion = 0;
 let renderedManilaDayKey = manilaDateKey();
 
 function scorePreferenceStorageKey(accountId = authState.session?.user?.id) {
@@ -180,7 +184,10 @@ function saveScorePreference(next, { notify = true } = {}) {
   try {
     localStorage.setItem(scorePreferenceStorageKey(), JSON.stringify(scorePreference));
   } catch {}
-  if (notify) queueCloudPush('preference');
+  if (notify) {
+    preferenceMutationVersion += 1;
+    queueCloudPush('preference');
+  }
 }
 
 function preferencesEqual(left, right) {
@@ -230,11 +237,54 @@ function reconcileWithCloudSnapshot(snapshot) {
 }
 
 async function pushCurrentSnapshot(baseRevision = lastCloudRevision) {
-  return pushPauseCloudState(authState.session.token, {
-    state: pauseState,
-    scorePreference,
+  const stateVersion = stateMutationVersion;
+  const preferenceVersion = preferenceMutationVersion;
+  const stateSnapshot = pauseState;
+  const preferenceSnapshot = scorePreference;
+  const saved = await pushPauseCloudState(authState.session.token, {
+    state: stateSnapshot,
+    scorePreference: preferenceSnapshot,
     baseRevision
   });
+  return { saved, stateVersion, preferenceVersion };
+}
+
+function acceptPushedSnapshot({ saved, stateVersion, preferenceVersion }) {
+  if (!saved?.exists || !saved.state) return { snapshot: saved, superseded: false };
+
+  const stateChangedDuringPush = stateMutationVersion !== stateVersion;
+  const preferenceChangedDuringPush = preferenceMutationVersion !== preferenceVersion;
+
+  if (!stateChangedDuringPush && !preferenceChangedDuringPush) {
+    applyCloudSnapshot(saved);
+    return { snapshot: saved, superseded: false };
+  }
+
+  const remoteRevision = Math.max(0, Math.trunc(Number(saved.revision) || 0));
+  const reconciliation = stateChangedDuringPush
+    ? reconcilePauseStates(pauseState, saved.state, {
+        baseRevision: remoteRevision,
+        remoteRevision
+      })
+    : { state: saved.state };
+
+  applyingCloudSnapshot = true;
+  try {
+    pauseState = savePauseState(reconciliation.state, { notify: false });
+    if (!preferenceChangedDuringPush) {
+      saveScorePreference(saved.scorePreference || {}, { notify: false });
+    }
+    lastCloudRevision = remoteRevision;
+    syncDirtyState = stateChangedDuringPush;
+    syncDirtyPreference = preferenceChangedDuringPush;
+    syncDirty = syncDirtyState || syncDirtyPreference;
+    dirtyBaseRevision = syncDirty ? remoteRevision : null;
+    persistSyncMeta();
+  } finally {
+    applyingCloudSnapshot = false;
+  }
+
+  return { snapshot: saved, superseded: true };
 }
 
 function renderAfterSync() {
@@ -287,10 +337,11 @@ async function syncNow() {
     }
 
     try {
-      const saved = await pushCurrentSnapshot(lastCloudRevision);
-      applyCloudSnapshot(saved);
+      const pushed = await pushCurrentSnapshot(lastCloudRevision);
+      const accepted = acceptPushedSnapshot(pushed);
+      if (accepted.superseded && syncDirty) syncFollowupRequested = true;
       renderAfterSync();
-      return saved;
+      return accepted.snapshot;
     } catch (error) {
       if (error?.status !== 409 || error?.code !== 'PAUSE_SYNC_CONFLICT') {
         persistSyncMeta();
@@ -314,10 +365,11 @@ async function syncNow() {
       }
 
       try {
-        const retrySaved = await pushCurrentSnapshot(lastCloudRevision);
-        applyCloudSnapshot(retrySaved);
+        const retryPushed = await pushCurrentSnapshot(lastCloudRevision);
+        const accepted = acceptPushedSnapshot(retryPushed);
+        if (accepted.superseded && syncDirty) syncFollowupRequested = true;
         renderAfterSync();
-        return retrySaved;
+        return accepted.snapshot;
       } catch {
         persistSyncMeta();
         return null;
@@ -325,6 +377,10 @@ async function syncNow() {
     }
   })().finally(() => {
     syncCycleInFlight = null;
+    if (syncFollowupRequested && syncDirty && authState.status === 'authenticated') {
+      syncFollowupRequested = false;
+      queueMicrotask(() => syncNow());
+    }
   });
 
   return syncCycleInFlight;
@@ -358,6 +414,9 @@ function stopSyncPolling() {
   syncDirtyPreference = false;
   dirtyBaseRevision = null;
   lastCloudRevision = 0;
+  syncFollowupRequested = false;
+  stateMutationVersion = 0;
+  preferenceMutationVersion = 0;
 }
 
 async function hydrateAccountState(session) {
@@ -449,6 +508,7 @@ function showCompletion() {
 function openInsights() {
   menuOpen = false;
   startChooserOpen = false;
+  insightsDayKey = null;
   panelView = 'insights';
   render();
 }
@@ -488,6 +548,7 @@ function openRecoveryPlan(section = 'plan') {
 
 function closePanel() {
   panelView = null;
+  insightsDayKey = null;
   render();
 }
 
@@ -709,6 +770,10 @@ function MainScreen() {
   if (panelView === 'insights') {
     view.appendChild(PausePanel({
       state: pauseState,
+      initialDayKey: insightsDayKey,
+      onDayChange: (dayKey) => {
+        insightsDayKey = dayKey || null;
+      },
       onClose: closePanel
     }));
   }
@@ -741,6 +806,7 @@ function startAuthenticatedApp() {
   menuOpen = false;
   startChooserOpen = false;
   panelView = null;
+  insightsDayKey = null;
   completionVisible = false;
   startSyncPolling();
   render();
@@ -818,6 +884,7 @@ async function signOut() {
   menuOpen = false;
   startChooserOpen = false;
   panelView = null;
+  insightsDayKey = null;
   completionVisible = false;
   render();
 }
@@ -924,6 +991,7 @@ async function bootstrapAuth() {
 document.addEventListener('keydown', onKeydown);
 window.addEventListener('pause:state-changed', (event) => {
   if (event.detail) pauseState = event.detail;
+  stateMutationVersion += 1;
   queueCloudPush('state');
 });
 window.addEventListener('pause:activities-changed', () => {
