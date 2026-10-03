@@ -53,12 +53,50 @@ export function recoveryRangeForDays(days = 7, now = Date.now()) {
   };
 }
 
+function recoveryClockMinutes(value) {
+  const match = String(value || '').match(/^(\\d{2}):(\\d{2})$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+function configuredSleepStartMinutes() {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const recoveryPlan = window.__PAUSE_RECOVERY_PLAN__;
+    const plan = recoveryPlan?.getPlan?.();
+    const explicit = recoveryClockMinutes(plan?.sleepStart);
+    if (explicit !== null) return explicit;
+
+    const timeline = recoveryPlan?.deriveTimeline?.();
+    return recoveryClockMinutes(timeline?.recoveryStart);
+  } catch {
+    return null;
+  }
+}
+
+function accruedRecoveryTargetMs(dayKey, now, targetPerDay, sleepStartMinutes) {
+  if (dayKey !== manilaDateKey(now)) return targetPerDay;
+  if (!Number.isFinite(sleepStartMinutes)) return targetPerDay;
+
+  const dayStartMs = manilaDateKeyToStartMs(dayKey);
+  if (!Number.isFinite(dayStartMs)) return targetPerDay;
+
+  const sleepStartMs = dayStartMs + sleepStartMinutes * 60_000;
+  const elapsedSinceSleepStart = Math.max(0, Number(now) - sleepStartMs);
+  return Math.min(targetPerDay, elapsedSinceSleepStart);
+}
+
 export function buildRecoverySummary(
   state,
   startKey,
   endKey,
   now = Date.now(),
-  dailyTargetMs = RECOVERY_DAILY_TARGET_MS
+  dailyTargetMs = RECOVERY_DAILY_TARGET_MS,
+  sleepStart = null
 ) {
   const range = normalizedRange(startKey, endKey, now);
   if (!range) {
@@ -97,7 +135,14 @@ export function buildRecoverySummary(
   const observedStartKey = firstTrackedKey > range.startKey ? firstTrackedKey : range.startKey;
   const observedEndKey = range.endKey;
 
+  const targetPerDay = Math.max(0, Number(dailyTargetMs || 0));
+  const explicitSleepStartMinutes = recoveryClockMinutes(sleepStart);
+  const sleepStartMinutes = explicitSleepStartMinutes !== null
+    ? explicitSleepStartMinutes
+    : configuredSleepStartMinutes();
+
   let totalMs = 0;
+  let targetMs = 0;
   let days = 0;
   for (
     let cursorKey = observedStartKey;
@@ -105,11 +150,10 @@ export function buildRecoverySummary(
     cursorKey = addManilaDays(cursorKey, 1)
   ) {
     totalMs += restAuditForDay(state, cursorKey, now).totalMs;
+    targetMs += accruedRecoveryTargetMs(cursorKey, now, targetPerDay, sleepStartMinutes);
     days += 1;
   }
 
-  const targetPerDay = Math.max(0, Number(dailyTargetMs || 0));
-  const targetMs = days * targetPerDay;
   const averageMs = days ? totalMs / days : 0;
   const differenceMs = totalMs - targetMs;
   const progressPct = targetMs > 0 ? (totalMs / targetMs) * 100 : 0;
