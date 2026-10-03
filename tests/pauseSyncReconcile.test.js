@@ -139,3 +139,39 @@ test('history from two devices is merged by Rest id instead of one snapshot repl
   const result = reconcilePauseStates(local, remote, { baseRevision: 2, remoteRevision: 3 });
   assert.deepEqual(result.state.history.map((entry) => entry.id), ['local', 'remote']);
 });
+
+
+test('a newer manual edit wins when an older copy of the same Rest returns from sync', () => {
+  const start = Date.UTC(2026, 9, 3, 0, 45);
+  const remote = {
+    version: 1,
+    customRests: [],
+    history: [completed('rest-edit-race', start, 5 / 3600)],
+    active: null
+  };
+  const editedStart = Date.UTC(2026, 9, 3, 2, 0);
+  const local = {
+    version: 1,
+    customRests: [],
+    history: [completed('rest-edit-race', editedStart, 3, {
+      originalStartAt: start,
+      originalEndedAt: start + 5000,
+      manuallyEdited: true,
+      editedAt: Date.UTC(2026, 9, 3, 6, 28)
+    })],
+    active: null
+  };
+
+  const result = reconcilePauseStates(local, remote, {
+    baseRevision: 12,
+    remoteRevision: 13
+  });
+
+  const entry = result.state.history[0];
+  assert.equal(entry.id, 'rest-edit-race');
+  assert.equal(entry.startAt, editedStart);
+  assert.equal(entry.endedAt, editedStart + 3 * HOUR);
+  assert.equal(entry.durationMs, 3 * HOUR);
+  assert.equal(entry.manuallyEdited, true);
+  assert.equal(result.differsFromRemote, true);
+});
