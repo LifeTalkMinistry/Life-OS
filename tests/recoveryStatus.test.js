@@ -96,6 +96,65 @@ test('zero-rest days count after tracking has started', () => {
   assert.equal(summary.differenceMs, -7 * 60 * 60 * 1000);
 });
 
+test('today does not add a recovery target before the configured sleep start', () => {
+  const now = Date.parse('2026-08-30T06:00:00Z'); // Aug 30, 2:00 PM Manila
+  const state = {
+    history: [
+      restEntry('fri', '2026-08-28', 7),
+      restEntry('sat', '2026-08-29', 7)
+    ]
+  };
+
+  const summary = buildRecoverySummary(
+    state,
+    '2026-08-28',
+    '2026-08-30',
+    now,
+    RECOVERY_DAILY_TARGET_MS,
+    '15:00'
+  );
+
+  assert.equal(summary.days, 3);
+  assert.equal(summary.totalMs, 14 * 60 * 60 * 1000);
+  assert.equal(summary.targetMs, 14 * 60 * 60 * 1000);
+  assert.equal(summary.differenceMs, 0);
+});
+
+test('today accrues recovery target only from sleep start and caps at the daily target', () => {
+  const state = {
+    history: [
+      restEntry('fri', '2026-08-28', 7),
+      restEntry('sat', '2026-08-29', 7)
+    ]
+  };
+
+  const twoHoursLate = Date.parse('2026-08-30T09:00:00Z'); // Aug 30, 5:00 PM Manila
+  const summaryAtFive = buildRecoverySummary(
+    state,
+    '2026-08-28',
+    '2026-08-30',
+    twoHoursLate,
+    RECOVERY_DAILY_TARGET_MS,
+    '15:00'
+  );
+
+  assert.equal(summaryAtFive.targetMs, 16 * 60 * 60 * 1000);
+  assert.equal(summaryAtFive.differenceMs, -2 * 60 * 60 * 1000);
+
+  const afterFullTarget = Date.parse('2026-08-30T15:00:00Z'); // Aug 30, 11:00 PM Manila
+  const summaryAtEleven = buildRecoverySummary(
+    state,
+    '2026-08-28',
+    '2026-08-30',
+    afterFullTarget,
+    RECOVERY_DAILY_TARGET_MS,
+    '15:00'
+  );
+
+  assert.equal(summaryAtEleven.targetMs, 21 * 60 * 60 * 1000);
+  assert.equal(summaryAtEleven.differenceMs, -7 * 60 * 60 * 1000);
+});
+
 test('a range before any recorded history has no recovery target yet', () => {
   const now = Date.parse('2026-12-31T15:00:00Z');
   const summary = buildRecoverySummary({ history: [] }, '2026-01-01', '2026-12-31', now);
