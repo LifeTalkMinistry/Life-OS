@@ -997,6 +997,9 @@ window.addEventListener('pause:state-changed', (event) => {
 window.addEventListener('pause:activities-changed', () => {
   if (authState.status === 'authenticated' && screen === 'main') render();
 });
+window.addEventListener('pause:sleep-goal-changed', () => {
+  if (authState.status === 'authenticated' && screen === 'main') render();
+});
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && authState.status === 'authenticated' && screen === 'main') {
     checkExpired();
