@@ -1,5 +1,5 @@
 import { restAuditForDay, restInsights, savePauseState } from '../restState.js';
-import { scoreForRestMs } from './PauseScore.js';
+import { configuredSleepGoalMinutes, scoreForRestMs } from './PauseScore.js';
 import {
   formatManilaDate,
   formatManilaDateTime,
@@ -1035,7 +1035,8 @@ function auditEditForm(entry, entryId) {
 
 function dayAuditContent(state, dayKey, editingEntryId = null) {
   const audit = restAuditForDay(state, dayKey);
-  const score = scoreForRestMs(audit.totalMs);
+  const goalMinutes = configuredSleepGoalMinutes();
+  const score = scoreForRestMs(audit.totalMs, goalMinutes);
   const dayStart = manilaDateKeyToStartMs(dayKey);
   const dateTitle = formatManilaDate(dayStart, { month: 'long', day: 'numeric', year: 'numeric' });
   const weekday = formatManilaDate(dayStart, { weekday: 'long' });
@@ -1076,8 +1077,8 @@ function dayAuditContent(state, dayKey, editingEntryId = null) {
 
     <section class="pause-audit-score">
       <small>DAILY PAUSE SCORE</small>
-      <strong>${score}</strong>
-      <p>Built from ${escapeHtml(formatInsightDuration(audit.totalMs))} of rest credited specifically to ${escapeHtml(dateTitle)}.</p>
+      <strong>${score}%</strong>
+      <p>Built from ${escapeHtml(formatInsightDuration(audit.totalMs))} of rest credited specifically to ${escapeHtml(dateTitle)}, against your ${escapeHtml(formatInsightDuration(goalMinutes * 60_000))} daily goal. 100% means you reached your selected goal.</p>
     </section>
 
     <div class="pause-audit-summary">
