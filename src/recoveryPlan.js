@@ -565,6 +565,7 @@ async function saveCompletedPlan(button) {
   editRequested = false;
   editBaselinePlan = null;
   hideOverlay();
+  window.dispatchEvent(new Event('pause:sleep-goal-changed'));
 
   try {
     const session = await restorePauseBackendSession();
@@ -572,6 +573,7 @@ async function saveCompletedPlan(button) {
       const saved = await pushCloudPlan(session.token, currentPlan);
       if (saved?.plan && supportsNudgeConsent(saved.plan)) {
         currentPlan = saveLocalPlan(currentAccountId, saved.plan);
+        window.dispatchEvent(new Event('pause:sleep-goal-changed'));
       }
     }
   } catch {
@@ -627,6 +629,7 @@ async function reconcileRecoveryPlan() {
     hydrationPromise = hydratePlan(accountId).finally(() => {
       hydrationPromise = null;
       reconcileRecoveryPlan();
+      window.dispatchEvent(new Event('pause:sleep-goal-changed'));
     });
     return;
   }
