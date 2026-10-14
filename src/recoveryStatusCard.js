@@ -6,6 +6,7 @@ import {
   parseManilaDateKey
 } from './manilaTime.js';
 import { restAuditForDay } from './restState.js';
+import { configuredSleepGoalMinutes } from './components/PauseScore.js';
 
 export const RECOVERY_DAILY_TARGET_MS = 7 * 60 * 60 * 1000;
 
@@ -494,7 +495,7 @@ function selectionForPanel(panel) {
   return selection;
 }
 
-function recoveryStatusMarkup(selection, summary) {
+function recoveryStatusMarkup(selection, summary, dailyTargetMs = RECOVERY_DAILY_TARGET_MS) {
   const diff = summary.differenceMs;
   const threshold = 60_000;
   const hasData = summary.days > 0;
@@ -555,7 +556,7 @@ function recoveryStatusMarkup(selection, summary) {
 
     <div class="pause-recovery-status-stats">
       <div class="pause-recovery-status-stat"><small>AVERAGE / DAY</small><strong>${hasData ? formatDuration(summary.averageMs) : '—'}</strong></div>
-      <div class="pause-recovery-status-stat"><small>DAILY TARGET</small><strong>${formatDuration(RECOVERY_DAILY_TARGET_MS)}</strong></div>
+      <div class="pause-recovery-status-stat"><small>DAILY TARGET</small><strong>${formatDuration(dailyTargetMs)}</strong></div>
     </div>
   `;
 }
@@ -564,8 +565,9 @@ function renderRecoveryCard(card, panel) {
   const selection = selectionForPanel(panel);
   const range = selectedRange(selection);
   const pauseState = window.__PAUSE__?.getState?.().pauseState || { history: [] };
-  const summary = buildRecoverySummary(pauseState, range.startKey, range.endKey);
-  card.innerHTML = recoveryStatusMarkup(selection, summary);
+  const dailyTargetMs = configuredSleepGoalMinutes() * 60_000;
+  const summary = buildRecoverySummary(pauseState, range.startKey, range.endKey, Date.now(), dailyTargetMs);
+  card.innerHTML = recoveryStatusMarkup(selection, summary, dailyTargetMs);
 
   card.querySelector('[data-recovery-range-trigger]')?.addEventListener('click', () => {
     selection.menuOpen = !selection.menuOpen;
