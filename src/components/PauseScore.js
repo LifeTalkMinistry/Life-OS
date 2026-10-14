@@ -179,29 +179,29 @@ function ensurePauseScoreStyles() {
   document.head.appendChild(style);
 }
 
-export function scoreForRestMs(ms) {
-  const hours = Math.max(0, Number(ms || 0)) / 3_600_000;
-  const points = [
-    [0, 0],
-    [1, 25],
-    [3, 55],
-    [5, 80],
-    [6, 90],
-    [8, 100]
-  ];
+export const DEFAULT_SLEEP_GOAL_MINUTES = 480;
 
-  if (hours >= 8) return 100;
-
-  for (let index = 1; index < points.length; index += 1) {
-    const [rightHours, rightScore] = points[index];
-    const [leftHours, leftScore] = points[index - 1];
-    if (hours <= rightHours) {
-      const progress = (hours - leftHours) / (rightHours - leftHours);
-      return Math.round(leftScore + progress * (rightScore - leftScore));
+// The user's completed Sleep Routine is the authority for 100% goal achievement.
+export function configuredSleepGoalMinutes() {
+  if (typeof window === 'undefined') return DEFAULT_SLEEP_GOAL_MINUTES;
+  try {
+    const plan = window.__PAUSE_RECOVERY_PLAN__?.getPlan?.();
+    const minutes = Number(plan?.recoveryMinutes);
+    if (plan?.setupComplete === true && Number.isFinite(minutes) && minutes >= 240 && minutes <= 720) {
+      return minutes;
     }
+  } catch {
+    // The app must remain usable before or during routine hydration.
   }
+  return DEFAULT_SLEEP_GOAL_MINUTES;
+}
 
-  return 100;
+export function scoreForRestMs(ms, goalMinutes = configuredSleepGoalMinutes()) {
+  const restMs = Number(ms);
+  const targetMinutes = Number(goalMinutes);
+  if (!Number.isFinite(restMs) || !Number.isFinite(targetMinutes) || targetMinutes <= 0) return 0;
+  // Deliberately uncapped: time beyond the user's goal can exceed 100%.
+  return Math.round((Math.max(0, restMs) / (targetMinutes * 60_000)) * 100);
 }
 
 function resolveRange(timeframe, customRange, now = Date.now()) {
@@ -229,6 +229,7 @@ function resolveRange(timeframe, customRange, now = Date.now()) {
 
 export function calculatePauseScore(state, timeframe = 'daily', customRange = null, now = Date.now()) {
   const range = resolveRange(timeframe, customRange, now);
+  const goalMinutes = configuredSleepGoalMinutes();
   const days = [];
 
   for (
@@ -241,7 +242,7 @@ export function calculatePauseScore(state, timeframe = 'daily', customRange = nu
       key: cursorKey,
       restMs: audit.totalMs,
       sessions: audit.sessions,
-      score: scoreForRestMs(audit.totalMs)
+      score: scoreForRestMs(audit.totalMs, goalMinutes)
     });
   }
 
@@ -251,6 +252,7 @@ export function calculatePauseScore(state, timeframe = 'daily', customRange = nu
 
   return {
     score,
+    goalMinutes,
     days,
     start: new Date(manilaDateKeyToStartMs(range.startKey)),
     end: new Date(manilaDateKeyToStartMs(range.endKey)),
@@ -279,9 +281,9 @@ export function PauseScore({ state, timeframe = 'daily', customRange = null, onC
   trigger.className = 'pause-score-trigger';
   trigger.setAttribute('aria-expanded', 'false');
   trigger.setAttribute('aria-haspopup', 'true');
-  trigger.setAttribute('aria-label', `PAUSE Score ${scoreData.score}. Tap to change timeframe.`);
+  trigger.setAttribute('aria-label', `PAUSE Score ${scoreData.score} percent of your ${scoreData.goalMinutes}-minute daily goal. Tap to change timeframe.`);
   trigger.innerHTML = `
-    <strong class="pause-score-value">${scoreData.score}</strong>
+    <strong class="pause-score-value">${scoreData.score}%</strong>
     <span class="pause-score-label">PAUSE SCORE</span>
   `;
 
