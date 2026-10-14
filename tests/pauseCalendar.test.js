@@ -36,7 +36,8 @@ test('daily PAUSE score uses Manila midnight', () => {
   assert.equal(result.days.length, 1);
   assert.equal(result.days[0].key, '2026-08-28');
   assert.equal(result.days[0].restMs, 30 * 60 * 1000);
-  assert.equal(result.score, 13);
+  // Without a completed routine, the default goal is 8h (480m): 30m / 480m = 6.25%.
+  assert.equal(result.score, 6);
 });
 
 test('a finished timer rings once but does not automatically end the rest', () => {
